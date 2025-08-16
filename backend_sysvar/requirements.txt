@@ -1,0 +1,29 @@
+# Framework principal
+Django==4.2.11
+djangorestframework==3.14.0
+
+# Extensões úteis
+django-cors-headers==4.7.0
+django-filter==24.1
+django-extensions==3.2.3
+
+# Documentação da API
+drf-yasg==1.21.7
+Markdown==3.5.2
+
+# Banco de dados
+mysqlclient==2.2.4
+
+# Configuração por variáveis de ambiente
+python-decouple==3.8
+# (se preferir, pode trocar por django-environ==0.11.2)
+
+# Tarefas assíncronas (opcional, mas bom para e-mails, relatórios, etc.)
+celery==5.3.6
+redis==5.0.1
+
+# Dependências internas do Django
+asgiref==3.8.1
+sqlparse==0.5.3
+pytz==2025.2
+tzdata==2025.2
