@@ -1,10 +1,40 @@
+from rest_framework import serializers
+from .models import Loja, Cliente, Produto, ProdutoDetalhe, Estoque
+
+class LojaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Loja
+        fields = '__all__'
+        read_only_fields = ['Idloja', 'data_cadastro']
+
+class ClienteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cliente
+        fields = '__all__'
+        read_only_fields = ['Idcliente', 'data_cadastro']
+
+class ProdutoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Produto
+        fields = '__all__'
+        read_only_fields = ['Idproduto', 'data_cadastro']
+
+class ProdutoDetalheSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProdutoDetalhe
+        fields = '__all__'
+        read_only_fields = ['Idprodutodetalhe', 'data_cadastro']
+
+class EstoqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Estoque
+        fields = '__all__'
+        read_only_fields = ['Idestoque']
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.response import Response
-from rest_framework import status
 
 from .models import Loja, Cliente, Produto, ProdutoDetalhe, Estoque
 from .serializers import (
@@ -12,49 +42,15 @@ from .serializers import (
     ProdutoDetalheSerializer, EstoqueSerializer
 )
 
-# -------------------------
-# Health Check (público)
-# -------------------------
+
+# 🔹 Health Check (sem autenticação)
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def health(request):
     return JsonResponse({'status': 'ok', 'app': 'sysvar'})
 
-# -------------------------
-# /api/me (requer auth)
-# -------------------------
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def me(request):
-    user = request.user
-    return JsonResponse({
-        'id': user.id,
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'email': user.email,
-        'type': getattr(user, 'type', 'Regular'),
-    })
 
-# -------------------------
-# /api/auth/logout (revoga token atual)
-# -------------------------
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logout_view(request):
-    # Se você estiver usando DRF TokenAuth, o token atual está em request.auth
-    token = getattr(request, 'auth', None)
-    if token is None:
-        return Response({'detail': 'Nenhum token ativo para revogar.'}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        token.delete()
-    except Exception:
-        return Response({'detail': 'Não foi possível revogar o token.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    return Response({'detail': 'Logout efetuado. Token revogado.'}, status=status.HTTP_200_OK)
-
-# -------------------------
-# ViewSets principais
-# -------------------------
+# 🔹 ViewSets principais
 class LojaViewSet(viewsets.ModelViewSet):
     queryset = Loja.objects.all().order_by('-data_cadastro')
     serializer_class = LojaSerializer
@@ -62,6 +58,7 @@ class LojaViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nome_loja', 'Apelido_loja', 'cnpj']
     ordering_fields = ['data_cadastro', 'nome_loja']
+
 
 class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all().order_by('-data_cadastro')
@@ -71,6 +68,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
     search_fields = ['Nome_cliente', 'Apelido', 'cpf', 'email']
     ordering_fields = ['data_cadastro', 'Nome_cliente']
 
+
 class ProdutoViewSet(viewsets.ModelViewSet):
     queryset = Produto.objects.all().order_by('-data_cadastro')
     serializer_class = ProdutoSerializer
@@ -79,17 +77,16 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     search_fields = ['Descricao', 'referencia', 'grupo', 'subgrupo', 'colecao']
     ordering_fields = ['data_cadastro', 'Descricao', 'referencia']
 
+
 class ProdutoDetalheViewSet(viewsets.ModelViewSet):
-    queryset = (ProdutoDetalhe.objects
-                .select_related('Idproduto', 'Idtamanho', 'Idcor')
-                .all()
-                .order_by('-data_cadastro'))
+    queryset = ProdutoDetalhe.objects.select_related('Idproduto', 'Idtamanho', 'Idcor').all().order_by('-data_cadastro')
     serializer_class = ProdutoDetalheSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['CodigodeBarra', 'Codigoproduto', 'Idproduto']
     search_fields = ['CodigodeBarra', 'Codigoproduto']
     ordering_fields = ['data_cadastro', 'CodigodeBarra']
+
 
 class EstoqueViewSet(viewsets.ModelViewSet):
     queryset = Estoque.objects.select_related('Idloja').all().order_by('CodigodeBarra')
