@@ -1,10 +1,12 @@
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import viewsets, filters
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
-from rest_framework import status
+from django_filters.rest_framework import DjangoFilterBackend
+
+from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
 
 from .models import Loja, Cliente, Produto, ProdutoDetalhe, Estoque
 from .serializers import (
@@ -19,6 +21,60 @@ from .serializers import (
 @permission_classes([AllowAny])
 def health(request):
     return JsonResponse({'status': 'ok', 'app': 'sysvar'})
+
+# -------------------------
+# Register (público)
+# POST /api/auth/register/
+# -------------------------
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register(request):
+    User = get_user_model()
+    data = request.data
+
+    username   = (data.get('username') or '').strip()
+    password   = (data.get('password') or '').strip()
+    email      = (data.get('email') or '').strip()
+    first_name = (data.get('first_name') or '').strip()
+    last_name  = (data.get('last_name') or '').strip()
+    user_type  = (data.get('type') or 'Regular').strip()
+
+    if not username or not password:
+        return Response({'error': 'username e password são obrigatórios.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    allowed_types = {'Regular', 'Caixa', 'Gerente', 'Admin'}
+    if user_type not in allowed_types:
+        user_type = 'Regular'
+
+    if User.objects.filter(username=username).exists():
+        return Response({'error': 'username já existe.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    user = User(
+        username=username,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        type=user_type
+    )
+    user.set_password(password)
+    user.save()
+
+    token, _ = Token.objects.get_or_create(user=user)
+
+    return Response({
+        'message': 'Usuário criado com sucesso.',
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'type': user.type,
+        },
+        'token': token.key
+    }, status=status.HTTP_201_CREATED)
 
 # -------------------------
 # /api/me (requer auth)
@@ -42,18 +98,65 @@ def me(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-    # Se você estiver usando DRF TokenAuth, o token atual está em request.auth
     token = getattr(request, 'auth', None)
     if token is None:
-        return Response({'detail': 'Nenhum token ativo para revogar.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Nenhum token ativo para revogar.'},
+                        status=status.HTTP_400_BAD_REQUEST)
     try:
         token.delete()
     except Exception:
-        return Response({'detail': 'Não foi possível revogar o token.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    return Response({'detail': 'Logout efetuado. Token revogado.'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Não foi possível revogar o token.'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return Response({'detail': 'Logout efetuado. Token revogado.'},
+                    status=status.HTTP_200_OK)
 
 # -------------------------
-# ViewSets principais
+# /api/auth/change-password (requer auth)
+# -------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """
+    POST /api/auth/change-password/
+    Body:
+      - old_password (obrigatório)
+      - new_password (obrigatório, mínimo 8 caracteres)
+    Efeito:
+      - Atualiza a senha do usuário autenticado
+      - Revoga o token atual (precisa fazer login de novo)
+    """
+    user = request.user
+    old_password = (request.data.get('old_password') or '').strip()
+    new_password = (request.data.get('new_password') or '').strip()
+
+    if not old_password or not new_password:
+        return Response({'error': 'old_password e new_password são obrigatórios.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    if not user.check_password(old_password):
+        return Response({'error': 'Senha atual incorreta.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({'error': 'A nova senha deve ter pelo menos 8 caracteres.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+
+    # Revoga o token atual (se estiver usando DRF TokenAuthentication)
+    token = getattr(request, 'auth', None)
+    if token:
+        try:
+            token.delete()
+        except Exception:
+            pass
+
+    return Response({'detail': 'Senha alterada. Faça login novamente.'},
+                    status=status.HTTP_200_OK)
+
+# -------------------------
+# ViewSets principais (requerem auth)
 # -------------------------
 class LojaViewSet(viewsets.ModelViewSet):
     queryset = Loja.objects.all().order_by('-data_cadastro')
