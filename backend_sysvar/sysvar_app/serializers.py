@@ -1,11 +1,22 @@
+from datetime import date
+from django.db import transaction
 from rest_framework import serializers
-from .models import Loja, Cliente, Produto, ProdutoDetalhe, Estoque
 
+from .models import (
+    Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
+    Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
+    Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos
+)
+
+# -----------------------------
+# Tabelas básicas
+# -----------------------------
 class LojaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Loja
         fields = '__all__'
         read_only_fields = ['Idloja', 'data_cadastro']
+
 
 class ClienteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,11 +24,174 @@ class ClienteSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['Idcliente', 'data_cadastro']
 
+
+class FornecedorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Fornecedor
+        fields = '__all__'
+        read_only_fields = ['Idfornecedor', 'data_cadastro']
+
+
+class VendedorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vendedor
+        fields = '__all__'
+        read_only_fields = ['Idvendedor', 'data_cadastro']
+
+
+class FuncionariosSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Funcionarios
+        fields = '__all__'
+        read_only_fields = ['Idfuncionario', 'data_cadastro']
+
+
+class GradeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Grade
+        fields = '__all__'
+        read_only_fields = ['Idgrade', 'data_cadastro']
+
+
+class TamanhoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tamanho
+        fields = '__all__'
+        read_only_fields = ['Idtamanho', 'data_cadastro']
+
+
+class CorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cor
+        fields = '__all__'
+        read_only_fields = ['Idcor', 'data_cadastro']
+
+
+class ColecaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Colecao
+        fields = '__all__'
+        read_only_fields = ['Idcolecao', 'data_cadastro']
+
+
+class FamiliaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Familia
+        fields = '__all__'
+        read_only_fields = ['Idfamilia', 'data_cadastro']
+
+
+class GrupoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Grupo
+        fields = '__all__'
+        read_only_fields = ['Idgrupo', 'data_cadastro']
+
+
+class SubgrupoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subgrupo
+        fields = '__all__'
+        read_only_fields = ['Idsubgrupo', 'data_cadastro']
+
+
+class UnidadeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Unidade
+        fields = '__all__'
+        read_only_fields = ['Idunidade', 'data_cadastro']
+
+
+class CodigosSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Codigos
+        fields = '__all__'
+        read_only_fields = ['Idcodigo']
+
+
+# -----------------------------
+# Produto / Detalhe / Estoque
+# -----------------------------
+
+
 class ProdutoSerializer(serializers.ModelSerializer):
+    referencia = serializers.CharField(read_only=True, allow_null=True)
+    estacao = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
     class Meta:
         model = Produto
         fields = '__all__'
-        read_only_fields = ['Idproduto', 'data_cadastro']
+        read_only_fields = ['Idproduto', 'data_cadastro', 'referencia']
+
+    def create(self, validated_data):
+        tipoproduto = validated_data.get('Tipoproduto')
+        # pegar (e remover) 'estacao' que é write_only e não existe no modelo
+        estacao_req = (validated_data.pop('estacao', '') or '').strip()
+        colecao_codigo = (validated_data.get('colecao') or '').strip()
+        grupo_codigo = (validated_data.get('grupo') or '').strip()
+
+        # Se não é produto de venda, limpar campos e não gerar referência
+        if tipoproduto != '1':
+            validated_data['colecao'] = None
+            validated_data['grupo'] = None
+            validated_data['subgrupo'] = None
+            validated_data['referencia'] = None
+            return super().create(validated_data)
+
+        # Produto de venda precisa de colecao e grupo
+        if not colecao_codigo or not grupo_codigo:
+            raise serializers.ValidationError("Para Tipoproduto='1', informe 'colecao' e 'grupo'.")
+
+        # Resolver a coleção + estação
+        qs = Colecao.objects.filter(Codigo=colecao_codigo)
+        if not qs.exists():
+            raise serializers.ValidationError("Coleção informada não existe.")
+
+        if estacao_req:
+            qs = qs.filter(Estacao=estacao_req)
+
+        if not qs.exists():
+            raise serializers.ValidationError("A combinação de 'colecao' e 'estacao' não existe.")
+        if qs.count() > 1:
+            raise serializers.ValidationError("Coleção com mesmo código tem múltiplas estações. Informe o campo 'estacao' (ex.: '01' ou '02').")
+
+        col = qs.first()
+        estacao_codigo = (col.Estacao or '').strip()
+        if not estacao_codigo:
+            raise serializers.ValidationError("Coleção encontrada não possui 'Estacao' definida.")
+
+        # Gerar referência e incrementar contador de Codigos de forma atômica
+        with transaction.atomic():
+            # bloqueia linha correspondente (se existir)
+            cod_row = (Codigos.objects
+                       .select_for_update()
+                       .filter(colecao=colecao_codigo, estacao=estacao_codigo)
+                       .first())
+            if cod_row is None:
+                cod_row = Codigos.objects.create(
+                    colecao=colecao_codigo,
+                    estacao=estacao_codigo,
+                    valor_var=0
+                )
+
+            try:
+                atual = int(cod_row.valor_var)
+            except (TypeError, ValueError):
+                atual = 0
+
+            proximo = atual + 1
+            cod_row.valor_var = proximo
+            cod_row.save()
+
+            # referência = CC.EE.GG + contador 3 dígitos (ex.: 25.01.10 + 001)
+            referencia = f"{colecao_codigo}.{estacao_codigo}.{grupo_codigo}{proximo:03d}"
+            validated_data['referencia'] = referencia
+
+            produto = super().create(validated_data)
+
+        return produto
+
+
 
 class ProdutoDetalheSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,74 +199,9 @@ class ProdutoDetalheSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['Idprodutodetalhe', 'data_cadastro']
 
+
 class EstoqueSerializer(serializers.ModelSerializer):
     class Meta:
         model = Estoque
         fields = '__all__'
         read_only_fields = ['Idestoque']
-from django.http import JsonResponse
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import viewsets, filters
-from django_filters.rest_framework import DjangoFilterBackend
-
-from .models import Loja, Cliente, Produto, ProdutoDetalhe, Estoque
-from .serializers import (
-    LojaSerializer, ClienteSerializer, ProdutoSerializer,
-    ProdutoDetalheSerializer, EstoqueSerializer
-)
-
-
-# 🔹 Health Check (sem autenticação)
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def health(request):
-    return JsonResponse({'status': 'ok', 'app': 'sysvar'})
-
-
-# 🔹 ViewSets principais
-class LojaViewSet(viewsets.ModelViewSet):
-    queryset = Loja.objects.all().order_by('-data_cadastro')
-    serializer_class = LojaSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['nome_loja', 'Apelido_loja', 'cnpj']
-    ordering_fields = ['data_cadastro', 'nome_loja']
-
-
-class ClienteViewSet(viewsets.ModelViewSet):
-    queryset = Cliente.objects.all().order_by('-data_cadastro')
-    serializer_class = ClienteSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['Nome_cliente', 'Apelido', 'cpf', 'email']
-    ordering_fields = ['data_cadastro', 'Nome_cliente']
-
-
-class ProdutoViewSet(viewsets.ModelViewSet):
-    queryset = Produto.objects.all().order_by('-data_cadastro')
-    serializer_class = ProdutoSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['Descricao', 'referencia', 'grupo', 'subgrupo', 'colecao']
-    ordering_fields = ['data_cadastro', 'Descricao', 'referencia']
-
-
-class ProdutoDetalheViewSet(viewsets.ModelViewSet):
-    queryset = ProdutoDetalhe.objects.select_related('Idproduto', 'Idtamanho', 'Idcor').all().order_by('-data_cadastro')
-    serializer_class = ProdutoDetalheSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['CodigodeBarra', 'Codigoproduto', 'Idproduto']
-    search_fields = ['CodigodeBarra', 'Codigoproduto']
-    ordering_fields = ['data_cadastro', 'CodigodeBarra']
-
-
-class EstoqueViewSet(viewsets.ModelViewSet):
-    queryset = Estoque.objects.select_related('Idloja').all().order_by('CodigodeBarra')
-    serializer_class = EstoqueSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['Idloja', 'CodigodeBarra', 'codigoproduto']
-    search_fields = ['CodigodeBarra', 'codigoproduto']
-    ordering_fields = ['CodigodeBarra', 'Idloja']

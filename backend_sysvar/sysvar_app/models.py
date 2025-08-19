@@ -209,6 +209,7 @@ class Familia(models.Model):
     Idfamilia = models.BigAutoField(primary_key=True)
     Descricao = models.CharField(max_length=100)
     Codigo = models.CharField(max_length=10, null=True, blank=True)
+    Margem = models.DecimalField(max_digits=6, decimal_places=2, default=0)    
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -261,7 +262,7 @@ class Produto(models.Model):
     Tipoproduto = models.CharField(max_length=1)
     Descricao = models.CharField(max_length=100)
     Desc_reduzida = models.CharField(max_length=100)
-    referencia = models.CharField(max_length=11, default='00.00.00000', unique=True)
+    referencia = models.CharField(max_length=20, unique=True, null=True, blank=True)
     classificacao_fiscal = models.CharField(max_length=100)
     unidade = models.CharField(max_length=15)
     grupo = models.CharField(max_length=100, null=True, blank=True)
@@ -654,14 +655,20 @@ class GrupoDetalhe(models.Model):
             models.UniqueConstraint(fields=['idgrupo', 'idsubgrupo'], name='uq_grupodetalhe_grupo_subgrupo'),
         ]
 
-
 class Codigos(models.Model):
     Idcodigo = models.BigAutoField(primary_key=True)
-    variavel = models.CharField(max_length=7)
-    valor_var = models.CharField(max_length=15)
+    colecao = models.CharField(max_length=2, null=False, blank=False, default="00")
+    estacao = models.CharField(max_length=2, null=False, blank=False, default="00")
+    valor_var = models.IntegerField(default=1)  # ← inteiro, começa em 1
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['colecao', 'estacao'], name='unique_colecao_estacao')
+        ]
 
     def __str__(self):
-        return f'{self.variavel}: {self.valor_var}'
+        return f'{self.colecao}{self.estacao}: {self.valor_var}'
+
 
 
 class Imposto(models.Model):

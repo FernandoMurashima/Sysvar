@@ -8,10 +8,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 
-from .models import Loja, Cliente, Produto, ProdutoDetalhe, Estoque
+from .models import (
+    Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
+    Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
+    Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos
+)
 from .serializers import (
-    LojaSerializer, ClienteSerializer, ProdutoSerializer,
-    ProdutoDetalheSerializer, EstoqueSerializer
+    LojaSerializer, ClienteSerializer, ProdutoSerializer, ProdutoDetalheSerializer, EstoqueSerializer,
+    FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer,
+    CorSerializer, ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer,
+    SubgrupoSerializer, CodigosSerializer
 )
 
 # -------------------------
@@ -111,51 +117,6 @@ def logout_view(request):
                     status=status.HTTP_200_OK)
 
 # -------------------------
-# /api/auth/change-password (requer auth)
-# -------------------------
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def change_password(request):
-    """
-    POST /api/auth/change-password/
-    Body:
-      - old_password (obrigatório)
-      - new_password (obrigatório, mínimo 8 caracteres)
-    Efeito:
-      - Atualiza a senha do usuário autenticado
-      - Revoga o token atual (precisa fazer login de novo)
-    """
-    user = request.user
-    old_password = (request.data.get('old_password') or '').strip()
-    new_password = (request.data.get('new_password') or '').strip()
-
-    if not old_password or not new_password:
-        return Response({'error': 'old_password e new_password são obrigatórios.'},
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    if not user.check_password(old_password):
-        return Response({'error': 'Senha atual incorreta.'},
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    if len(new_password) < 8:
-        return Response({'error': 'A nova senha deve ter pelo menos 8 caracteres.'},
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    user.set_password(new_password)
-    user.save()
-
-    # Revoga o token atual (se estiver usando DRF TokenAuthentication)
-    token = getattr(request, 'auth', None)
-    if token:
-        try:
-            token.delete()
-        except Exception:
-            pass
-
-    return Response({'detail': 'Senha alterada. Faça login novamente.'},
-                    status=status.HTTP_200_OK)
-
-# -------------------------
 # ViewSets principais (requerem auth)
 # -------------------------
 class LojaViewSet(viewsets.ModelViewSet):
@@ -202,3 +163,83 @@ class EstoqueViewSet(viewsets.ModelViewSet):
     filterset_fields = ['Idloja', 'CodigodeBarra', 'codigoproduto']
     search_fields = ['CodigodeBarra', 'codigoproduto']
     ordering_fields = ['CodigodeBarra', 'Idloja']
+
+class FornecedorViewSet(viewsets.ModelViewSet):
+    queryset = Fornecedor.objects.all().order_by('-data_cadastro')
+    serializer_class = FornecedorSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['Nome_fornecedor', 'Apelido', 'Cnpj', 'email', 'Cidade']
+    ordering_fields = ['data_cadastro', 'Nome_fornecedor']
+
+class VendedorViewSet(viewsets.ModelViewSet):
+    queryset = Vendedor.objects.all().order_by('-data_cadastro')
+    serializer_class = VendedorSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nomevendedor', 'apelido', 'cpf']
+    ordering_fields = ['data_cadastro', 'nomevendedor']
+
+class FuncionariosViewSet(viewsets.ModelViewSet):
+    queryset = Funcionarios.objects.all().order_by('-data_cadastro')
+    serializer_class = FuncionariosSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nomefuncionario', 'apelido', 'cpf', 'categoria']
+    ordering_fields = ['data_cadastro', 'nomefuncionario']
+
+class GradeViewSet(viewsets.ModelViewSet):
+    queryset = Grade.objects.all().order_by('-data_cadastro')
+    serializer_class = GradeSerializer
+    permission_classes = [IsAuthenticated]
+
+class TamanhoViewSet(viewsets.ModelViewSet):
+    queryset = Tamanho.objects.all().order_by('-data_cadastro')
+    serializer_class = TamanhoSerializer
+    permission_classes = [IsAuthenticated]
+
+class CorViewSet(viewsets.ModelViewSet):
+    queryset = Cor.objects.all().order_by('-data_cadastro')
+    serializer_class = CorSerializer
+    permission_classes = [IsAuthenticated]
+
+class ColecaoViewSet(viewsets.ModelViewSet):
+    queryset = Colecao.objects.all().order_by('-data_cadastro')
+    serializer_class = ColecaoSerializer
+    permission_classes = [IsAuthenticated]
+
+class FamiliaViewSet(viewsets.ModelViewSet):
+    queryset = Familia.objects.all().order_by('-data_cadastro')
+    serializer_class = FamiliaSerializer
+    permission_classes = [IsAuthenticated]
+
+class UnidadeViewSet(viewsets.ModelViewSet):
+    queryset = Unidade.objects.all().order_by('-data_cadastro')
+    serializer_class = UnidadeSerializer
+    permission_classes = [IsAuthenticated]
+
+class GrupoViewSet(viewsets.ModelViewSet):
+    queryset = Grupo.objects.all().order_by('-data_cadastro')
+    serializer_class = GrupoSerializer
+    permission_classes = [IsAuthenticated]
+
+class SubgrupoViewSet(viewsets.ModelViewSet):
+    queryset = Subgrupo.objects.all().order_by('-data_cadastro')
+    serializer_class = SubgrupoSerializer
+    permission_classes = [IsAuthenticated]
+
+class CodigosViewSet(viewsets.ModelViewSet):
+    """
+    CRUD dos contadores por (colecao, estacao).
+    Get com filtros:
+      - ?colecao=25
+      - ?estacao=01
+      - ?search=25 (pesquisa em colecao/estacao/valor_var)
+    """
+    queryset = Codigos.objects.all().order_by('colecao', 'estacao')
+    serializer_class = CodigosSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['colecao', 'estacao']
+    search_fields = ['colecao', 'estacao', 'valor_var']
+    ordering_fields = ['colecao', 'estacao', 'valor_var']
