@@ -1,0 +1,43 @@
+/* usa as mesmas cores do seu sidebar */
+.nav-link {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: #e2e8f0;               /* slate-200 */
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  background: rgba(148, 163, 184, 0.15); /* hover igual ao shell */
+}
+
+.nav-link.active {
+  background: rgba(148, 163, 184, 0.25);
+}
+
+/* container dos filhos (submenu) */
+.children {
+  display: none;
+  padding-left: 12px;            /* indentação visual */
+  margin-left: 6px;
+  border-left: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.children.open {
+  display: block;
+}
+
+/* (opcional) diminuir levemente a fonte dos itens-filho */
+.children .nav-link .label {
+  font-size: 0.95rem;
+}
+
+/* helpers */
+.me-2 { margin-right: 0.5rem; }
+.ms-auto { margin-left: auto; }
