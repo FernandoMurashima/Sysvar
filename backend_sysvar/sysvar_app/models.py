@@ -16,6 +16,8 @@ class User(AbstractUser):
         CAIXA = 'Caixa', _('Caixa')
         GERENTE = 'Gerente', _('Gerente')
         ADMIN = 'Admin', _('Admin')
+        AUXILIAR = 'Auxiliar', _('Auxiliar')
+        ASSISTENTE = 'Assistente', _('Assistente')
 
     type = models.CharField(max_length=10, choices=Type.choices, default='Regular')
 

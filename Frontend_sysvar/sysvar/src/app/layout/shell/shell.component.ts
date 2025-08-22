@@ -1,3 +1,4 @@
+// src/app/layout/shell/shell.component.ts
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
@@ -5,6 +6,7 @@ import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { NavItem } from '../../core/models/nav-item';
 import { NavItemComponent } from '../../shared/nav-item/nav-item.component';
+import { PermissionService } from '../../core/permission.service';
 
 @Component({
   selector: 'app-shell',
@@ -16,47 +18,104 @@ import { NavItemComponent } from '../../shared/nav-item/nav-item.component';
 export class ShellComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private perm = inject(PermissionService);
 
   sidebarOpen = true;
 
-  // Menu plano (sem submenus por enquanto)
-/*   menuItems: NavItem[] = [
-    { label: 'Home',        link: '/home',        icon: 'bi bi-house' },
-    { label: 'Lojas',       link: '/lojas',       icon: 'bi bi-shop' },
-    { label: 'Clientes',    link: '/clientes',    icon: 'bi bi-people' },
-    { label: 'Produtos',    link: '/produtos',    icon: 'bi bi-box-seam' },
-    { label: 'Estoque',     link: '/estoque',     icon: 'bi bi-archive' },
-    { label: 'Vendas',      link: '/vendas',      icon: 'bi bi-receipt' },
-    { label: 'Financeiro',  link: '/financeiro',  icon: 'bi bi-cash-coin' },
-    { label: 'Relatórios',  link: '/relatorios',  icon: 'bi bi-graph-up' },
-    { label: 'Configurações', link: '/config',    icon: 'bi bi-gear' },
-  ]; */
-
   menuItems: NavItem[] = [
-  { label: 'Home', link: '/home', icon: 'bi bi-house' },
+    { label: 'Home', link: '/home', icon: 'bi bi-house', roles: ['Regular'] },
 
-  {
-    label: 'Cadastros', icon: 'bi bi-folder',
-    children: [
-      { label: 'Lojas',      link: '/lojas',      icon: 'bi bi-shop' },
-      { label: 'Clientes',   link: '/clientes',   icon: 'bi bi-people' },
-      { label: 'Produtos',   link: '/produtos',   icon: 'bi bi-box-seam' },
-    ]
-  },
+    {
+      label: 'Cadastros', icon: 'bi bi-journal-text', roles: ['Regular'],
+      children: [
+        { label: 'Lojas',        link: '/lojas',        icon: 'bi bi-shop',          roles: ['Regular'] },
+        { label: 'Clientes',     link: '/clientes',     icon: 'bi bi-people',        roles: ['Regular'] },
+        { label: 'Fornecedores', link: '/fornecedores', icon: 'bi bi-truck',         roles: ['Regular'] },
+        { label: 'Funcionários', link: '/funcionarios', icon: 'bi bi-person-badge',  roles: ['Regular'] },
+      ]
+    },
 
-  { label: 'Estoque',    link: '/estoque',    icon: 'bi bi-archive' },
-  { label: 'Vendas',     link: '/vendas',     icon: 'bi bi-receipt' },
-  { label: 'Financeiro', link: '/financeiro', icon: 'bi bi-cash-coin' },
-  { label: 'Relatórios', link: '/relatorios', icon: 'bi bi-graph-up' },
-  { label: 'Configurações', link: '/config',  icon: 'bi bi-gear' },
-];
+    {
+      label: 'Produtos', icon: 'bi bi-box-seam', roles: ['Regular'],
+      children: [
+        { label: 'Produtos',   link: '/produtos',   icon: 'bi bi-box',           roles: ['Regular'] },
+        { label: 'Grupos',     link: '/grupos',     icon: 'bi bi-diagram-2',     roles: ['Regular'] },
+        { label: 'Subgrupos',  link: '/subgrupos',  icon: 'bi bi-diagram-3',     roles: ['Regular'] },
+        { label: 'Famílias',   link: '/familias',   icon: 'bi bi-collection',    roles: ['Regular'] },
+        { label: 'Cores',      link: '/cores',      icon: 'bi bi-palette',       roles: ['Regular'] },
+        { label: 'Tamanhos',   link: '/tamanhos',   icon: 'bi bi-aspect-ratio',  roles: ['Regular'] },
+        { label: 'Grades',     link: '/grades',     icon: 'bi bi-grid',          roles: ['Regular'] },
+        { label: 'Coleções',   link: '/colecoes',   icon: 'bi bi-layers',        roles: ['Regular'] },
+        { label: 'Unidades',   link: '/unidades',   icon: 'bi bi-bounding-box',  roles: ['Regular'] },
+      ]
+    },
 
+    {
+      label: 'Estoque', icon: 'bi bi-archive', roles: ['Regular'],
+      children: [
+        { label: 'Consulta de Estoque', link: '/estoque/consulta',       icon: 'bi bi-search',            roles: ['Regular'] },
+        { label: 'Movimentações',       link: '/estoque/movimentacoes',  icon: 'bi bi-arrow-left-right',  roles: ['Regular'] },
+        { label: 'Inventário',          link: '/estoque/inventario',     icon: 'bi bi-clipboard-data',    roles: ['Regular'] },
+      ]
+    },
 
+    {
+      label: 'Vendas', icon: 'bi bi-receipt', roles: ['Regular'],
+      children: [
+        { label: 'PDV',        link: '/vendas/pdv',        icon: 'bi bi-cash',                 roles: ['Regular'] },
+        { label: 'Pedidos',    link: '/vendas/pedidos',    icon: 'bi bi-bag-check',            roles: ['Regular'] },
+        { label: 'Devoluções', link: '/vendas/devolucoes', icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+      ]
+    },
+
+    {
+      label: 'Financeiro', icon: 'bi bi-cash-coin', roles: ['Regular'],
+      children: [
+        { label: 'Contas a Receber',       link: '/financeiro/receber',       icon: 'bi bi-cash-stack',       roles: ['Regular'] },
+        { label: 'Contas a Pagar',         link: '/financeiro/pagar',         icon: 'bi bi-wallet2',          roles: ['Regular'] },
+        { label: 'Caixa',                  link: '/financeiro/caixa',         icon: 'bi bi-safe',             roles: ['Regular'] },
+        { label: 'Contas Bancárias',       link: '/financeiro/contas',        icon: 'bi bi-bank',             roles: ['Regular'] },
+        { label: 'Movimentações Financeiras', link: '/financeiro/movimentacoes', icon: 'bi bi-arrow-left-right', roles: ['Regular'] },
+      ]
+    },
+
+    {
+      label: 'Relatórios', icon: 'bi bi-graph-up', roles: ['Regular'],
+      children: [
+        { label: 'Vendas',     link: '/relatorios/vendas',     icon: 'bi bi-bar-chart', roles: ['Regular'] },
+        { label: 'Financeiro', link: '/relatorios/financeiro', icon: 'bi bi-pie-chart', roles: ['Regular'] },
+        { label: 'Estoque',    link: '/relatorios/estoque',    icon: 'bi bi-clipboard', roles: ['Regular'] },
+      ]
+    },
+
+    {
+      label: 'Configurações', icon: 'bi bi-gear', roles: ['Regular'],
+      children: [
+        { label: 'Usuários',        link: '/config/usuarios',    icon: 'bi bi-person-gear',  roles: ['Regular'] },
+        { label: 'Perfis/Acessos',  link: '/config/perfis',      icon: 'bi bi-shield-lock',  roles: ['Regular'] },
+        { label: 'Parâmetros',      link: '/config/parametros',  icon: 'bi bi-sliders',      roles: ['Regular'] },
+        { label: 'Tabela de Preços',link: '/config/precos',      icon: 'bi bi-table',        roles: ['Regular'] },
+        { label: 'Impostos / NCM',  link: '/config/impostos',    icon: 'bi bi-percent',      roles: ['Regular'] },
+      ]
+    },
+  ];
+
+  get filteredMenu(): NavItem[] {
+    return this.perm.filterMenu(this.menuItems);
+  }
 
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
   sair() {
     this.auth.clearToken();
     this.router.navigateByUrl('/login');
+  }
+
+  // Getters únicos (NÃO declare outra propriedade/variável com o mesmo nome)
+  get userName(): string {
+    return this.auth.getUserName() || 'Usuário';
+  }
+  get userType(): string {
+    return this.auth.getUserType() || 'Regular';
   }
 }
