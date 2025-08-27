@@ -636,6 +636,7 @@ class Grupo(models.Model):
 
 class Subgrupo(models.Model):
     Idsubgrupo = models.BigAutoField(primary_key=True)
+    Idgrupo = models.ForeignKey(Grupo, on_delete=models.CASCADE, null=True, blank=True)  # <= permitir nulo
     Descricao = models.CharField(max_length=100)
     Margem = models.DecimalField(max_digits=6, decimal_places=2)
     data_cadastro = models.DateTimeField(default=timezone.now)
@@ -644,18 +645,7 @@ class Subgrupo(models.Model):
         return self.Descricao
 
 
-class GrupoDetalhe(models.Model):
-    IdGrupoDetalhe = models.BigAutoField(primary_key=True)
-    idgrupo = models.ForeignKey(Grupo, on_delete=models.CASCADE)
-    idsubgrupo = models.ForeignKey(Subgrupo, on_delete=models.CASCADE)
 
-    def __str__(self):
-        return f'{self.idgrupo_id} - {self.idsubgrupo_id}'
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['idgrupo', 'idsubgrupo'], name='uq_grupodetalhe_grupo_subgrupo'),
-        ]
 
 class Codigos(models.Model):
     Idcodigo = models.BigAutoField(primary_key=True)

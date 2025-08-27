@@ -39,11 +39,9 @@ export class ShellComponent {
       label: 'Produtos', icon: 'bi bi-box-seam', roles: ['Regular'],
       children: [
         { label: 'Produtos',   link: '/produtos',   icon: 'bi bi-box',           roles: ['Regular'] },
-        { label: 'Grupos',     link: '/grupos',     icon: 'bi bi-diagram-2',     roles: ['Regular'] },
-        { label: 'Subgrupos',  link: '/subgrupos',  icon: 'bi bi-diagram-3',     roles: ['Regular'] },
+        { label: 'Grupos',     link: '/grupos',     icon: 'bi bi-diagram-2',     roles: ['Regular'] },        
         { label: 'Famílias',   link: '/familias',   icon: 'bi bi-collection',    roles: ['Regular'] },
         { label: 'Cores',      link: '/cores',      icon: 'bi bi-palette',       roles: ['Regular'] },
-        { label: 'Tamanhos',   link: '/tamanhos',   icon: 'bi bi-aspect-ratio',  roles: ['Regular'] },
         { label: 'Grades',     link: '/grades',     icon: 'bi bi-grid',          roles: ['Regular'] },
         { label: 'Coleções',   link: '/colecoes',   icon: 'bi bi-layers',        roles: ['Regular'] },
         { label: 'Unidades',   link: '/unidades',   icon: 'bi bi-bounding-box',  roles: ['Regular'] },
@@ -62,9 +60,10 @@ export class ShellComponent {
     {
       label: 'Vendas', icon: 'bi bi-receipt', roles: ['Regular'],
       children: [
-        { label: 'PDV',        link: '/vendas/pdv',        icon: 'bi bi-cash',                 roles: ['Regular'] },
-        { label: 'Pedidos',    link: '/vendas/pedidos',    icon: 'bi bi-bag-check',            roles: ['Regular'] },
-        { label: 'Devoluções', link: '/vendas/devolucoes', icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'PDV'            , link: '/vendas/pdv',        icon: 'bi bi-cash',                 roles: ['Regular'] },
+        { label: 'Pedidos'        , link: '/vendas/pedidos',    icon: 'bi bi-bag-check',            roles: ['Regular'] },
+        { label: 'Devoluções'     , link: '/vendas/devolucoes', icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Tabela de Preço', link: '/vendas/tabelas'   , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
       ]
     },
 

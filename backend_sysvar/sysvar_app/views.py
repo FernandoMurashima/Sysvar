@@ -11,13 +11,14 @@ from rest_framework.authtoken.models import Token
 from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
-    Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos
+    Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco
 )
 from .serializers import (
+    UserSerializer,
     LojaSerializer, ClienteSerializer, ProdutoSerializer, ProdutoDetalheSerializer, EstoqueSerializer,
     FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer,
     CorSerializer, ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer,
-    SubgrupoSerializer, CodigosSerializer
+    SubgrupoSerializer, CodigosSerializer, TabelaprecoSerializer
 )
 
 # -------------------------
@@ -49,7 +50,7 @@ def register(request):
         return Response({'error': 'username e password são obrigatórios.'},
                         status=status.HTTP_400_BAD_REQUEST)
 
-    allowed_types = {'Regular', 'Caixa', 'Gerente', 'Admin'}
+    allowed_types = {'Regular', 'Caixa', 'Gerente', 'Admin', 'Auxiliar', 'Assistente'}
     if user_type not in allowed_types:
         user_type = 'Regular'
 
@@ -115,6 +116,20 @@ def logout_view(request):
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response({'detail': 'Logout efetuado. Token revogado.'},
                     status=status.HTTP_200_OK)
+
+# -------------------------
+# Users ViewSet (requer auth)
+# -------------------------
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    /api/users/
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserSerializer
+    queryset = get_user_model().objects.all().order_by('-date_joined')
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'email', 'first_name', 'last_name', 'type']
+    ordering_fields = ['date_joined', 'username', 'email', 'first_name', 'last_name', 'type']
 
 # -------------------------
 # ViewSets principais (requerem auth)
@@ -192,50 +207,57 @@ class GradeViewSet(viewsets.ModelViewSet):
     queryset = Grade.objects.all().order_by('-data_cadastro')
     serializer_class = GradeSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['Descricao', 'Status']
+    ordering_fields = ['data_cadastro', 'Descricao']
 
 class TamanhoViewSet(viewsets.ModelViewSet):
+    """
+    ÚNICA definição (consolidada):
+    - Filtro por grade: /api/tamanhos/?idgrade=<Idgrade>
+    - Busca: Tamanho, Descricao
+    """
     queryset = Tamanho.objects.all().order_by('-data_cadastro')
     serializer_class = TamanhoSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['idgrade']             # << permite filtrar por grade
+    search_fields = ['Tamanho', 'Descricao']
+    ordering_fields = ['data_cadastro', 'Tamanho']
 
 class CorViewSet(viewsets.ModelViewSet):
     queryset = Cor.objects.all().order_by('-data_cadastro')
     serializer_class = CorSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['Descricao', 'Codigo', 'Cor', 'Status']
+    ordering_fields = ['data_cadastro', 'Descricao', 'Codigo']
 
 class ColecaoViewSet(viewsets.ModelViewSet):
     queryset = Colecao.objects.all().order_by('-data_cadastro')
     serializer_class = ColecaoSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['Descricao', 'Codigo', 'Estacao', 'Status']
+    ordering_fields = ['data_cadastro', 'Descricao', 'Codigo', 'Estacao']
 
 class FamiliaViewSet(viewsets.ModelViewSet):
     queryset = Familia.objects.all().order_by('-data_cadastro')
     serializer_class = FamiliaSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['Descricao', 'Codigo']
+    ordering_fields = ['data_cadastro', 'Descricao', 'Codigo']
 
 class UnidadeViewSet(viewsets.ModelViewSet):
     queryset = Unidade.objects.all().order_by('-data_cadastro')
     serializer_class = UnidadeSerializer
     permission_classes = [IsAuthenticated]
-
-class GrupoViewSet(viewsets.ModelViewSet):
-    queryset = Grupo.objects.all().order_by('-data_cadastro')
-    serializer_class = GrupoSerializer
-    permission_classes = [IsAuthenticated]
-
-class SubgrupoViewSet(viewsets.ModelViewSet):
-    queryset = Subgrupo.objects.all().order_by('-data_cadastro')
-    serializer_class = SubgrupoSerializer
-    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['Descricao', 'Codigo']
+    ordering_fields = ['data_cadastro', 'Descricao', 'Codigo']
 
 class CodigosViewSet(viewsets.ModelViewSet):
-    """
-    CRUD dos contadores por (colecao, estacao).
-    Get com filtros:
-      - ?colecao=25
-      - ?estacao=01
-      - ?search=25 (pesquisa em colecao/estacao/valor_var)
-    """
     queryset = Codigos.objects.all().order_by('colecao', 'estacao')
     serializer_class = CodigosSerializer
     permission_classes = [IsAuthenticated]
@@ -243,3 +265,37 @@ class CodigosViewSet(viewsets.ModelViewSet):
     filterset_fields = ['colecao', 'estacao']
     search_fields = ['colecao', 'estacao', 'valor_var']
     ordering_fields = ['colecao', 'estacao', 'valor_var']
+
+class GrupoViewSet(viewsets.ModelViewSet):
+    queryset = Grupo.objects.all().order_by('Descricao')
+    serializer_class = GrupoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['Codigo']  # opcional, filtrar por código
+    search_fields = ['Descricao', 'Codigo']
+    ordering_fields = ['Descricao', 'Codigo', 'data_cadastro']
+
+class SubgrupoViewSet(viewsets.ModelViewSet):
+    queryset = Subgrupo.objects.select_related('Idgrupo').all().order_by('Descricao')
+    serializer_class = SubgrupoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['Idgrupo']  # permite /api/subgrupos/?Idgrupo=#
+    search_fields = ['Descricao', 'Idgrupo__Descricao']
+    ordering_fields = ['Descricao', 'data_cadastro']
+
+    # (Opcional) filtro alternativo via ?grupo=<Idgrupo>
+    def get_queryset(self):
+        qs = super().get_queryset()
+        grupo_id = self.request.query_params.get('grupo')
+        if grupo_id:
+            qs = qs.filter(Idgrupo_id=grupo_id)
+        return qs
+
+class TabelaprecoViewSet(viewsets.ModelViewSet):
+    queryset = Tabelapreco.objects.all().order_by('-data_cadastro')
+    serializer_class = TabelaprecoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['NomeTabela', 'Promocao']
+    ordering_fields = ['data_cadastro', 'NomeTabela', 'DataInicio', 'DataFim']

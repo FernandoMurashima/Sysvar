@@ -95,7 +95,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Funcionário OK: {f.nomefuncionario} (novo={created})"))
 
         # ---------------------------
-        # Vendedores
+        # Vendedores (mantido; se não quiser, remova este bloco)
         # ---------------------------
         vendedores_seed = [
             {"nomevendedor": "Carlos Silva", "apelido": "Carlos", "cpf": "123.456.789-00"},
@@ -160,7 +160,7 @@ class Command(BaseCommand):
         # ---------------------------
         colecoes = [
             {"Descricao": "Verão 25", "Codigo": "25", "Estacao": "01", "Status": "Ativo"},
-            {"Descricao": "Inverno 25", "Codigo": "25", "Estacao": "02", "Status": "Ativo"},
+            {"Descricao": "Inverno 25", "Codigo": "25", "Estacao": "03", "Status": "Ativo"},
         ]
         for c in colecoes:
             col, created = Colecao.objects.get_or_create(
@@ -176,7 +176,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Coleção OK: {col.Descricao} (novo={created})"))
 
         # ---------------------------
-        # Famílias (Tipo A, Tipo B, ...)
+        # Famílias
         # ---------------------------
         familias = [
             {"Descricao": "Tipo A", "Codigo": "A", "Margem": 0},
@@ -198,37 +198,57 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Família OK: {fam.Descricao} (novo={created})"))
 
         # ---------------------------
-        # Grupos / Subgrupos
+        # Grupos / Subgrupos (NOVA ESTRUTURA COM VÍNCULO)
+        # - Calça: Plana, Estampada, Jeans, Malha
+        # - Saia:  Plana, Estampada, Jeans, Malha
+        # - Blusa: Decote V, Lisa, Tricot
+        # - Vestido: Renda, Liso, Malha
         # ---------------------------
-        dados_grupos = {
-            "Calça": ["Lisa", "Estampada", "Jeans", "Malha"],
-            "Saia": ["Lisa", "Estampada", "Jeans", "Malha"],
-            "Blusa": ["Lisa", "Estampada", "Tricot"],
-            "Vestido": ["Lisa", "Estampada", "Renda"]
+        grupo_codigos = {
+            "Calça": "10",
+            "Saia": "20",
+            "Blusa": "30",
+            "Vestido": "40",
         }
-        grupo_codigos = {"Calça": "10", "Saia": "20", "Blusa": "30", "Vestido": "40"}
+        grupos_subgrupos = {
+            "Calça":  ["Plana", "Estampada", "Jeans", "Malha"],
+            "Saia":   ["Plana", "Estampada", "Jeans", "Malha"],
+            "Blusa":  ["Decote V", "Lisa", "Tricot"],
+            "Vestido":["Renda", "Liso", "Malha"],
+        }
         MARGEM_PADRAO = 10.00
 
-        for grupo_nome, subgrupos in dados_grupos.items():
+        for nome_grupo, lista_subs in grupos_subgrupos.items():
             grupo, gcreated = Grupo.objects.get_or_create(
-                Codigo=grupo_codigos[grupo_nome],
+                Codigo=grupo_codigos[nome_grupo],
                 defaults={
-                    'Descricao': grupo_nome,
+                    'Descricao': nome_grupo,
                     'Margem': MARGEM_PADRAO,
                     'data_cadastro': timezone.now()
                 }
             )
+            # caso já exista o grupo mas com descrição diferente, garante coerência
+            if not gcreated and grupo.Descricao != nome_grupo:
+                grupo.Descricao = nome_grupo
+                grupo.save(update_fields=["Descricao"])
+
             self.stdout.write(self.style.SUCCESS(f"Grupo OK: {grupo.Descricao} (novo={gcreated})"))
 
-            for subgrupo_nome in subgrupos:
+            for nome_sub in lista_subs:
                 sub, screated = Subgrupo.objects.get_or_create(
-                    Descricao=subgrupo_nome,
+                    Descricao=nome_sub,
+                    Idgrupo=grupo,   # vincula corretamente ao grupo
                     defaults={
                         'Margem': MARGEM_PADRAO,
                         'data_cadastro': timezone.now()
                     }
                 )
-                self.stdout.write(self.style.SUCCESS(f"  Subgrupo OK: {sub.Descricao} (novo={screated})"))
+                # Se já havia subgrupo com mesmo nome mas sem Idgrupo (nulo), atualiza o vínculo
+                if not screated and (sub.Idgrupo_id is None):
+                    sub.Idgrupo = grupo
+                    sub.save(update_fields=["Idgrupo"])
+
+                self.stdout.write(self.style.SUCCESS(f"  Subgrupo OK: {sub.Descricao} (grupo={grupo.Descricao}) (novo={screated})"))
 
         # ---------------------------
         # Unidades
@@ -254,18 +274,12 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Unidade OK: {unidade.Descricao} (novo={created})"))
 
         # ---------------------------
-        # Códigos (coleção+estação -> contador)
-        # Registros solicitados:
-        # 25,01,1
-        # 25,02,1
-        # 26,01,1
-        # 26,01,1 (repetido; get_or_create evita duplicata)
+        # Códigos (coleção+estação -> contador único)
         # ---------------------------
         codigos_seed = [
             {"colecao": "25", "estacao": "01", "valor_var": 1},
-            {"colecao": "25", "estacao": "02", "valor_var": 1},
-            {"colecao": "26", "estacao": "01", "valor_var": 1},
-            {"colecao": "26", "estacao": "02", "valor_var": 1},  # repetido de propósito
+            {"colecao": "25", "estacao": "03", "valor_var": 1},
+            
         ]
         for c in codigos_seed:
             cod, created = Codigos.objects.get_or_create(
@@ -273,7 +287,6 @@ class Command(BaseCommand):
                 estacao=c["estacao"],
                 defaults={"valor_var": c["valor_var"]}
             )
-            # Se já existia e o default não aplicou, não altera; objetivo é garantir presença
             self.stdout.write(self.style.SUCCESS(
                 f"Códigos OK: {cod.colecao}-{cod.estacao} (novo={created}) valor_var={cod.valor_var}"
             ))

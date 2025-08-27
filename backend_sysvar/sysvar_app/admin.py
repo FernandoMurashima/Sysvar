@@ -7,7 +7,7 @@ from .models import (
     Venda, VendaItem, MovimentacaoFinanceira, MovimentacaoProdutos, Inventario,
     InventarioItem, Receber, ReceberItens, Pagar, PagarItem, Compra, CompraItem,
     PedidoCompra, PedidoCompraItem, Grupo, Unidade, Material, Familia, Colecao,
-    Grade, Ncm, Subgrupo, GrupoDetalhe, Codigos, TabelaPrecoItem, Imposto, Caixa, Despesa
+    Grade, Ncm, Subgrupo, Codigos, TabelaPrecoItem, Imposto, Caixa, Despesa
 )
 
 # =========================
@@ -101,7 +101,7 @@ _bulk_models = [
     MovimentacaoFinanceira, MovimentacaoProdutos, Inventario, InventarioItem,
     Receber, ReceberItens, Pagar, PagarItem, Compra, CompraItem,
     PedidoCompra, PedidoCompraItem, Grupo, Unidade, Material, Familia, Colecao,
-    Grade, Ncm, Subgrupo, GrupoDetalhe, Codigos, TabelaPrecoItem, Imposto, Caixa, Despesa
+    Grade, Ncm, Subgrupo, Codigos, TabelaPrecoItem, Imposto, Caixa, Despesa
 ]
 
 for m in _bulk_models:
