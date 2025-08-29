@@ -20,9 +20,9 @@
 
   <div class="content">
 
-    <!-- FORM GRUPO -->
-    <section class="card form" *ngIf="editingGrupoId !== null || submitted">
-      <h3>{{ editingGrupoId ? 'Editar Grupo' : 'Novo Grupo' }}</h3>
+    <!-- FORM GRUPO (agora controlado por formModeGrupo) -->
+    <section class="card form" *ngIf="formModeGrupo !== null || submitted">
+      <h3>{{ formModeGrupo === 'edit' ? 'Editar Grupo' : 'Novo Grupo' }}</h3>
 
       <form [formGroup]="formGrupo" (ngSubmit)="salvarGrupo()">
         <div class="grid-10">
@@ -56,7 +56,7 @@
 
         <div class="actions-form">
           <button class="btn primary" type="submit" [disabled]="saving || (formGrupo.invalid && submitted)">
-            {{ editingGrupoId ? 'Salvar alterações' : 'Salvar' }}
+            {{ formModeGrupo === 'edit' ? 'Salvar alterações' : 'Salvar' }}
           </button>
           <button class="btn ghost" type="button" (click)="cancelarEdicaoGrupo()">Cancelar</button>
         </div>

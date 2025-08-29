@@ -20,9 +20,9 @@
 
   <div class="content">
 
-    <!-- FORM (visível somente em novo/editar ou quando submetido inválido) -->
-    <section class="card form" *ngIf="editingId !== null || submitted">
-      <h3>{{ editingId ? 'Editar Unidade' : 'Nova Unidade' }}</h3>
+    <!-- FORM (agora controlado por formMode) -->
+    <section class="card form" *ngIf="formMode !== null || submitted">
+      <h3>{{ formMode === 'edit' ? 'Editar Unidade' : 'Nova Unidade' }}</h3>
 
       <form [formGroup]="form" (ngSubmit)="salvar()">
         <div class="grid-10">
@@ -46,7 +46,7 @@
 
         <div class="actions-form">
           <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
-            {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+            {{ formMode === 'edit' ? 'Salvar alterações' : 'Salvar' }}
           </button>
           <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
         </div>

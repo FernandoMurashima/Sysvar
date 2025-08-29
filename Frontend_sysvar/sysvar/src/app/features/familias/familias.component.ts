@@ -28,15 +28,16 @@ export class FamiliasComponent implements OnInit {
   search = '';
   editingId: number | null = null;
 
+  /** novo: controla abertura/fechamento do formulário */
+  formMode: 'new' | 'edit' | null = null;
+
   form = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
-    Codigo: [''],
+    Codigo: ['', [Validators.maxLength(10)]],
     Margem: [0, [Validators.min(0)]],
   });
 
-  ngOnInit(): void {
-    this.load();
-  }
+  ngOnInit(): void { this.load(); }
 
   // ====== Listagem ======
   load() {
@@ -61,6 +62,7 @@ export class FamiliasComponent implements OnInit {
   // ====== CRUD ======
   novo() {
     this.editingId = null;
+    this.formMode = 'new';     // <- abre o form
     this.submitted = false;
     this.form.reset({
       Descricao: '',
@@ -73,6 +75,7 @@ export class FamiliasComponent implements OnInit {
 
   editar(item: Familia) {
     this.editingId = item.Idfamilia ?? null;
+    this.formMode = 'edit';    // <- abre o form
     this.submitted = false;
     this.form.reset({
       Descricao: item.Descricao ?? '',
@@ -93,7 +96,6 @@ export class FamiliasComponent implements OnInit {
     this.errorMsg = '';
     this.successMsg = '';
 
-    // Garantir Margem como number
     const raw = this.form.getRawValue();
     const payload: Familia = {
       Descricao: String(raw.Descricao ?? '').trim(),
@@ -109,8 +111,7 @@ export class FamiliasComponent implements OnInit {
       next: () => {
         this.successMsg = this.editingId ? 'Família atualizada com sucesso.' : 'Família criada com sucesso.';
         this.load();
-        // volta ao estado inicial (sem o form aberto)
-        this.cancelarEdicao();
+        this.cancelarEdicao(); // fecha o form
       },
       error: (err: HttpErrorResponse) => {
         console.error(err);
@@ -140,8 +141,8 @@ export class FamiliasComponent implements OnInit {
   }
 
   cancelarEdicao() {
-    // Esconde o formulário (comportamento que você pediu nas outras telas)
     this.editingId = null;
+    this.formMode = null;      // <- esconde o form
     this.submitted = false;
     this.form.reset({
       Descricao: '',
@@ -160,6 +161,7 @@ export class FamiliasComponent implements OnInit {
     const msgs: string[] = [];
     const f = this.form;
     if (this.fieldInvalid('Descricao')) msgs.push('Informe a Descrição (máx. 100).');
+    if (f.get('Codigo')?.errors?.['maxlength']) msgs.push('Código deve ter no máximo 10 caracteres.');
     if (f.get('Margem')?.errors?.['min']) msgs.push('Margem não pode ser negativa.');
     return msgs;
   }

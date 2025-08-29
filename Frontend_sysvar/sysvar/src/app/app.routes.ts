@@ -20,6 +20,7 @@ import { CoresComponent } from './features/cores/cores.component';
 import { GradesComponent } from './features/grades/grades.component';
 import { GruposComponent } from './features/grupos/grupos.component';
 import { TabelasPrecoComponent } from './features/tabelas-preco/tabelas-preco.component';
+import { ProdutosComponent } from './features/produtos/produtos.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -46,6 +47,8 @@ export const routes: Routes = [
       { path: 'grades', component: GradesComponent },
       { path: 'grupos', component: GruposComponent }, 
       { path: 'vendas/tabelas', component: TabelasPrecoComponent },
+      { path: 'produtos', component: ProdutosComponent },
+      
       
       { path: '', pathMatch: 'full', redirectTo: 'home' }
     ]

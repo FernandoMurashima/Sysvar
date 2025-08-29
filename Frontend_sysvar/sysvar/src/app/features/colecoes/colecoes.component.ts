@@ -25,10 +25,11 @@ export class ColecoesComponent implements OnInit {
 
   colecoes: Colecao[] = [];
   search = '';
-  showForm = false;
   editingId: number | null = null;
 
-  // mapa de estações fixas
+  /** novo: estado explícito do formulário */
+  formMode: 'new' | 'edit' | null = null;
+
   estacoes = [
     { value: '01', label: 'Verão (01)' },
     { value: '02', label: 'Outono (02)' },
@@ -38,27 +39,22 @@ export class ColecoesComponent implements OnInit {
 
   form = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
-    Codigo: ['', [Validators.required, Validators.pattern(/^\d{2}$/)]],   // 2 dígitos: ano
-    Estacao: ['', [Validators.required]],                                  // select 01..04
+    Codigo: ['', [Validators.required, Validators.pattern(/^\d{2}$/)]],  // 2 dígitos
+    Estacao: ['', [Validators.required]],
     Status: [''],
+    // Control usado no template, somente leitura (vem do backend)
+    Contador: [{ value: 0, disabled: true }],
   });
 
-  ngOnInit(): void {
-    this.load();
-  }
+  ngOnInit(): void { this.load(); }
 
   // ===== LISTAGEM =====
   load() {
     this.loading = true;
     this.errorMsg = '';
     this.api.list({ search: this.search, ordering: '-data_cadastro' }).subscribe({
-      next: (data) => {
-        this.colecoes = Array.isArray(data) ? data : (data?.results ?? []);
-      },
-      error: (err) => {
-        console.error(err);
-        this.errorMsg = 'Falha ao carregar coleções.';
-      },
+      next: (data) => { this.colecoes = Array.isArray(data) ? data : (data?.results ?? []); },
+      error: (err) => { console.error(err); this.errorMsg = 'Falha ao carregar coleções.'; },
       complete: () => this.loading = false
     });
   }
@@ -69,8 +65,8 @@ export class ColecoesComponent implements OnInit {
 
   // ===== FORM =====
   novo() {
-    this.showForm = true;
     this.editingId = null;
+    this.formMode = 'new';     // <- abre o form
     this.submitted = false;
     this.form.reset({
       Descricao: '',
@@ -78,29 +74,35 @@ export class ColecoesComponent implements OnInit {
       Estacao: '',
       Status: '',
     });
+    // garantir valor do control desabilitado
+    this.form.get('Contador')?.setValue(0);
     this.successMsg = '';
     this.errorMsg = '';
   }
 
   editar(item: Colecao) {
-    this.showForm = true;
     this.editingId = item.Idcolecao ?? null;
+    this.formMode = 'edit';    // <- abre o form
     this.submitted = false;
+
     this.form.patchValue({
       Descricao: item.Descricao ?? '',
       Codigo: item.Codigo ?? '',
       Estacao: item.Estacao ?? '',
       Status: item.Status ?? '',
     });
+    this.form.get('Contador')?.setValue(item.Contador ?? 0);
+
     this.successMsg = '';
     this.errorMsg = '';
   }
 
   cancelarEdicao() {
-    this.showForm = false;
     this.editingId = null;
+    this.formMode = null;      // <- esconde o form
     this.submitted = false;
     this.form.reset();
+    this.form.get('Contador')?.setValue(0);
   }
 
   salvar() {
@@ -114,6 +116,7 @@ export class ColecoesComponent implements OnInit {
       return;
     }
 
+    // Contador é desabilitado e não entra no .value (ok)
     const payload: Colecao = { ...(this.form.value as any) };
 
     this.saving = true;

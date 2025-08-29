@@ -18,9 +18,9 @@
   <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
 
   <div class="content">
-    <!-- FORM -->
-    <section class="card form" *ngIf="editingId !== null || submitted">
-      <h3>{{ editingId ? 'Editar Coleção' : 'Nova Coleção' }}</h3>
+    <!-- FORM agora controlado por formMode -->
+    <section class="card form" *ngIf="formMode !== null || submitted">
+      <h3>{{ formMode === 'edit' ? 'Editar Coleção' : 'Nova Coleção' }}</h3>
 
       <form [formGroup]="form" (ngSubmit)="salvar()">
         <div class="grid-10">
@@ -64,7 +64,7 @@
 
         <div class="actions-form">
           <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
-            {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+            {{ formMode === 'edit' ? 'Salvar alterações' : 'Salvar' }}
           </button>
           <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
         </div>

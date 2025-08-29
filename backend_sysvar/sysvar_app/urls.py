@@ -3,21 +3,20 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     health, register, me, logout_view,
-    UserViewSet,            # <<< IMPORTANTE
+    UserViewSet,
     LojaViewSet, ClienteViewSet, ProdutoViewSet, ProdutoDetalheViewSet, EstoqueViewSet,
     FornecedorViewSet, VendedorViewSet, FuncionariosViewSet, GradeViewSet, TamanhoViewSet,
     CorViewSet, ColecaoViewSet, FamiliaViewSet, UnidadeViewSet, GrupoViewSet, SubgrupoViewSet,
-    CodigosViewSet, TabelaprecoViewSet
+    CodigosViewSet, TabelaprecoViewSet, NcmViewSet  # <-- NcmViewSet
 )
 
 router = DefaultRouter()
-router.register(r'users', UserViewSet, basename='user')  # <<< basename explícito
+router.register(r'users', UserViewSet, basename='user')
 router.register(r'lojas', LojaViewSet)
 router.register(r'clientes', ClienteViewSet)
 router.register(r'produtos', ProdutoViewSet)
 router.register(r'produtos-detalhes', ProdutoDetalheViewSet)
 router.register(r'estoques', EstoqueViewSet)
-
 router.register(r'fornecedores', FornecedorViewSet)
 router.register(r'veendedores', VendedorViewSet)
 router.register(r'funcionarios', FuncionariosViewSet)
@@ -31,6 +30,7 @@ router.register(r'grupos', GrupoViewSet)
 router.register(r'subgrupos', SubgrupoViewSet)
 router.register(r'codigos', CodigosViewSet)
 router.register(r'tabelas-preco', TabelaprecoViewSet)
+router.register(r'ncms', NcmViewSet)  # <-- NOVO
 
 urlpatterns = [
     path('health/', health, name='health'),

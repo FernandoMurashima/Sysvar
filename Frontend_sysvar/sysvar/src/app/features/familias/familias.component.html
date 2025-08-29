@@ -20,9 +20,9 @@
 
   <div class="content">
 
-    <!-- FORM (aparece quando novo/editar) -->
-    <section class="card form" *ngIf="editingId !== null || submitted">
-      <h3>{{ editingId ? 'Editar Família' : 'Nova Família' }}</h3>
+    <!-- FORM (agora controlado por formMode) -->
+    <section class="card form" *ngIf="formMode !== null || submitted">
+      <h3>{{ formMode === 'edit' ? 'Editar Família' : 'Nova Família' }}</h3>
 
       <form [formGroup]="form" (ngSubmit)="salvar()">
         <div class="grid-10">
@@ -38,6 +38,9 @@
           <label id="codigo-box">
             Código
             <input type="text" formControlName="Codigo" maxlength="10" />
+            <span class="field-error" *ngIf="form.get('Codigo')?.errors?.['maxlength'] && (form.get('Codigo')?.touched || submitted)">
+              Código deve ter no máximo 10 caracteres.
+            </span>
           </label>
 
           <label id="margem-box">
@@ -51,7 +54,7 @@
 
         <div class="actions-form">
           <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
-            {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+            {{ formMode === 'edit' ? 'Salvar alterações' : 'Salvar' }}
           </button>
           <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
         </div>
@@ -102,4 +105,3 @@
     </section>
   </div>
 </div>
-

@@ -32,6 +32,9 @@ export class GruposComponent implements OnInit {
   search = '';
 
   editingGrupoId: number | null = null;
+  /** novo: controla abertura/fechamento do form de Grupo */
+  formModeGrupo: 'new' | 'edit' | null = null;
+
   selectedGrupoId: number | null = null;
 
   // Form Grupo
@@ -46,7 +49,7 @@ export class GruposComponent implements OnInit {
   submittedSub = false;
 
   formSubgrupo = this.fb.group({
-    Idgrupo: [0, [Validators.required]],                     // FK
+    Idgrupo: [0, [Validators.required]],
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
     Margem: [0, [Validators.required, Validators.min(0)]],
   });
@@ -77,6 +80,7 @@ export class GruposComponent implements OnInit {
 
   novoGrupo() {
     this.editingGrupoId = null;
+    this.formModeGrupo = 'new';      // <- abre o form
     this.submitted = false;
     this.formGrupo.reset({ Codigo: '', Descricao: '', Margem: 0 });
     this.successMsg = '';
@@ -85,6 +89,7 @@ export class GruposComponent implements OnInit {
 
   editarGrupo(g: GrupoModel) {
     this.editingGrupoId = g.Idgrupo ?? null;
+    this.formModeGrupo = 'edit';     // <- abre o form
     this.submitted = false;
     this.formGrupo.reset({
       Codigo: g.Codigo ?? '',
@@ -112,16 +117,17 @@ export class GruposComponent implements OnInit {
       Margem: Number(raw.Margem ?? 0),
     };
 
-    const req$ = this.editingGrupoId
-      ? this.gruposApi.update(this.editingGrupoId, payload)
+    const isEdit = !!this.editingGrupoId;
+    const req$ = isEdit
+      ? this.gruposApi.update(this.editingGrupoId!, payload)
       : this.gruposApi.create(payload);
 
     req$.subscribe({
       next: (g) => {
-        this.successMsg = this.editingGrupoId ? 'Grupo atualizado.' : 'Grupo criado.';
+        this.successMsg = isEdit ? 'Grupo atualizado.' : 'Grupo criado.';
         this.loadGrupos();
-        this.cancelarEdicaoGrupo();
-        if (!this.editingGrupoId && g?.Idgrupo) this.selecionarGrupo(g.Idgrupo);
+        this.cancelarEdicaoGrupo();   // <- fecha o form
+        if (!isEdit && g?.Idgrupo) this.selecionarGrupo(g.Idgrupo);
       },
       error: (err: HttpErrorResponse) => {
         console.error(err);
@@ -153,6 +159,7 @@ export class GruposComponent implements OnInit {
 
   cancelarEdicaoGrupo() {
     this.editingGrupoId = null;
+    this.formModeGrupo = null;       // <- esconde o form
     this.submitted = false;
     this.formGrupo.reset({ Codigo: '', Descricao: '', Margem: 0 });
   }
@@ -184,7 +191,6 @@ export class GruposComponent implements OnInit {
   }
 
   carregarSubgrupos(Idgrupo: number) {
-    // requer filtro ?Idgrupo= no backend (veja ajuste opcional mais abaixo)
     this.subgruposApi.list({ Idgrupo, ordering: 'Descricao' }).subscribe({
       next: (data) => {
         this.subgrupos = Array.isArray(data) ? data : (data as any).results ?? [];

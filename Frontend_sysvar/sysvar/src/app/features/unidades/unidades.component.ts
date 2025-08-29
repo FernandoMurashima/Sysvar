@@ -28,6 +28,9 @@ export class UnidadesComponent implements OnInit {
   search = '';
   editingId: number | null = null;
 
+  /** novo: controla abertura/fechamento do formulário */
+  formMode: 'new' | 'edit' | null = null;
+
   form = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
     Codigo: ['', [Validators.maxLength(10)]],
@@ -58,6 +61,7 @@ export class UnidadesComponent implements OnInit {
   // ===== CRUD =====
   novo() {
     this.editingId = null;
+    this.formMode = 'new';        // <- abre o form
     this.submitted = false;
     this.form.reset({
       Descricao: '',
@@ -69,6 +73,7 @@ export class UnidadesComponent implements OnInit {
 
   editar(item: Unidade) {
     this.editingId = item.Idunidade ?? null;
+    this.formMode = 'edit';       // <- abre o form
     this.submitted = false;
     this.form.reset({
       Descricao: item.Descricao ?? '',
@@ -103,8 +108,7 @@ export class UnidadesComponent implements OnInit {
       next: () => {
         this.successMsg = this.editingId ? 'Unidade atualizada com sucesso.' : 'Unidade criada com sucesso.';
         this.load();
-        // voltar ao estado inicial (sem o form visível)
-        this.cancelarEdicao();
+        this.cancelarEdicao();   // <- fecha o form
       },
       error: (err: HttpErrorResponse) => {
         console.error(err);
@@ -135,6 +139,7 @@ export class UnidadesComponent implements OnInit {
 
   cancelarEdicao() {
     this.editingId = null;
+    this.formMode = null;         // <- esconde o form
     this.submitted = false;
     this.form.reset({
       Descricao: '',

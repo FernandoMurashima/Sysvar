@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
-    Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco
+    Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco, Ncm  # <-- Ncm aqui
 )
 
 # =============================
@@ -141,6 +141,7 @@ class FamiliaSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['Idfamilia', 'data_cadastro']
 
+
 class UnidadeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Unidade
@@ -156,6 +157,16 @@ class CodigosSerializer(serializers.ModelSerializer):
 
 
 # -----------------------------
+# NCM
+# -----------------------------
+class NcmSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ncm
+        fields = ['ncm', 'campo1', 'descricao', 'aliquota']
+        read_only_fields = []
+
+
+# -----------------------------
 # Produto / Detalhe / Estoque
 # -----------------------------
 class ProdutoSerializer(serializers.ModelSerializer):
@@ -166,6 +177,10 @@ class ProdutoSerializer(serializers.ModelSerializer):
         model = Produto
         fields = '__all__'
         read_only_fields = ['Idproduto', 'data_cadastro', 'referencia']
+        # <<< Deixa Desc_reduzida opcional no POST/PUT
+        extra_kwargs = {
+            'Desc_reduzida': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
 
     def create(self, validated_data):
         tipoproduto = validated_data.get('Tipoproduto')
@@ -218,6 +233,8 @@ class ProdutoSerializer(serializers.ModelSerializer):
             cod_row.valor_var = proximo
             cod_row.save()
 
+            # Mantemos o formato atual (com pontos) conforme seu backend vinha usando.
+            # Se quiser com hífens (CC-EE-GGXXX), é só trocar os pontos por '-'.
             referencia = f"{colecao_codigo}.{estacao_codigo}.{grupo_codigo}{proximo:03d}"
             validated_data['referencia'] = referencia
 
@@ -238,10 +255,12 @@ class EstoqueSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['Idestoque']
 
+
 class GrupoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grupo
         fields = ['Idgrupo', 'Codigo', 'Descricao', 'Margem', 'data_cadastro']
+
 
 class SubgrupoSerializer(serializers.ModelSerializer):
     Idgrupo = serializers.PrimaryKeyRelatedField(queryset=Grupo.objects.all(), allow_null=False)
@@ -249,6 +268,7 @@ class SubgrupoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subgrupo
         fields = ['Idsubgrupo', 'Idgrupo', 'Descricao', 'Margem', 'data_cadastro']
+
 
 class TabelaprecoSerializer(serializers.ModelSerializer):
     class Meta:

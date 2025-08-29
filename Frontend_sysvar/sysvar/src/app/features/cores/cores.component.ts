@@ -28,14 +28,16 @@ export class CoresComponent implements OnInit {
   search = '';
   editingId: number | null = null;
 
-  // opções simples para Status (campo opcional no backend)
+  /** novo: controla visibilidade/título do form */
+  formMode: 'new' | 'edit' | null = null;
+
   statusOptions = ['', 'Ativo', 'Inativo'];
 
   form = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
     Codigo: ['', [Validators.maxLength(12)]],
     Cor: ['', [Validators.required, Validators.maxLength(30)]],
-    Status: [''], // opcional
+    Status: [''],
   });
 
   ngOnInit(): void { this.load(); }
@@ -63,6 +65,7 @@ export class CoresComponent implements OnInit {
   // ===== CRUD =====
   novo() {
     this.editingId = null;
+    this.formMode = 'new';
     this.submitted = false;
     this.form.reset({
       Descricao: '',
@@ -76,6 +79,7 @@ export class CoresComponent implements OnInit {
 
   editar(item: CorModel) {
     this.editingId = item.Idcor ?? null;
+    this.formMode = 'edit';
     this.submitted = false;
     this.form.reset({
       Descricao: item.Descricao ?? '',
@@ -114,8 +118,7 @@ export class CoresComponent implements OnInit {
       next: () => {
         this.successMsg = this.editingId ? 'Cor atualizada com sucesso.' : 'Cor criada com sucesso.';
         this.load();
-        // voltar ao estado inicial (sem form aberto)
-        this.cancelarEdicao();
+        this.cancelarEdicao(); // fecha o form
       },
       error: (err: HttpErrorResponse) => {
         console.error(err);
@@ -146,6 +149,7 @@ export class CoresComponent implements OnInit {
 
   cancelarEdicao() {
     this.editingId = null;
+    this.formMode = null; // <- esconde o form
     this.submitted = false;
     this.form.reset({
       Descricao: '',
