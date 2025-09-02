@@ -1,0 +1,6 @@
+.ls-card { padding: 12px; border-radius: 10px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.muted { color: #6b7280; font-size: .9rem; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-top: 8px; }
+.linha { display: flex; align-items: center; gap: 8px; }
+.err { color: #dc2626; }
+.hint { color: #6b7280; }

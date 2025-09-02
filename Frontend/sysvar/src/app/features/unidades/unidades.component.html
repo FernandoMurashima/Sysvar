@@ -1,0 +1,104 @@
+<div class="unidades-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Unidades</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por descrição ou código..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Novo</button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <section class="card form-placeholder" *ngIf="formMode === null && !submitted">
+    <div class="placeholder-inner">
+      <p>Para cadastrar uma <strong>Unidade</strong>, clique em <strong>Novo</strong>.</p>
+      <p>Para editar, localize uma <strong>Unidade</strong> na lista e clique em <strong>Editar</strong>.</p>
+    </div>
+  </section>
+
+  <div class="content">
+
+    <!-- FORM (agora controlado por formMode) -->
+    <section class="card form" *ngIf="formMode !== null || submitted">
+      <h3>{{ formMode === 'edit' ? 'Editar Unidade' : 'Nova Unidade' }}</h3>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+          <label id="descricao-box">
+            Descrição*
+            <input type="text" formControlName="Descricao" maxlength="100"
+                   [attr.aria-invalid]="fieldInvalid('Descricao')" />
+            <span class="field-error" *ngIf="fieldInvalid('Descricao')">
+              Informe a Descrição (máx. 100).
+            </span>
+          </label>
+
+          <label id="codigo-box">
+            Código
+            <input type="text" formControlName="Codigo" maxlength="10" />
+            <span class="field-error" *ngIf="form.get('Codigo')?.errors?.['maxlength'] && (form.get('Codigo')?.touched || submitted)">
+              Código deve ter no máximo 10 caracteres.
+            </span>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+            {{ formMode === 'edit' ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+        </div>
+
+        <!-- overlay didático -->
+        <div class="overlay" *ngIf="submitted && form.invalid" role="alertdialog" aria-modal="true">
+          <div class="overlay-card">
+            <h4>Ops, precisamos de atenção</h4>
+            <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
+            <ul>
+              <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+            </ul>
+            <button class="btn primary" type="button" (click)="submitted = false">OK, vou corrigir</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && unidades.length === 0">
+        Nenhuma unidade encontrada.
+      </div>
+
+      <table class="table" *ngIf="unidades.length > 0">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Código</th>
+            <th style="width:140px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of unidades">
+            <td>{{ u.Descricao }}</td>
+            <td>{{ u.Codigo }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editar(u)">Editar</button>
+              <button class="btn sm danger" (click)="excluir(u)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+  </div>
+</div>

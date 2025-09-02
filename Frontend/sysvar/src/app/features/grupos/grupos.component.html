@@ -1,0 +1,199 @@
+<div class="grupos-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Grupos</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por código/descrição..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novoGrupo()">Novo Grupo</button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <section class="card form-placeholder" *ngIf="formModeGrupo === null && !submitted">
+    <div class="placeholder-inner">
+      <p>Para cadastrar um <strong>grupo</strong>, clique em <strong>Novo Grupo</strong>.</p>
+      <p>Para editar, localize um <strong>grupo</strong> na lista e clique em <strong>Editar</strong>.</p>
+    </div>
+  </section>
+
+  <div class="content">
+
+    <!-- FORM GRUPO (agora controlado por formModeGrupo) -->
+    <section class="card form" *ngIf="formModeGrupo !== null || submitted">
+      <h3>{{ formModeGrupo === 'edit' ? 'Editar Grupo' : 'Novo Grupo' }}</h3>
+
+      <form [formGroup]="formGrupo" (ngSubmit)="salvarGrupo()">
+        <div class="grid-10">
+          <label id="codigo-box">
+            Código*
+            <input type="text" formControlName="Codigo" maxlength="12"
+                   [attr.aria-invalid]="fieldInvalidGrupo('Codigo')" />
+            <span class="field-error" *ngIf="fieldInvalidGrupo('Codigo')">
+              Informe o Código (máx. 12).
+            </span>
+          </label>
+
+          <label id="descricao-box">
+            Descrição*
+            <input type="text" formControlName="Descricao" maxlength="100"
+                   [attr.aria-invalid]="fieldInvalidGrupo('Descricao')" />
+            <span class="field-error" *ngIf="fieldInvalidGrupo('Descricao')">
+              Informe a Descrição (máx. 100).
+            </span>
+          </label>
+
+          <label id="margem-box">
+            Margem (%)* 
+            <input type="number" step="0.01" formControlName="Margem"
+                   [attr.aria-invalid]="fieldInvalidGrupo('Margem')" />
+            <span class="field-error" *ngIf="fieldInvalidGrupo('Margem')">
+              Informe a Margem (>= 0).
+            </span>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (formGrupo.invalid && submitted)">
+            {{ formModeGrupo === 'edit' ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicaoGrupo()">Cancelar</button>
+        </div>
+
+        <!-- overlay didático -->
+        <div class="overlay" *ngIf="submitted && formGrupo.invalid" role="alertdialog" aria-modal="true">
+          <div class="overlay-card">
+            <h4>Ops, precisamos de atenção</h4>
+            <p>Encontramos {{ getGrupoErrors().length }} pendência(s):</p>
+            <ul>
+              <li *ngFor="let m of getGrupoErrors()">{{ m }}</li>
+            </ul>
+            <button class="btn primary" type="button" (click)="submitted = false">OK, vou corrigir</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA DE GRUPOS -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && grupos.length === 0">
+        Nenhum grupo encontrado.
+      </div>
+
+      <table class="table" *ngIf="grupos.length > 0">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Descrição</th>
+            <th>Margem (%)</th>
+            <th style="width:260px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let g of grupos">
+            <td>{{ g.Codigo }}</td>
+            <td>{{ g.Descricao }}</td>
+            <td>{{ g.Margem | number:'1.2-2' }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editarGrupo(g)">Editar</button>
+              <button class="btn sm" (click)="selecionarGrupo(g.Idgrupo!)">Subgrupos</button>
+              <button class="btn sm danger" (click)="excluirGrupo(g)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+
+    <!-- BLOCO DE SUBGRUPOS -->
+    <section class="card subgrupos" *ngIf="selectedGrupoId !== null">
+      <div class="sub-header">
+        <h3>Subgrupos do Grupo #{{ selectedGrupoId }}</h3>
+        <button class="btn ghost" (click)="fecharSubgrupos()">Fechar</button>
+      </div>
+
+      <!-- Form Subgrupo -->
+      <form [formGroup]="formSubgrupo" (ngSubmit)="salvarSubgrupo()">
+        <div class="grid-10">
+          <label id="grp-box">
+            Grupo*
+            <input type="number" formControlName="Idgrupo" [readonly]="true" />
+            <span class="field-error" *ngIf="fieldInvalidSubgrupo('Idgrupo')">Selecione um Grupo.</span>
+          </label>
+
+          <label id="descsub-box">
+            Descrição*
+            <input type="text" formControlName="Descricao" maxlength="100"
+                   [attr.aria-invalid]="fieldInvalidSubgrupo('Descricao')" />
+            <span class="field-error" *ngIf="fieldInvalidSubgrupo('Descricao')">
+              Informe a Descrição (máx. 100).
+            </span>
+          </label>
+
+          <label id="margemsub-box">
+            Margem (%)* 
+            <input type="number" step="0.01" formControlName="Margem"
+                   [attr.aria-invalid]="fieldInvalidSubgrupo('Margem')" />
+            <span class="field-error" *ngIf="fieldInvalidSubgrupo('Margem')">
+              Informe a Margem (>= 0).
+            </span>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="formSubgrupo.invalid">
+            {{ editingSubgrupoId ? 'Salvar alterações' : 'Adicionar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicaoSubgrupo()">Limpar</button>
+        </div>
+
+        <!-- overlay didático -->
+        <div class="overlay" *ngIf="submittedSub && formSubgrupo.invalid" role="alertdialog" aria-modal="true">
+          <div class="overlay-card">
+            <h4>Ops, precisamos de atenção</h4>
+            <p>Encontramos {{ getSubgrupoErrors().length }} pendência(s):</p>
+            <ul>
+              <li *ngFor="let m of getSubgrupoErrors()">{{ m }}</li>
+            </ul>
+            <button class="btn primary" type="button" (click)="submittedSub = false">OK, vou corrigir</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Lista de Subgrupos -->
+      <div class="empty-hint" *ngIf="subgrupos.length === 0">
+        Nenhum subgrupo cadastrado para este grupo.
+      </div>
+
+      <table class="table" *ngIf="subgrupos.length > 0">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Margem (%)</th>
+            <th style="width:180px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of subgrupos">
+            <td>{{ s.Descricao }}</td>
+            <td>{{ s.Margem | number:'1.2-2' }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editarSubgrupo(s)">Editar</button>
+              <button class="btn sm danger" (click)="excluirSubgrupo(s)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+</div>

@@ -1,0 +1,17 @@
+<div class="ls-card">
+  <h3>Lojas para inicializar estoque</h3>
+  <p class="muted">Marque as lojas que receberão os SKUs com estoque inicial (0).</p>
+
+  <div *ngIf="erro()" class="err">{{ erro() }}</div>
+  <div *ngIf="loading()" class="hint">Carregando lojas...</div>
+
+  <div class="grid" *ngIf="!loading() && lojas?.length">
+    <label class="linha" *ngFor="let l of lojas">
+      <input
+        type="checkbox"
+        [checked]="selected.includes(l.Idloja)"
+        (change)="onCheckboxChange($event, l.Idloja)" />
+      <span>{{ l.nome_loja }}</span>
+    </label>
+  </div>
+</div>

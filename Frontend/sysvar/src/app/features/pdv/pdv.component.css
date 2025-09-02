@@ -1,0 +1,37 @@
+.kbd { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco; }
+.sep { color: #9ca3af; margin: 0 6px; }
+
+.resultados { margin-top: 10px; display: grid; grid-template-columns: 1fr; gap: 6px; }
+.resultado { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+.resultado .desc { display: flex; flex-direction: column; }
+.resultado .preco { font-weight: 700; }
+
+.sku-table { width: 100%; border-collapse: collapse; }
+.sku-table th, .sku-table td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
+.sku-table th.num, .sku-table td.num { text-align: right; }
+
+.sku-table input[type="number"] { width: 100%; }
+
+.totais { margin-top: 12px; display: flex; justify-content: flex-end; }
+.totais .linha { display: flex; gap: 12px; align-items: baseline; font-size: 1.1rem; }
+
+.alert { max-width: 1400px; margin: 0 0 10px; padding: 8px 12px; border-radius: 6px; font-size: 14px; }
+.alert.success { background: #ecfdf5; border: 1px solid #10b981; color: #065f46; }
+.alert.error { background: #fef2f2; border: 1px solid #ef4444; color: #991b1b; }
+.alert.info { background: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; }
+
+.hint { color: #6b7280; }
+.btn { padding: 6px 10px; border: 1px solid #e5e7eb; background: #fff; border-radius: 6px; cursor: pointer; }
+.btn:hover { background: #f9fafb; }
+.btn-primary { background: #111827; color: #fff; border-color: #111827; }
+.btn-primary:hover { background: #0b1220; }
+.btn.danger { border-color: #ef4444; color: #991b1b; }
+.btn.danger:hover { background: #fef2f2; }
+
+.card { padding: 12px; border-radius: 10px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.06); margin-bottom: 12px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.two-cols .col, .three-cols .col, .col { display: flex; flex-direction: column; gap: 6px; }
+.three-cols { grid-template-columns: repeat(3, 1fr); }
+.col-full { grid-column: 1 / -1; }
+.actions { display: flex; gap: 10px; justify-content: flex-end; }
