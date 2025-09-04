@@ -327,9 +327,6 @@ class ProdutoDetalhe(models.Model):
 
     def __str__(self):
         return f'{self.CodigodeBarra} - {self.Codigoproduto}'
-    # --- Compra padrão ---
-    unidade_compra = models.CharField(max_length=10, blank=True, null=True)
-    fator_compra = models.DecimalField(max_digits=18, decimal_places=6, default=1)
 
     class Meta:
         indexes = [
@@ -569,8 +566,6 @@ class Pagar(models.Model):
     idcliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, null=True, blank=True)
     Idfuncionario = models.ForeignKey(Funcionarios, on_delete=models.CASCADE, null=True, blank=True)
     idcompra = models.IntegerField(null=True, blank=True)
-    # --- Vínculos com origem ---
-    nfe = models.ForeignKey('NFeEntrada', on_delete=models.SET_NULL, null=True, blank=True)
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -588,8 +583,6 @@ class PagarItem(models.Model):
     Titulo_descontado = models.CharField(max_length=1)
     Data_desconto = models.DateField()
     idconta = models.IntegerField()
-    # --- Rateio ---
-    tem_rateio = models.BooleanField(default=False)
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -631,8 +624,6 @@ class Compra(models.Model):
                                          null=True, blank=True, default=0)
 
     Idpedidocompra = models.IntegerField(null=True, blank=True)
-    # --- Confirmação ---
-    confirmacao_parcial = models.BooleanField(default=False)
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -663,8 +654,6 @@ class CompraItem(models.Model):
     # custo por unidade após rateios/desc
     custo_unitario = models.DecimalField(max_digits=18, decimal_places=6,
                                          null=True, blank=True)
-    # --- Vínculo com Pedido de Compra ---
-    Idpedidocompraitem = models.ForeignKey('PedidoCompraItem', on_delete=models.SET_NULL, null=True, blank=True)
 
     data_cadastro = models.DateTimeField(default=timezone.now)
 
@@ -702,9 +691,6 @@ class PedidoCompra(models.Model):
     data_nf = models.DateField(null=True, blank=True)
     Chave = models.CharField(max_length=100, null=True, blank=True)
     Idloja = models.ForeignKey(Loja, on_delete=models.CASCADE)
-    # --- Tolerâncias de recebimento ---
-    tolerancia_qtd_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0)
-    tolerancia_preco_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0)
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -719,11 +705,6 @@ class PedidoCompraItem(models.Model):
     valorunitario = models.DecimalField(max_digits=18, decimal_places=2)
     Desconto = models.DecimalField(max_digits=18, decimal_places=2)
     Total_item = models.DecimalField(max_digits=18, decimal_places=2)
-    # --- Recebimento & especificações de compra ---
-    Qtd_recebida = models.IntegerField(default=0)
-    unid_compra = models.CharField(max_length=10, blank=True, null=True)
-    fator_conv = models.DecimalField(max_digits=18, decimal_places=6, default=1)
-    Idprodutodetalhe = models.ForeignKey('ProdutoDetalhe', on_delete=models.SET_NULL, null=True, blank=True)
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -848,13 +829,6 @@ class NFeEntrada(models.Model):
         max_length=20,
         default='importada'  # importada | conciliada | lancada | cancelada
     )
-    # --- Campos para controle do fluxo e deduplicação ---
-    tipo_nota = models.CharField(max_length=20, blank=True, null=True)  # mercadoria/servico/concessionaria
-    origem = models.CharField(max_length=10, blank=True, null=True)     # XML ou MANUAL
-    status = models.CharField(max_length=20, blank=True, null=True)     # rascunho/conciliação/pronta/confirmada
-    fingerprint = models.CharField(max_length=64, unique=True, blank=True, null=True)
-    # --- Modelo de Documento Fiscal ---
-    modelo = models.ForeignKey('ModeloDocumentoFiscal', on_delete=models.PROTECT, null=True, blank=True)
 
     data_cadastro = models.DateTimeField(default=timezone.now)
 
@@ -882,10 +856,6 @@ class NFeItem(models.Model):
     vDesc = models.DecimalField(max_digits=18, decimal_places=2, blank=True, null=True)
     vFrete = models.DecimalField(max_digits=18, decimal_places=2, blank=True, null=True)
     vOutro = models.DecimalField(max_digits=18, decimal_places=2, blank=True, null=True)
-    # --- Conciliação & conversão ---
-    pendente = models.BooleanField(default=True)
-    fator_conversao = models.DecimalField(max_digits=18, decimal_places=6, blank=True, null=True, default=None)
-    unidade_destino = models.CharField(max_length=10, blank=True, null=True)
 
     data_cadastro = models.DateTimeField(default=timezone.now)
 
@@ -898,190 +868,3 @@ class NFeItem(models.Model):
 
     def __str__(self):
         return f'{self.nfe.chave} - item {self.ordem} ({self.cProd})'
-
-# =========================
-# Modelo de Documentos Fiscais (Tabela de referência)
-# =========================
-class ModeloDocumentoFiscal(models.Model):
-    Idmodelo = models.BigAutoField(primary_key=True)
-    codigo = models.CharField(max_length=4, unique=True)  # ex.: '55', '65', '1B'
-    descricao = models.CharField(max_length=120)
-    data_inicial = models.DateField()
-    data_final = models.DateField(null=True, blank=True)
-    ativo = models.BooleanField(default=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ['codigo']
-        verbose_name = 'Modelo de Documento Fiscal'
-        verbose_name_plural = 'Modelos de Documentos Fiscais'
-
-    def __str__(self):
-        return f"{self.codigo} - {self.descricao}"
-
-
-# =========================
-# Centro de Custo
-# =========================
-class CentroCusto(models.Model):
-    Idcentrocusto = models.BigAutoField(primary_key=True)
-    codigo = models.CharField(max_length=20, unique=True)
-    descricao = models.CharField(max_length=120)
-    pai = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
-    ativo = models.BooleanField(default=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"{self.codigo} - {self.descricao}"
-
-
-# =========================
-# Vínculo Fornecedor ↔ SKU
-# =========================
-class FornecedorSkuMap(models.Model):
-    Idforn_sku_map = models.BigAutoField(primary_key=True)
-    Idfornecedor = models.ForeignKey('Fornecedor', on_delete=models.CASCADE)
-    cprod_fornecedor = models.CharField(max_length=60)  # cProd do XML
-    ean_fornecedor = models.CharField(max_length=20, blank=True, null=True)
-    Idprodutodetalhe = models.ForeignKey('ProdutoDetalhe', on_delete=models.CASCADE, null=True, blank=True)
-    Idproduto = models.ForeignKey('Produto', on_delete=models.CASCADE, null=True, blank=True)
-    unid_fornecedor = models.CharField(max_length=10, blank=True, null=True)
-    fator_conversao = models.DecimalField(max_digits=18, decimal_places=6, default=1)
-    ativo = models.BooleanField(default=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['Idfornecedor', 'cprod_fornecedor'], name='uq_fornecedor_cprod')
-        ]
-        indexes = [
-            models.Index(fields=['ean_fornecedor']),
-        ]
-
-    def __str__(self):
-        return f"{self.Idfornecedor_id} -> {self.cprod_fornecedor}"
-
-
-# =========================
-# EANs adicionais por SKU
-# =========================
-class ProdutoEAN(models.Model):
-    Idprodutoean = models.BigAutoField(primary_key=True)
-    Idprodutodetalhe = models.ForeignKey('ProdutoDetalhe', on_delete=models.CASCADE, related_name='eans')
-    ean = models.CharField(max_length=20)
-    principal = models.BooleanField(default=False)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['Idprodutodetalhe', 'ean'], name='uq_produtoean_sku_ean')
-        ]
-        indexes = [
-            models.Index(fields=['ean']),
-        ]
-
-    def __str__(self):
-        return f"{self.Idprodutodetalhe_id} - {self.ean}"
-
-
-# =========================
-# Staging da conciliação por item da NF
-# =========================
-class NFeConciliacaoItem(models.Model):
-    Idconciliacao = models.BigAutoField(primary_key=True)
-    nfe_item = models.ForeignKey('NFeItem', on_delete=models.CASCADE, related_name='conciliacoes')
-    destino_tipo = models.CharField(max_length=10)  # 'sku' ou 'produto'
-    Idprodutodetalhe = models.ForeignKey('ProdutoDetalhe', on_delete=models.CASCADE, null=True, blank=True)
-    Idproduto = models.ForeignKey('Produto', on_delete=models.CASCADE, null=True, blank=True)
-    origem_match = models.CharField(max_length=10)  # 'auto' ou 'manual'
-    fator_unidade = models.DecimalField(max_digits=18, decimal_places=6, default=1)
-    salvar_vinculo = models.BooleanField(default=False)
-    Idpedidocompraitem = models.ForeignKey('PedidoCompraItem', on_delete=models.SET_NULL, null=True, blank=True)
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"{self.nfe_item_id} -> {self.destino_tipo}"
-
-
-# =========================
-# Recebimento x Pedido de Compra (auditoria/saldos)
-# =========================
-class RecebimentoPCItem(models.Model):
-    Idrecpc = models.BigAutoField(primary_key=True)
-    Idpedidocompraitem = models.ForeignKey('PedidoCompraItem', on_delete=models.CASCADE)
-    Idcompraitem = models.ForeignKey('CompraItem', on_delete=models.CASCADE)
-    nfe_item = models.ForeignKey('NFeItem', on_delete=models.SET_NULL, null=True, blank=True)
-    quantidade_atendida = models.DecimalField(max_digits=18, decimal_places=3)
-    valor_atendido = models.DecimalField(max_digits=18, decimal_places=2)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"PCItem {self.Idpedidocompraitem_id} <= CompraItem {self.Idcompraitem_id}"
-
-
-# =========================
-# Modelos de Rateio
-# =========================
-class ModeloRateio(models.Model):
-    Idmodelorateio = models.BigAutoField(primary_key=True)
-    descricao = models.CharField(max_length=120)
-    Idfornecedor = models.ForeignKey('Fornecedor', on_delete=models.SET_NULL, null=True, blank=True)
-    Idnatureza = models.ForeignKey('Nat_Lancamento', on_delete=models.SET_NULL, null=True, blank=True)
-    ativo = models.BooleanField(default=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return self.descricao
-
-
-class ModeloRateioLinha(models.Model):
-    Idmodelorateiolinha = models.BigAutoField(primary_key=True)
-    modelorateio = models.ForeignKey(ModeloRateio, on_delete=models.CASCADE, related_name='linhas')
-    Idcentrocusto = models.ForeignKey('CentroCusto', on_delete=models.CASCADE)
-    percentual = models.DecimalField(max_digits=9, decimal_places=6)  # 0-100%
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"{self.modelorateio_id} - {self.percentual}%"
-
-
-# =========================
-# Rateio por parcela de AP
-# =========================
-class APParcelaRateio(models.Model):
-    Idparcela_rateio = models.BigAutoField(primary_key=True)
-    Idpagaritem = models.ForeignKey('PagarItem', on_delete=models.CASCADE, related_name='rateios')
-    Idcentrocusto = models.ForeignKey('CentroCusto', on_delete=models.CASCADE)
-    Idnatureza = models.ForeignKey('Nat_Lancamento', on_delete=models.SET_NULL, null=True, blank=True)
-    percentual = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    valor = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"Parcela {self.Idpagaritem_id} - CC {self.Idcentrocusto_id}"
-
-
-# =========================
-# Parâmetros de Entrada de NF
-# =========================
-class ParametrosEntradaNFe(models.Model):
-    Idparam = models.BigAutoField(primary_key=True)
-    frete_no_custo = models.BooleanField(default=True)
-    tolerancia_qtd_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0)
-    tolerancia_preco_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0)
-    tolerancia_totais = models.DecimalField(max_digits=6, decimal_places=3, default=0)
-    ap_confirmacao_parcial_por_valor_confirmado = models.BooleanField(default=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-
-# =========================
-# Logs de Entrada
-# =========================
-class EntradaNFeLog(models.Model):
-    Idlog = models.BigAutoField(primary_key=True)
-    nfe = models.ForeignKey('NFeEntrada', on_delete=models.CASCADE, related_name='logs')
-    acao = models.CharField(max_length=40)  # vinculo_manual, salvar_vinculo, reconciliar, confirmar, etc.
-    detalhes = models.TextField(blank=True, null=True)
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    data_cadastro = models.DateTimeField(default=timezone.now)

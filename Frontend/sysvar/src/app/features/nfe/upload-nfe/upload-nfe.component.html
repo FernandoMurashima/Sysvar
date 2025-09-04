@@ -1,0 +1,22 @@
+<div class="card">
+  <h2>Upload de NF-e (XML)</h2>
+
+  <div class="row">
+    <label>Id da Loja (Idloja)
+      <input type="number" [(ngModel)]="lojaId" placeholder="ex.: 1">
+    </label>
+    <label>Fornecedor (opcional)
+      <input type="number" [(ngModel)]="fornecedorId" placeholder="Idfornecedor">
+    </label>
+  </div>
+
+  <label class="file-box">
+    <input type="file" accept=".xml" (change)="onFileChange($event)" />
+    <span>{{ file?.name || 'Selecionar arquivo .xml' }}</span>
+  </label>
+
+  <button type="button" (click)="enviar()" [disabled]="loading">
+    {{ loading ? 'Enviando...' : 'Enviar' }}
+  </button>
+  <p class="err" *ngIf="error">{{ error }}</p>
+</div>

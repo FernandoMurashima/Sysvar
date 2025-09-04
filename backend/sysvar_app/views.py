@@ -1,3 +1,6 @@
+from decimal import Decimal
+from xml.etree import ElementTree as ET
+
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -5,6 +8,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
+from django.utils import timezone
 
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
@@ -12,14 +16,18 @@ from rest_framework.authtoken.models import Token
 from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
-    Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm
+    Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm,
+    TabelaPrecoItem,
+    # modelos fiscais / compras
+    NFeEntrada, NFeItem, FornecedorSkuMap, Compra, CompraItem, MovimentacaoProdutos
 )
 from .serializers import (
     UserSerializer,
     LojaSerializer, ClienteSerializer, ProdutoSerializer, ProdutoDetalheSerializer, EstoqueSerializer,
     FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer,
     CorSerializer, ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer,
-    SubgrupoSerializer, CodigosSerializer, TabelaprecoSerializer, NcmSerializer
+    SubgrupoSerializer, CodigosSerializer, TabelaprecoSerializer, NcmSerializer,
+    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer
 )
 
 # -------------------------
@@ -32,7 +40,6 @@ def health(request):
 
 # -------------------------
 # Register (público)
-# POST /api/auth/register/
 # -------------------------
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -69,7 +76,7 @@ def register(request):
     user.set_password(password)
     user.save()
 
-    # >>> NOVO: vincular loja, se enviada (aceita Idloja / loja / loja_id)
+    # vincular loja, se enviada
     loja_key = data.get('Idloja') or data.get('loja') or data.get('loja_id')
     if loja_key:
         try:
@@ -77,7 +84,7 @@ def register(request):
             user.Idloja = loja
             user.save(update_fields=['Idloja'])
         except (Loja.DoesNotExist, ValueError):
-            pass  # se vier inválido, ignora
+            pass
 
     token, _ = Token.objects.get_or_create(user=user)
 
@@ -90,11 +97,33 @@ def register(request):
             'first_name': user.first_name,
             'last_name': user.last_name,
             'type': user.type,
-            'Idloja': getattr(user, 'Idloja_id', None),                       # <<< NOVO
-            'loja_nome': getattr(user.Idloja, 'nome_loja', None) if getattr(user, 'Idloja', None) else None,  # <<< NOVO
+            'Idloja': getattr(user, 'Idloja_id', None),
+            'loja_nome': getattr(user.Idloja, 'nome_loja', None) if getattr(user, 'Idloja', None) else None,
         },
         'token': token.key
     }, status=status.HTTP_201_CREATED)
+
+# -------------------------
+# Login (público) → retorna token
+# -------------------------
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_view(request):
+    from django.contrib.auth import authenticate
+    username = (request.data.get('username') or '').strip()
+    password = (request.data.get('password') or '').strip()
+    if not username or not password:
+        return Response({'detail': 'username e password são obrigatórios.'}, status=400)
+
+    user = authenticate(username=username, password=password)
+    if not user:
+        return Response({'detail': 'Credenciais inválidas.'}, status=400)
+
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({
+        'token': token.key,
+        'user': UserSerializer(user).data
+    }, status=200)
 
 # -------------------------
 # /api/me (requer auth)
@@ -112,12 +141,12 @@ def me(request):
         'last_name': user.last_name,
         'email': user.email,
         'type': getattr(user, 'type', 'Regular'),
-        'Idloja': loja_id,        # <<< NOVO
-        'loja_nome': loja_nome,   # <<< NOVO
+        'Idloja': loja_id,
+        'loja_nome': loja_nome,
     })
 
 # -------------------------
-# /api/auth/logout (revoga token atual)
+# /api/auth/logout
 # -------------------------
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -135,7 +164,7 @@ def logout_view(request):
                     status=status.HTTP_200_OK)
 
 # -------------------------
-# Users ViewSet (requer auth)
+# Users ViewSet
 # -------------------------
 class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -146,7 +175,7 @@ class UserViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_joined', 'username', 'email', 'first_name', 'last_name', 'type']
 
 # -------------------------
-# ViewSets principais (requerem auth)
+# ViewSets principais
 # -------------------------
 class LojaViewSet(viewsets.ModelViewSet):
     queryset = Loja.objects.all().order_by('-data_cadastro')
@@ -187,23 +216,9 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
     search_fields = ['CodigodeBarra', 'Codigoproduto']
     ordering_fields = ['data_cadastro', 'CodigodeBarra']
 
-    # ===== Novo: criação em lote de SKUs =====
+    # criação em lote de SKUs
     @action(detail=False, methods=['post'], url_path='batch-create')
     def batch_create(self, request):
-        """
-        Payload esperado:
-        {
-          "product_id": 123,
-          "tabela_preco_id": 5,
-          "preco_padrao": 199.90,
-          "lojas": [1,2],              # opcional; se não vier, não cria estoque
-          "itens": [
-            { "cor_id": 10, "tamanho_id": 3, "ean13": "7891234xxxxxD", "preco": 189.9 },
-            { "cor_id": 11, "tamanho_id": 4 }  # sem ean => gera; sem preco => usa preco_padrao
-          ]
-        }
-        Retorno: { created: n, updated: m, detalhes: [...], errors:[...] }
-        """
         data = request.data or {}
         product_id = data.get('product_id')
         tabela_preco_id = data.get('tabela_preco_id')
@@ -218,7 +233,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'itens deve ser uma lista não vazia.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # utilitário interno para EAN-13
         prefixo_pais = '789'
         prefixo_empresa = '1234'
 
@@ -235,7 +249,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
         except Produto.DoesNotExist:
             return Response({'detail': 'Produto não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # tentamos extrair "código do produto" para gravar nos detalhes/estoque
         cod_prod = getattr(produto, 'referencia', None) or str(getattr(produto, 'Idproduto', product_id))
 
         try:
@@ -252,7 +265,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
         errors = []
 
         with transaction.atomic():
-            # linha de contagem para EAN na tabela Codigos (mesma “chave” do ean_next)
             row_cod, _ = Codigos.objects.select_for_update().get_or_create(
                 colecao='EA', estacao='13', defaults={'valor_var': 0}
             )
@@ -267,7 +279,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                     errors.append({'index': idx, 'detail': 'cor_id e tamanho_id são obrigatórios.'})
                     continue
 
-                # valida FK básicas (sem parar o lote)
                 try:
                     cor = Cor.objects.get(pk=cor_id)
                 except Cor.DoesNotExist:
@@ -280,7 +291,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                     errors.append({'index': idx, 'detail': f'Tamanho {tam_id} inexistente.'})
                     continue
 
-                # gera EAN se não vier
                 if not ean13:
                     row_cod.valor_var = int(row_cod.valor_var) + 1
                     row_cod.save(update_fields=['valor_var'])
@@ -288,7 +298,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                     base12 = f'{prefixo_pais}{prefixo_empresa}{seq5}'
                     ean13 = base12 + dv_ean13(base12)
 
-                # cria/atualiza ProdutoDetalhe por CodigodeBarra (assumimos unique/índice)
                 pd, created_pd = ProdutoDetalhe.objects.get_or_create(
                     CodigodeBarra=ean13,
                     defaults={
@@ -299,7 +308,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                     }
                 )
                 if not created_pd:
-                    # garante consistência com o produto atual (se for desejado sobrescrever)
                     changed = False
                     if pd.Idproduto_id != produto.pk:
                         pd.Idproduto = produto; changed = True
@@ -315,28 +323,18 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                 else:
                     created += 1
 
-                # TabelaPrecoItem — unique (codigodebarra, idtabela)
-                from .models import TabelaPrecoItem
-                tpi, _ = TabelaPrecoItem.objects.update_or_create(
+                TabelaPrecoItem.objects.update_or_create(
                     codigodebarra=ean13,
                     idtabela=tabela,
-                    defaults={
-                        'codigoproduto': cod_prod,
-                        'preco': preco_item
-                    }
+                    defaults={'codigoproduto': cod_prod, 'preco': preco_item}
                 )
 
-                # Estoque (opcional): cria 0 por loja informada
                 if lojas:
                     for lj in lojas:
-                        # tentamos criar apenas se não existir
                         Estoque.objects.get_or_create(
                             Idloja=lj,
                             CodigodeBarra=ean13,
-                            defaults={
-                                'codigoproduto': cod_prod,
-                                'Estoque': 0
-                            }
+                            defaults={'codigoproduto': cod_prod, 'Estoque': 0}
                         )
 
                 detalhes_resp.append({
@@ -401,11 +399,6 @@ class GradeViewSet(viewsets.ModelViewSet):
 
 
 class TamanhoViewSet(viewsets.ModelViewSet):
-    """
-    ÚNICA definição (consolidada):
-    - Filtro por grade: /api/tamanhos/?idgrade=<Idgrade>
-    - Busca: Tamanho, Descricao
-    """
     queryset = Tamanho.objects.all().order_by('-data_cadastro')
     serializer_class = TamanhoSerializer
     permission_classes = [IsAuthenticated]
@@ -462,11 +455,6 @@ class CodigosViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='ean-next')
     def ean_next(self, request):
-        """
-        Próximo EAN-13 com chave em Codigos:
-          - colecao='EA' (<= 2 chars), estacao='13'
-          - 789 + 1234 + seq5 + DV
-        """
         prefixo_pais = '789'
         prefixo_empresa = '1234'
 
@@ -535,3 +523,417 @@ class NcmViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['ncm', 'descricao', 'aliquota', 'campo1']
     ordering_fields = ['ncm', 'descricao']
+
+
+# -----------------------------
+# FornecedorSkuMap CRUD
+# -----------------------------
+class FornecedorSkuMapViewSet(viewsets.ModelViewSet):
+    queryset = FornecedorSkuMap.objects.select_related('fornecedor', 'produtodetalhe', 'produto').all().order_by('-data_cadastro')
+    serializer_class = FornecedorSkuMapSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['fornecedor']
+    search_fields = ['cProd_vendor', 'descricao_vendor']
+    ordering_fields = ['data_cadastro', 'cProd_vendor']
+
+
+# =========================
+# NF-e de Entrada
+# =========================
+def _text(node, path, default=''):
+    el = node.find(path)
+    return (el.text or '').strip() if el is not None and el.text is not None else default
+
+def _any(tag):
+    # helper para ignorar namespace
+    return f'.//{{*}}{tag}'
+
+def _only_digits(s):
+    return ''.join(ch for ch in (s or '') if ch.isdigit())
+
+
+class NFeEntradaViewSet(viewsets.ModelViewSet):
+    queryset = NFeEntrada.objects.select_related('Idloja', 'Idfornecedor').all().order_by('-data_cadastro')
+    serializer_class = NFeEntradaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['chave', 'numero', 'serie', 'razao_emitente', 'cnpj_emitente']
+    ordering_fields = ['data_cadastro', 'numero', 'serie', 'dhEmi', 'status']
+
+    # --------- 1) Upload do XML -----------
+    @action(detail=False, methods=['post'], url_path='upload-xml')
+    def upload_xml(self, request):
+        """
+        POST /api/nfe-entradas/upload-xml/
+        Form-data:
+          - xml: arquivo XML da NFe ou nfeProc
+          - Idloja (obrigatório)
+          - Idfornecedor (opcional)  → se não vier, tenta casar por CNPJ do emitente
+        """
+        xml_file = request.FILES.get('xml')
+        if not xml_file:
+            return Response({'detail': 'Envie o arquivo XML em "xml".'}, status=400)
+
+        loja_key = request.data.get('Idloja') or request.data.get('loja')
+        if not loja_key:
+            return Response({'detail': 'Idloja é obrigatório.'}, status=400)
+        try:
+            loja = Loja.objects.get(pk=int(loja_key))
+        except Exception:
+            return Response({'detail': 'Loja inválida.'}, status=400)
+
+        forn = None
+        forn_key = request.data.get('Idfornecedor') or request.data.get('fornecedor')
+
+        try:
+            content = xml_file.read()
+            root = ET.fromstring(content)
+        except Exception as e:
+            return Response({'detail': f'XML inválido: {e}'}, status=400)
+
+        # extrai nós principais
+        inf = root.find(_any('infNFe'))
+        if inf is None:
+            nfe = root.find(_any('NFe'))
+            inf = nfe.find(_any('infNFe')) if nfe is not None else None
+        if inf is None:
+            return Response({'detail': 'Estrutura XML não contém infNFe.'}, status=400)
+
+        chave = (inf.attrib.get('Id') or '').replace('NFe', '').strip()[:44]
+        ide = inf.find(_any('ide'))
+        emit = inf.find(_any('emit'))
+        dets = inf.findall(_any('det'))
+        total = inf.find(_any('total'))
+
+        numero = _text(ide, _any('nNF'))
+        serie  = _text(ide, _any('serie'))
+        dhEmi  = _text(ide, _any('dhEmi')) or _text(ide, _any('dEmi'))
+        try:
+            dhEmi_dt = timezone.now() if not dhEmi else timezone.make_aware(
+                timezone.datetime.fromisoformat(dhEmi.replace('Z','+00:00'))
+            )
+        except Exception:
+            dhEmi_dt = timezone.now()
+
+        cnpj_emit = _only_digits(_text(emit, _any('CNPJ')))
+        razao_emit = _text(emit, _any('xNome'))
+
+        # fornecedor: param > CNPJ
+        if forn_key:
+            try:
+                forn = Fornecedor.objects.get(pk=int(forn_key))
+            except Exception:
+                pass
+        if not forn and cnpj_emit:
+            forn = Fornecedor.objects.filter(Cnpj__regex=r'\D*' + cnpj_emit + r'\D*').first()
+            if not forn:
+                # tentativa simples: limpar Cnpj no banco e comparar
+                forn = next((f for f in Fornecedor.objects.all() if _only_digits(f.Cnpj) == cnpj_emit), None)
+
+        # totais
+        ICMSTot = total.find(_any('ICMSTot')) if total is not None else None
+        def _dec(x):
+            try: return Decimal(str(x))
+            except: return Decimal('0')
+
+        vProd = _dec(_text(ICMSTot, _any('vProd')) if ICMSTot is not None else '0')
+        vDesc = _dec(_text(ICMSTot, _any('vDesc')) if ICMSTot is not None else '0')
+        vFrete = _dec(_text(ICMSTot, _any('vFrete')) if ICMSTot is not None else '0')
+        vOutro = _dec(_text(ICMSTot, _any('vOutro')) if ICMSTot is not None else '0')
+        vIPI = _dec(_text(ICMSTot, _any('vIPI')) if ICMSTot is not None else '0')
+        vICMSST = _dec(_text(ICMSTot, _any('vST')) if ICMSTot is not None else '0')
+        vNF = _dec(_text(ICMSTot, _any('vNF')) if ICMSTot is not None else '0')
+
+        with transaction.atomic():
+            nf = NFeEntrada.objects.create(
+                chave=chave, numero=numero, serie=serie, dhEmi=dhEmi_dt,
+                cnpj_emitente=cnpj_emit or None, razao_emitente=razao_emit or None,
+                Idfornecedor=forn, Idloja=loja,
+                xml=content.decode('utf-8', errors='ignore'),
+                vProd=vProd, vDesc=vDesc, vFrete=vFrete, vOutro=vOutro, vIPI=vIPI, vICMSST=vICMSST, vNF=vNF,
+                status='importada'
+            )
+
+            # itens
+            for det in dets:
+                nItem = det.attrib.get('nItem')
+                prod = det.find(_any('prod'))
+                if prod is None:
+                    continue
+                cProd = _text(prod, _any('cProd'))
+                xProd = _text(prod, _any('xProd'))
+                ncm  = _text(prod, _any('NCM'))
+                cfop = _text(prod, _any('CFOP'))
+                uCom = _text(prod, _any('uCom'))
+                ean  = _text(prod, _any('cEANTrib')) or _text(prod, _any('cEAN'))
+                qCom = _text(prod, _any('qCom'), '0')
+                vUn  = _text(prod, _any('vUnCom'), '0')
+                vTot = _text(prod, _any('vProd'), '0')
+
+                # descontos e outros no item (quando houver)
+                vDesc_i = _text(prod, _any('vDesc')) or '0'
+                vFrete_i = _text(prod, _any('vFrete')) or '0'
+                vOutro_i = _text(prod, _any('vOutro')) or '0'
+
+                def _d(s): 
+                    try: return Decimal(str(s))
+                    except: return Decimal('0')
+
+                NFeItem.objects.create(
+                    nfe=nf,
+                    ordem=(int(nItem) if (nItem and nItem.isdigit()) else 0),
+                    cProd=cProd, xProd=xProd, ncm=ncm, cfop=cfop, uCom=uCom,
+                    qCom=_d(qCom), vUnCom=_d(vUn), vProd=_d(vTot),
+                    cean=(ean or None),
+                    vDesc=_d(vDesc_i), vFrete=_d(vFrete_i), vOutro=_d(vOutro_i)
+                )
+
+        return Response(NFeEntradaSerializer(nf).data, status=201)
+
+    # --------- 2) Reconciliar (preview) -----------
+    @action(detail=True, methods=['post'], url_path='reconciliar')
+    def reconciliar(self, request, pk=None):
+        nf = self.get_object()
+        itens = list(nf.itens.all().order_by('ordem'))
+        fornecedor = nf.Idfornecedor
+
+        result = []
+        matched_all = True
+
+        for it in itens:
+            destino = None
+
+            # 1) SKU por EAN
+            if it.cean:
+                pd = ProdutoDetalhe.objects.filter(CodigodeBarra=it.cean).select_related('Idproduto').first()
+                if pd:
+                    destino = {
+                        'tipo': 'sku',
+                        'Idprodutodetalhe': pd.Idprodutodetalhe,
+                        'ean': pd.CodigodeBarra,
+                        'codigoproduto': pd.Codigoproduto,
+                        'produto_id': pd.Idproduto.Idproduto,
+                        'produto_ref': pd.Idproduto.referencia,
+                        'produto_desc': pd.Idproduto.Descricao
+                    }
+
+            # 2) Mapa fornecedor → SKU/Produto
+            if not destino and fornecedor:
+                m = FornecedorSkuMap.objects.filter(
+                    fornecedor=fornecedor, cProd_vendor=it.cProd
+                ).select_related('produtodetalhe', 'produto').first()
+                if m and m.produtodetalhe:
+                    pd = m.produtodetalhe
+                    destino = {
+                        'tipo': 'sku',
+                        'Idprodutodetalhe': pd.Idprodutodetalhe,
+                        'ean': pd.CodigodeBarra,
+                        'codigoproduto': pd.Codigoproduto,
+                        'produto_id': pd.Idproduto.Idproduto,
+                        'produto_ref': pd.Idproduto.referencia,
+                        'produto_desc': pd.Idproduto.Descricao
+                    }
+                elif m and m.produto:
+                    p = m.produto
+                    destino = {
+                        'tipo': 'produto',
+                        'Idproduto': p.Idproduto,
+                        'produto_ref': p.referencia,
+                        'produto_desc': p.Descricao
+                    }
+
+            if destino is None:
+                matched_all = False
+
+            result.append({
+                'item_id': it.Idnfeitem,
+                'ordem': it.ordem,
+                'cProd': it.cProd,
+                'xProd': it.xProd,
+                'ean': it.cean,
+                'qtd': str(it.qCom),
+                'vUnCom': str(it.vUnCom),
+                'vProd': str(it.vProd),
+                'destino': destino
+            })
+
+        nf.status = 'conciliada' if matched_all else 'importada'
+        nf.save(update_fields=['status'])
+
+        return Response({'status': nf.status, 'itens': result}, status=200)
+
+    # --------- 3) Confirmar (gera Compra + Estoque/Mvto) -----------
+    @action(detail=True, methods=['post'], url_path='confirmar')
+    def confirmar(self, request, pk=None):
+        permitir_parcial = bool(request.data.get('permitir_parcial', False))
+        nf = self.get_object()
+
+        if nf.status == 'lancada':
+            return Response({'detail': 'NF-e já lançada.'}, status=400)
+
+        loja = nf.Idloja
+        if not loja:
+            return Response({'detail': 'NF-e sem loja definida.'}, status=400)
+
+        fornecedor = nf.Idfornecedor
+        if not fornecedor:
+            forn_id = request.data.get('fornecedor_id')
+            if not forn_id:
+                return Response({'detail': 'Informe fornecedor_id no corpo da requisição.'}, status=400)
+            try:
+                fornecedor = Fornecedor.objects.get(pk=int(forn_id))
+            except Exception:
+                return Response({'detail': 'fornecedor_id inválido.'}, status=400)
+
+        itens = list(nf.itens.all().order_by('ordem'))
+        if not itens:
+            return Response({'detail': 'NF-e sem itens.'}, status=400)
+
+        # Mapeamento
+        mapeados = []  # (it, destino_tuple)
+        faltantes = []
+
+        for it in itens:
+            destino = None
+
+            # 1) SKU por EAN
+            if it.cean:
+                pd = ProdutoDetalhe.objects.filter(CodigodeBarra=it.cean).select_related('Idproduto').first()
+                if pd:
+                    destino = ('sku', pd)
+
+            # 2) Mapa do fornecedor (cProd)
+            if not destino:
+                m = FornecedorSkuMap.objects.filter(
+                    fornecedor=fornecedor, cProd_vendor=it.cProd
+                ).select_related('produtodetalhe', 'produto').first()
+                if m and m.produtodetalhe:
+                    destino = ('sku', m.produtodetalhe)
+                elif m and m.produto:
+                    destino = ('produto', m.produto)
+
+            if not destino:
+                faltantes.append({'item_id': it.Idnfeitem, 'ordem': it.ordem, 'cProd': it.cProd, 'xProd': it.xProd, 'ean': it.cean})
+            else:
+                mapeados.append((it, destino))
+
+        if faltantes and not permitir_parcial:
+            return Response({'detail': 'Itens sem mapeamento.', 'faltantes': faltantes}, status=400)
+
+        # Totais e rateio
+        total_base = sum((it.vProd for (it, _) in mapeados), Decimal('0')) or Decimal('1')
+        frete_total = nf.vFrete or Decimal('0')
+        outros_total = nf.vOutro or Decimal('0')
+        desc_total = nf.vDesc or Decimal('0')
+
+        with transaction.atomic():
+            # Compra (cria se não houver)
+            try:
+                compra = nf.compra  # related_name='compra' em Compra.nfe
+                ja_existia = True
+            except Exception:
+                compra = None
+                ja_existia = False
+
+            if not ja_existia:
+                compra = Compra.objects.create(
+                    Idfornecedor=fornecedor,
+                    Idloja=loja,
+                    Datacompra=timezone.now().date(),
+                    Status='OK',
+                    Documento=nf.numero or '',
+                    Datadocumento=(nf.dhEmi.date() if nf.dhEmi else timezone.now().date()),
+                    nfe=nf,
+                    Valorpedido=(nf.vNF or nf.vProd or Decimal('0')),
+                    valor_total=(nf.vNF or nf.vProd or Decimal('0')),
+                    frete_rateado=frete_total,
+                    desconto_rateado=desc_total,
+                    outros_rateado=outros_total,
+                    Idpedidocompra=None
+                )
+
+            # CompraItens + Estoque/Mvto
+            created_items = 0
+            atualizados_estoque = 0
+
+            for it, (tipo, alvo) in mapeados:
+                proporcao = (it.vProd / total_base) if total_base else Decimal('0')
+                frete_item = (frete_total * proporcao).quantize(Decimal('0.01'))
+                outros_item = (outros_total * proporcao).quantize(Decimal('0.01'))
+                desc_item = (it.vDesc or Decimal('0')) + (desc_total * proporcao).quantize(Decimal('0.01'))
+
+                qtd = int(it.qCom or 0)
+                if qtd <= 0:
+                    continue
+
+                custo_unit = ((it.vProd - desc_item + frete_item + outros_item) / qtd).quantize(Decimal('0.000001'))
+
+                if tipo == 'sku':
+                    pd = alvo  # ProdutoDetalhe
+                    CompraItem.objects.create(
+                        Idcompra=compra,
+                        Idprodutodetalhe=pd,
+                        Idproduto=None,
+                        Qtd=qtd,
+                        Valorunitario=it.vUnCom,
+                        Descontoitem=(it.vDesc or Decimal('0')),
+                        Totalitem=it.vProd,
+                        frete_rateado_item=frete_item,
+                        outros_rateado_item=outros_item,
+                        custo_unitario=custo_unit
+                    )
+                    created_items += 1
+
+                    # Estoque
+                    est, _ = Estoque.objects.get_or_create(
+                        Idloja=loja, CodigodeBarra=pd.CodigodeBarra,
+                        defaults={'codigoproduto': pd.Codigoproduto, 'Estoque': 0}
+                    )
+                    est.Estoque = (est.Estoque or 0) + qtd
+                    if not est.codigoproduto:
+                        est.codigoproduto = pd.Codigoproduto
+                    est.save(update_fields=['Estoque', 'codigoproduto'])
+                    atualizados_estoque += 1
+
+                    # Movimentação
+                    try:
+                        MovimentacaoProdutos.objects.create(
+                            Idloja=loja,
+                            Data_mov=(nf.dhEmi.date() if nf.dhEmi else timezone.now().date()),
+                            Documento=nf.numero or '',
+                            Tipo='E',
+                            Qtd=qtd,
+                            Valor=it.vProd,
+                            CodigodeBarra=pd.CodigodeBarra,
+                            codigoproduto=pd.Codigoproduto
+                        )
+                    except Exception:
+                        pass
+
+                else:  # 'produto' (uso/consumo) – não movimenta estoque
+                    p = alvo  # Produto
+                    CompraItem.objects.create(
+                        Idcompra=compra,
+                        Idprodutodetalhe=None,
+                        Idproduto=p,
+                        Qtd=qtd,
+                        Valorunitario=it.vUnCom,
+                        Descontoitem=(it.vDesc or Decimal('0')),
+                        Totalitem=it.vProd,
+                        frete_rateado_item=frete_item,
+                        outros_rateado_item=outros_item,
+                        custo_unitario=custo_unit
+                    )
+                    created_items += 1
+
+            nf.status = 'lancada'
+            nf.save(update_fields=['status'])
+
+        return Response({
+            'status': nf.status,
+            'compra_id': compra.Idcompra,
+            'itens_criados': created_items,
+            'estoque_atualizado_skus': atualizados_estoque,
+            'itens_sem_mapeamento': faltantes if permitir_parcial else []
+        }, status=200)

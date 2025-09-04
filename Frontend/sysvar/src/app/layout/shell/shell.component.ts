@@ -69,20 +69,24 @@ export class ShellComponent {
     {
       label: 'Compras', icon: 'bi bi-receipt', roles: ['Regular'],
       children: [
-        { label: 'Entrada de Nota Fiscal'    , link: '/compras/nfentrada' , icon: 'bi bi-cash',                   roles: ['Regular'] },
-        { label: 'Pedidos de Compras'        , link: '/compras/pedcompras', icon: 'bi bi-bag-check',              roles: ['Regular'] },
-        { label: 'Devoluções de Compras'     , link: '/compras/devcompras', icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
-        { label: 'Cotação de Compras'        , link: '/compras/cotacao'   , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        
+        { label: 'Pedidos de Compras'        , link: '/compras/pedidos   ' , icon: 'bi bi-bag-check',              roles: ['Regular'] },
+        { label: 'Devoluções'                , link: '/compras/devolucoes' , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Cotação de Compras'        , link: '/compras/cotacoes'   , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Entrada de Nf-e'           , link: '/compras/nfe/upload' , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Trocas'                    , link: '/compras/trocas'     , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Notas Lançadas'            , link: '/compras/notas'      , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+
       ]
     },
 
     {
       label: 'Financeiro', icon: 'bi bi-cash-coin', roles: ['Regular'],
       children: [
-        { label: 'Contas a Receber',       link: '/financeiro/receber',       icon: 'bi bi-cash-stack',       roles: ['Regular'] },
-        { label: 'Contas a Pagar',         link: '/financeiro/pagar',         icon: 'bi bi-wallet2',          roles: ['Regular'] },
-        { label: 'Caixa',                  link: '/financeiro/caixa',         icon: 'bi bi-safe',             roles: ['Regular'] },
-        { label: 'Contas Bancárias',       link: '/financeiro/contas',        icon: 'bi bi-bank',             roles: ['Regular'] },
+        { label: 'Contas a Receber',          link: '/financeiro/receber',       icon: 'bi bi-cash-stack',       roles: ['Regular'] },
+        { label: 'Contas a Pagar',            link: '/financeiro/pagar',         icon: 'bi bi-wallet2',          roles: ['Regular'] },
+        { label: 'Caixa',                     link: '/financeiro/caixa',         icon: 'bi bi-safe',             roles: ['Regular'] },
+        { label: 'Contas Bancárias',          link: '/financeiro/contas',        icon: 'bi bi-bank',             roles: ['Regular'] },
         { label: 'Movimentações Financeiras', link: '/financeiro/movimentacoes', icon: 'bi bi-arrow-left-right', roles: ['Regular'] },
       ]
     },
@@ -90,7 +94,7 @@ export class ShellComponent {
     {
       label: 'Relatórios', icon: 'bi bi-graph-up', roles: ['Regular'],
       children: [
-        { label: 'Verndas'    ,  link: '/relatorios/vendas',     icon: 'bi bi-bar-chart', roles: ['Regular'] },
+        { label: 'Vendas'     ,  link: '/relatorios/vendas',     icon: 'bi bi-bar-chart', roles: ['Regular'] },
         { label: 'Financeiro' ,  link: '/relatorios/financeiro', icon: 'bi bi-pie-chart', roles: ['Regular'] },
         { label: 'Estoque'    ,  link: '/relatorios/estoque',    icon: 'bi bi-clipboard', roles: ['Regular'] },
         { label: 'Compras'    ,  link: '/relatorios/compras',    icon: 'bi bi-clipboard', roles: ['Regular'] },
@@ -102,12 +106,12 @@ export class ShellComponent {
     {
       label: 'Configurações', icon: 'bi bi-gear', roles: ['Regular'],
       children: [
-        { label: 'Usuários',        link: '/config/usuarios',    icon: 'bi bi-person-gear',  roles: ['Regular'] },
-        { label: 'Perfis/Acessos',  link: '/config/perfis',      icon: 'bi bi-shield-lock',  roles: ['Regular'] },
-        { label: 'Parâmetros',      link: '/config/parametros',  icon: 'bi bi-sliders',      roles: ['Regular'] },
-        { label: 'Tabela de Preços',link: '/config/precos',      icon: 'bi bi-table',        roles: ['Regular'] },
-        { label: 'Impostos / NCM',  link: '/config/impostos',    icon: 'bi bi-percent',      roles: ['Regular'] },
-        { label: 'Estoque Lançamento',  link: 'config/estoque-lancamento',    icon: 'bi bi-percent',      roles: ['Regular'] },
+        { label: 'Usuários',           link: '/config/usuarios',           icon: 'bi bi-person-gear',  roles: ['Regular'] },
+        { label: 'Perfis/Acessos',     link: '/config/perfis',             icon: 'bi bi-shield-lock',  roles: ['Regular'] },
+        { label: 'Parâmetros',         link: '/config/parametros',         icon: 'bi bi-sliders',      roles: ['Regular'] },
+        { label: 'Tabela de Preços',   link: '/config/precos',             icon: 'bi bi-table',        roles: ['Regular'] },
+        { label: 'Impostos / NCM',     link: '/config/impostos',           icon: 'bi bi-percent',      roles: ['Regular'] },
+        { label: 'Estoque Lançamento', link: '/config/estoque-lancamento', icon: 'bi bi-percent',      roles: ['Regular'] },
       ]
     },
   ];

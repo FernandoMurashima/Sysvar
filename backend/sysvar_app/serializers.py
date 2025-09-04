@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
@@ -6,7 +7,10 @@ from django.contrib.auth import get_user_model
 from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
-    Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco, Ncm  # <-- Ncm aqui
+    Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco, Ncm,
+    TabelaPrecoItem,  # usado em ProdutoDetalhe batch
+    # >>> modelos fiscais e compras conforme seu models.py
+    NFeEntrada, NFeItem, FornecedorSkuMap, Compra, CompraItem
 )
 
 # =============================
@@ -14,21 +18,10 @@ from .models import (
 # =============================
 User = get_user_model()
 
-""" class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'type', 'is_active', 'is_staff', 'is_superuser', 'date_joined'
-        ]
-        read_only_fields = ['id', 'date_joined', 'is_superuser'] """
-
 class UserSerializer(serializers.ModelSerializer):
-    # permite enviar/editar o id da loja diretamente
     Idloja = serializers.PrimaryKeyRelatedField(
         queryset=Loja.objects.all(), allow_null=True, required=False
     )
-    # só leitura: nome da loja
     loja_nome = serializers.CharField(source='Idloja.nome_loja', read_only=True)
 
     class Meta:
@@ -36,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'type', 'is_active', 'is_staff', 'is_superuser', 'date_joined',
-            'Idloja', 'loja_nome',            # <<< NOVOS CAMPOS
+            'Idloja', 'loja_nome',
         ]
         read_only_fields = ['id', 'date_joined', 'is_superuser', 'loja_nome']
 
@@ -132,7 +125,6 @@ class ColecaoSerializer(serializers.ModelSerializer):
                 estacao=estacao,
                 defaults={'valor_var': 1}
             )
-            # Sincroniza o Contador da Colecao com o valor_var do Codigos
             try:
                 colecao.Contador = int(cod.valor_var)
             except (TypeError, ValueError):
@@ -141,9 +133,6 @@ class ColecaoSerializer(serializers.ModelSerializer):
         return colecao
 
     def to_representation(self, instance):
-        """
-        Ao retornar a coleção, garantir que o Contador reflita o valor atual do Codigos.
-        """
         data = super().to_representation(instance)
         codigo = (instance.Codigo or '').strip()
         estacao = (instance.Estacao or '').strip()
@@ -195,7 +184,6 @@ class ProdutoSerializer(serializers.ModelSerializer):
         model = Produto
         fields = '__all__'
         read_only_fields = ['Idproduto', 'data_cadastro', 'referencia']
-        # <<< Deixa Desc_reduzida opcional no POST/PUT
         extra_kwargs = {
             'Desc_reduzida': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
@@ -251,8 +239,6 @@ class ProdutoSerializer(serializers.ModelSerializer):
             cod_row.valor_var = proximo
             cod_row.save()
 
-            # Mantemos o formato atual (com pontos) conforme seu backend vinha usando.
-            # Se quiser com hífens (CC-EE-GGXXX), é só trocar os pontos por '-'.
             referencia = f"{colecao_codigo}.{estacao_codigo}.{grupo_codigo}{proximo:03d}"
             validated_data['referencia'] = referencia
 
@@ -302,3 +288,39 @@ class TabelaprecoSerializer(serializers.ModelSerializer):
         if promo and promo.upper() not in {'SIM', 'NAO', 'NÃO'}:
             raise serializers.ValidationError({'Promocao': "Use 'SIM' ou 'NAO'."})
         return attrs
+
+
+# -----------------------------
+# FornecedorSkuMap (mapeamento fornecedor -> SKU/Produto)
+# -----------------------------
+class FornecedorSkuMapSerializer(serializers.ModelSerializer):
+    fornecedor_nome = serializers.CharField(source='fornecedor.Nome_fornecedor', read_only=True)
+    sku_ean = serializers.CharField(source='produtodetalhe.CodigodeBarra', read_only=True)
+    produto_ref = serializers.CharField(source='produto.referencia', read_only=True)
+    produto_desc = serializers.CharField(source='produto.Descricao', read_only=True)
+
+    class Meta:
+        model = FornecedorSkuMap
+        fields = '__all__'
+        read_only_fields = ['Idmap', 'data_cadastro']
+
+
+# -----------------------------
+# NF-e de Entrada (espelho fiscal)
+# -----------------------------
+class NFeItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NFeItem
+        fields = '__all__'
+        read_only_fields = ['Idnfeitem', 'data_cadastro']
+
+
+class NFeEntradaSerializer(serializers.ModelSerializer):
+    loja_nome = serializers.CharField(source='Idloja.nome_loja', read_only=True)
+    fornecedor_nome = serializers.CharField(source='Idfornecedor.Nome_fornecedor', read_only=True)
+    itens = NFeItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = NFeEntrada
+        fields = '__all__'
+        read_only_fields = ['Idnfe', 'data_cadastro', 'status']

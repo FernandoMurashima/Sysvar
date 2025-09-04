@@ -1,0 +1,64 @@
+<div class="card">
+  <h2>Conciliação de Itens — NF-e #{{ nfeId }}</h2>
+
+  <div *ngIf="loading">Carregando...</div>
+  <p class="err" *ngIf="error">{{ error }}</p>
+
+  <div *ngIf="!loading && !error && data">
+    <div class="toolbar">
+      <label>Fornecedor (se necessário):
+        <input type="number" [(ngModel)]="fornecedorId" placeholder="fornecedor_id">
+      </label>
+      <button type="button" (click)="reconciliar()">Reconciliar</button>
+      <span class="badge" [class.bad]="countPendentes()>0">
+        Pendentes: {{ countPendentes() }}
+      </span>
+    </div>
+
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>nº</th>
+          <th>cProd</th>
+          <th>Descrição</th>
+          <th>EAN</th>
+          <th>Qtd</th>
+          <th>Vlr Unit</th>
+          <th>Vlr Total</th>
+          <th>Mapeamento</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let it of data.itens">
+          <td>{{ it.ordem }}</td>
+          <td>{{ it.cProd }}</td>
+          <td>{{ it.xProd }}</td>
+          <td>{{ it.ean || '—' }}</td>
+          <td class="num">{{ it.qtd }}</td>
+          <td class="num">{{ it.vUnCom }}</td>
+          <td class="num">{{ it.vProd }}</td>
+          <td>
+            <ng-container *ngIf="it.destino; else pend">
+              <ng-container *ngIf="it.destino?.tipo === 'sku'; else produto">
+                <span class="ok">✔</span>
+                SKU #{{ $any(it.destino).Idprodutodetalhe }}
+                — {{ $any(it.destino).produto_ref }} / {{ $any(it.destino).produto_desc }}
+              </ng-container>
+              <ng-template #produto>
+                <span class="ok">✔</span>
+                PROD #{{ $any(it.destino).Idproduto }}
+                — {{ $any(it.destino).produto_ref }} / {{ $any(it.destino).produto_desc }}
+              </ng-template>
+            </ng-container>
+            <ng-template #pend><span class="bad">PENDENTE</span></ng-template>
+          </td>
+
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="actions">
+      <button type="button" (click)="continuar()">Continuar para Confirmar</button>
+    </div>
+  </div>
+</div>

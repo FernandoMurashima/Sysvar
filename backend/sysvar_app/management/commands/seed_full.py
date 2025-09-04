@@ -24,7 +24,9 @@ from ...models import (
     # compras
     Compra, CompraItem, PedidoCompra, PedidoCompraItem,
     # impostos/caixa/despesas
-    Imposto, Caixa, Despesa
+    Imposto, Caixa, Despesa,
+    # novos para conciliação NF-e
+    FornecedorSkuMap, NFeEntrada, NFeItem
 )
 
 # ---------- helpers ----------
@@ -98,7 +100,6 @@ class Command(BaseCommand):
             )
             if created:
                 u.set_password("123456")
-            # vincula Idloja (campo existe no seu User)
             u.Idloja = lj
             u.save()
         self.stdout.write(self.style.SUCCESS("Usuários exemplo ok"))
@@ -189,7 +190,7 @@ class Command(BaseCommand):
         t_fim = today() + timedelta(days=365)
         tabela, _ = Tabelapreco.objects.get_or_create(
             NomeTabela="Varejo",
-            defaults=dict(DataInicio=t_inicio, DataFim=t_fim, Promocao="Nao")
+            defaults=dict(DataInicio=t_inicio, DataFim=t_fim, Promocao="NAO")
         )
         self.stdout.write(self.style.SUCCESS("Tabela de preço ok"))
 
@@ -334,7 +335,7 @@ class Command(BaseCommand):
 
         # ---------------- CONTAS BANCÁRIAS ------
         contas = []
-        for i in range(1, 3):
+        for i in range(1, 2+1):
             c, _ = ContaBancaria.objects.get_or_create(
                 descricao=f"Conta {i}",
                 defaults=dict(
@@ -380,7 +381,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Movimentações financeiras ok"))
 
         # ---------------- COMPRAS/PEDIDOS -------
-        # pega alguns produtos para itens
         some_products = list(Produto.objects.all()[:min(5, Produto.objects.count())])
 
         # Pedido de compra
@@ -406,7 +406,7 @@ class Command(BaseCommand):
             pc.Valorpedido = total_pc
             pc.save()
 
-            # Compra vinculada
+            # Compra vinculada (operacional)
             comp, _ = Compra.objects.get_or_create(
                 Idfornecedor=f, Idloja=lj, Documento=f"NF-{lj.Idloja}-001",
                 defaults=dict(
@@ -478,7 +478,6 @@ class Command(BaseCommand):
                 Idloja=lj, Data_inventario=today()-timedelta(days=2),
                 defaults=dict(Descricao=f"Inventário {lj.Apelido_loja}", status="OK")
             )
-            # alguns itens
             detalhes = list(ProdutoDetalhe.objects.all()[:5])
             for det in detalhes:
                 InventarioItem.objects.get_or_create(
@@ -555,7 +554,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Vendas/Itens/ReceberCartao ok"))
 
         # ---------------- MOV. PRODUTOS EXTRA ---
-        # Entrada (E) simbólica
         for lj in lojas:
             det = ProdutoDetalhe.objects.first()
             if det:
@@ -563,5 +561,99 @@ class Command(BaseCommand):
                     Idloja=lj, Data_mov=today()-timedelta(days=1), Documento=f"ENT-{lj.Idloja}-001", Tipo="E",
                     Qtd=5, Valor=rnd_decimal(30, 60), CodigodeBarra=det.CodigodeBarra, codigoproduto=det.Codigoproduto
                 )
+
+        # ====== MAPEAMENTOS FORNECEDOR → SKU/PRODUTO ======
+        if forn_list:
+            fornecedor_demo = forn_list[0]  # Fornecedor 1
+            # pega 6 SKUs da base para mapear cProd_vendor "SKU-0001" etc.
+            skus_demo = list(ProdutoDetalhe.objects.all()[:6])
+            for i, pd in enumerate(skus_demo, start=1):
+                FornecedorSkuMap.objects.get_or_create(
+                    fornecedor=fornecedor_demo,
+                    cProd_vendor=f"SKU-{i:04d}",
+                    defaults=dict(
+                        descricao_vendor=f"SKU fornecedor {i:04d}",
+                        produtodetalhe=pd,
+                        produto=None
+                    )
+                )
+
+            # item de uso/consumo (mapeia cProd_vendor para Produto)
+            prod_consumo = Produto.objects.filter(Tipoproduto="2").first() or Produto.objects.first()
+            if prod_consumo:
+                FornecedorSkuMap.objects.get_or_create(
+                    fornecedor=fornecedor_demo,
+                    cProd_vendor="CONSUMO-001",
+                    defaults=dict(
+                        descricao_vendor="Material de limpeza",
+                        produto=prod_consumo,
+                        produtodetalhe=None
+                    )
+                )
+
+            self.stdout.write(self.style.SUCCESS("FornecedorSkuMap demo ok"))
+
+        # ====== NF-e DEMO IMPORTADA (sem upload) ======
+        if lojas and forn_list:
+            lj = lojas[0]
+            f = forn_list[0]
+            # EAN real da base para o Item 1
+            ean_ok = ProdutoDetalhe.objects.values_list("CodigodeBarra", flat=True).first()
+            if ean_ok:
+                nfe = NFeEntrada.objects.create(
+                    chave="9"*44,
+                    numero="12345",
+                    serie="1",
+                    dhEmi=timezone.now(),
+                    cnpj_emitente=f.Cnpj.replace(".", "").replace("/", "").replace("-", "")[:14],
+                    razao_emitente=f.Nome_fornecedor,
+                    Idfornecedor=f,
+                    Idloja=lj,
+                    vProd=Decimal("1000.00"),
+                    vDesc=Decimal("50.00"),
+                    vFrete=Decimal("40.00"),
+                    vOutro=Decimal("10.00"),
+                    vIPI=Decimal("0.00"),
+                    vICMSST=Decimal("0.00"),
+                    vNF=Decimal("1000.00"),
+                    status="importada"
+                )
+                # Item 1: com EAN (bate com SKU)
+                NFeItem.objects.create(
+                    nfe=nfe, ordem=1,
+                    cProd="EAN-OK-001",
+                    xProd="Camisa com EAN",
+                    ncm="61046200", cfop="5102", uCom="UN",
+                    qCom=Decimal("10.000"),
+                    vUnCom=Decimal("99.900000"),
+                    vProd=Decimal("999.00"),
+                    cean=ean_ok,
+                    vDesc=Decimal("0.00"), vFrete=Decimal("0.00"), vOutro=Decimal("0.00")
+                )
+                # Item 2: sem EAN, com cProd mapeado para SKU
+                NFeItem.objects.create(
+                    nfe=nfe, ordem=2,
+                    cProd="SKU-0001",       # casará no FornecedorSkuMap
+                    xProd="Calça sem EAN (cProd mapeado)",
+                    ncm="61046300", cfop="5102", uCom="UN",
+                    qCom=Decimal("5.000"),
+                    vUnCom=Decimal("79.900000"),
+                    vProd=Decimal("399.50"),
+                    cean=None,
+                    vDesc=Decimal("20.00"), vFrete=Decimal("0.00"), vOutro=Decimal("0.00")
+                )
+                # Item 3: uso/consumo (mapeado para Produto, não mexe em estoque)
+                NFeItem.objects.create(
+                    nfe=nfe, ordem=3,
+                    cProd="CONSUMO-001",
+                    xProd="Material de limpeza (uso/consumo)",
+                    ncm="62044200", cfop="5556", uCom="UN",
+                    qCom=Decimal("2.000"),
+                    vUnCom=Decimal("25.000000"),
+                    vProd=Decimal("50.00"),
+                    cean=None,
+                    vDesc=Decimal("0.00"), vFrete=Decimal("0.00"), vOutro=Decimal("0.00")
+                )
+                self.stdout.write(self.style.SUCCESS(f"NF-e demo criada: {nfe.chave} (status={nfe.status})"))
 
         self.stdout.write(self.style.MIGRATE_HEADING("==> SEED COMPLETO — finalizado com sucesso!"))

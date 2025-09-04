@@ -1,0 +1,20 @@
+<div class="card">
+  <h2>Confirmar NF-e #{{ nfeId }}</h2>
+
+  <label><input type="checkbox" [(ngModel)]="permitirParcial"> Permitir parcial</label>
+
+  <div class="actions">
+    <button (click)="confirmar()" [disabled]="loading">{{ loading ? 'Confirmando...' : 'Confirmar' }}</button>
+  </div>
+
+  <p class="err" *ngIf="error">{{ error }}</p>
+
+  <div *ngIf="resultado">
+    <h3>Status: {{ resultado.status }}</h3>
+    <p *ngIf="resultado.compra_id">Compra gerada: #{{ resultado.compra_id }}</p>
+    <div *ngIf="resultado.itens_sem_mapeamento?.length">
+      <strong>Itens sem mapeamento:</strong>
+      <pre>{{ resultado.itens_sem_mapeamento | json }}</pre>
+    </div>
+  </div>
+</div>

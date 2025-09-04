@@ -1,13 +1,16 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
+
 from .views import (
-    health, register, me, logout_view,
+    health, register, me, logout_view, login_view,
     UserViewSet,
     LojaViewSet, ClienteViewSet, ProdutoViewSet, ProdutoDetalheViewSet, EstoqueViewSet,
     FornecedorViewSet, VendedorViewSet, FuncionariosViewSet, GradeViewSet, TamanhoViewSet,
     CorViewSet, ColecaoViewSet, FamiliaViewSet, UnidadeViewSet, GrupoViewSet, SubgrupoViewSet,
-    CodigosViewSet, TabelaprecoViewSet, NcmViewSet  # <-- NcmViewSet
+    CodigosViewSet, TabelaprecoViewSet, NcmViewSet,
+    FornecedorSkuMapViewSet,
+    NFeEntradaViewSet
 )
 
 router = DefaultRouter()
@@ -30,12 +33,18 @@ router.register(r'grupos', GrupoViewSet)
 router.register(r'subgrupos', SubgrupoViewSet)
 router.register(r'codigos', CodigosViewSet)
 router.register(r'tabelas-preco', TabelaprecoViewSet)
-router.register(r'ncms', NcmViewSet)  # <-- NOVO
+router.register(r'ncms', NcmViewSet)
+
+# novos
+router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet)
+router.register(r'nfe-entradas', NFeEntradaViewSet, basename='nfe-entrada')
 
 urlpatterns = [
     path('health/', health, name='health'),
     path('auth/register/', register, name='register'),
+    path('auth/login/', login_view, name='login'),
     path('auth/logout/', logout_view, name='logout'),
     path('me/', me, name='me'),
     path('', include(router.urls)),
+    
 ]
