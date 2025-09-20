@@ -1,0 +1,124 @@
+<div class="tabelas-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Tabelas de Preço</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por nome..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="nova()">Nova Tabela</button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <div class="content">
+
+    <!-- FORM: agora controlado por showForm -->
+    <section class="card form" *ngIf="showForm">
+      <h3>{{ editingId ? 'Editar Tabela de Preço' : 'Nova Tabela de Preço' }}</h3>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+          <label id="nome-box">
+            Nome da Tabela*
+            <input type="text" formControlName="NomeTabela" maxlength="100"
+                   [attr.aria-invalid]="fieldInvalid('NomeTabela')" />
+            <span class="field-error" *ngIf="fieldInvalid('NomeTabela')">
+              Informe a Nome da Tabela (máx. 100).
+            </span>
+          </label>
+
+          <label id="datainicio-box">
+            Data Início*
+            <input type="date" formControlName="DataInicio"
+                   [attr.aria-invalid]="fieldInvalid('DataInicio')" />
+            <span class="field-error" *ngIf="fieldInvalid('DataInicio')">
+              Informe a Data de Início.
+            </span>
+          </label>
+
+          <label id="promocao-box">
+            Promoção*
+            <select formControlName="Promocao"
+                    [attr.aria-invalid]="fieldInvalid('Promocao')">
+              <option value="NAO">NAO</option>
+              <option value="SIM">SIM</option>
+            </select>
+            <span class="field-error" *ngIf="fieldInvalid('Promocao')">
+              Selecione SIM ou NAO.
+            </span>
+          </label>
+
+          <label id="datafim-box">
+            Data Fim*
+            <input type="date" formControlName="DataFim"
+                   [attr.aria-invalid]="fieldInvalid('DataFim')" />
+            <span class="field-error" *ngIf="fieldInvalid('DataFim')">
+              Informe a Data de Fim.
+            </span>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+            {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+        </div>
+
+        <!-- overlay didático -->
+        <div class="overlay" *ngIf="submitted && form.invalid" role="alertdialog" aria-modal="true">
+          <div class="overlay-card">
+            <h4>Ops, precisamos de atenção</h4>
+            <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
+            <ul>
+              <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+            </ul>
+            <button class="btn primary" type="button" (click)="submitted = false">OK, vou corrigir</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && tabelas.length === 0">
+        Nenhuma tabela encontrada.
+      </div>
+
+      <table class="table" *ngIf="tabelas.length > 0">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Promoção</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th style="width:260px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of tabelas">
+            <td>{{ t.NomeTabela }}</td>
+            <td>{{ t.Promocao }}</td>
+            <td>{{ t.DataInicio }}</td>
+            <td>{{ t.DataFim }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editar(t)">Editar</button>
+              <button class="btn sm danger" (click)="excluir(t)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+
+  </div>
+</div>

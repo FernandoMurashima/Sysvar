@@ -1,0 +1,36 @@
+<!-- Item de nível atual -->
+<button
+  class="nav-link"
+  [class.has-children]="hasChildren"
+  (click)="hasChildren ? toggle() : null"
+  *ngIf="!item.link || hasChildren"
+  type="button"
+>
+  <i *ngIf="item.icon" class="bi me-2" [ngClass]="item.icon"></i>
+  <span class="label">{{ item.label }}</span>
+
+  <i
+    *ngIf="hasChildren"
+    class="bi ms-auto"
+    [ngClass]="expanded ? 'bi-chevron-down' : 'bi-chevron-right'"
+  ></i>
+</button>
+
+<!-- Versão com link (folha) -->
+<a
+  *ngIf="item.link && !hasChildren"
+  class="nav-link"
+  [routerLink]="item.link"
+  routerLinkActive="active"
+>
+  <i *ngIf="item.icon" class="bi me-2" [ngClass]="item.icon"></i>
+  <span class="label">{{ item.label }}</span>
+</a>
+
+<!-- Submenu (recursivo) -->
+<div class="children" *ngIf="hasChildren" [class.open]="expanded">
+  <app-nav-item
+    *ngFor="let child of item.children"
+    [item]="child"
+  ></app-nav-item>
+</div>

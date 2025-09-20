@@ -1,0 +1,19 @@
+<div style="max-width: 960px; margin: 40px auto; padding: 24px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.08); background: #fff;">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+    <div>
+      <h2 style="margin:0;">Olá, {{ me?.first_name || me?.username || 'usuário' }} 👋</h2>
+      <p style="margin:6px 0 0; color:#666;">
+        Tipo: <strong>{{ me?.type || '—' }}</strong> · Email: <strong>{{ me?.email || '—' }}</strong>
+      </p>
+    </div>
+
+    <button (click)="sair()"
+            style="padding:10px 16px; border:none; border-radius:8px; background:#111827; color:#fff; cursor:pointer;">
+      Sair
+    </button>
+  </div>
+
+  <hr style="margin:20px 0; border:none; border-top:1px solid #eee;" />
+
+  <p>Home carregada com sucesso. Em seguida colocaremos o layout (header + sidebar) e o menu.</p>
+</div>

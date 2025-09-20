@@ -1,0 +1,196 @@
+<div class="grades-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Grades</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por descrição..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novaGrade()">Nova Grade</button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <div class="content">
+
+    <section class="card form-placeholder" *ngIf="!showGradeForm && !submitted">
+      <div class="placeholder-inner">
+          <p>Para cadastrar uma <strong>grade</strong>, clique em <strong>Nova Grade</strong>.</p>
+          <p>Para editar, localize uma <strong>grade</strong> na lista e clique em <strong>Editar</strong>.</p>
+      </div>
+    </section>
+
+    <!-- FORM GRADE: agora controlado por showGradeForm -->
+    <section class="card form" *ngIf="showGradeForm">
+      <h3>{{ editingGradeId ? 'Editar Grade' : 'Nova Grade' }}</h3>
+
+      <form [formGroup]="formGrade" (ngSubmit)="salvarGrade()">
+        <div class="grid-10">
+          <label id="descricao-box">
+            Descrição*
+            <input type="text" formControlName="Descricao" maxlength="100"
+                   [attr.aria-invalid]="fieldInvalidGrade('Descricao')" />
+            <span class="field-error" *ngIf="fieldInvalidGrade('Descricao')">
+              Informe a Descrição (máx. 100).
+            </span>
+          </label>
+
+          <label id="status-box">
+            Status
+            <select formControlName="Status">
+              <option value="">—</option>
+              <option>Ativo</option>
+              <option>Inativo</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (formGrade.invalid && submitted)">
+            {{ editingGradeId ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicaoGrade()">Cancelar</button>
+        </div>
+
+        <!-- overlay didático -->
+        <div class="overlay" *ngIf="submitted && formGrade.invalid" role="alertdialog" aria-modal="true">
+          <div class="overlay-card">
+            <h4>Ops, precisamos de atenção</h4>
+            <p>Encontramos {{ getGradeErrors().length }} pendência(s):</p>
+            <ul>
+              <li *ngFor="let m of getGradeErrors()">{{ m }}</li>
+            </ul>
+            <button class="btn primary" type="button" (click)="submitted = false">OK, vou corrigir</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA DE GRADES -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && grades.length === 0">
+        Nenhuma grade encontrado.
+      </div>
+
+      <table class="table" *ngIf="grades.length > 0">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Status</th>
+            <th style="width:260px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let g of grades">
+            <td>{{ g.Descricao }}</td>
+            <td>{{ g.Status }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editarGrade(g)">Editar</button>
+              <button class="btn sm" (click)="selecionarGrade(g.Idgrade!)">Tamanhos</button>
+              <button class="btn sm danger" (click)="excluirGrade(g)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+
+    <!-- TAMANHOS (aparece quando alguma grade está selecionada) -->
+    <section class="card tamanhos" *ngIf="showTamanhos">
+      <div class="tamanhos-header">
+        <h3>Tamanhos da Grade #{{ selectedGradeId }}</h3>
+        <button class="btn ghost" (click)="fecharTamanhos()">Fechar</button>
+      </div>
+
+      <form [formGroup]="formTamanho" (ngSubmit)="salvarTamanho()">
+        <div class="grid-10">
+          <label id="gradeid-box">
+            Grade*
+            <input type="number" formControlName="idgrade" [readonly]="true" />
+            <span class="field-error" *ngIf="fieldInvalidTamanho('idgrade')">
+              Selecione uma grade.
+            </span>
+          </label>
+
+          <label id="tamanho-box">
+            Tamanho*
+            <input type="text" formControlName="Tamanho" maxlength="10"
+                   [attr.aria-invalid]="fieldInvalidTamanho('Tamanho')" />
+            <span class="field-error" *ngIf="fieldInvalidTamanho('Tamanho')">
+              Informe o código/valor do Tamanho (máx. 10).
+            </span>
+          </label>
+
+          <label id="descricaotam-box">
+            Descrição
+            <input type="text" formControlName="Descricao" maxlength="100" />
+            <span class="field-error" *ngIf="formTamanho.get('Descricao')?.errors?.['maxlength'] && (formTamanho.get('Descricao')?.touched || submittedTamanho)">
+              Máximo de 100 caracteres.
+            </span>
+          </label>
+
+          <label id="statustam-box">
+            Status
+            <select formControlName="Status">
+              <option value="">—</option>
+              <option>Ativo</option>
+              <option>Inativo</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="formTamanho.invalid">
+            {{ editingTamanhoId ? 'Salvar alterações' : 'Adicionar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicaoTamanho()">Limpar</button>
+        </div>
+
+        <div class="overlay" *ngIf="submittedTamanho && formTamanho.invalid" role="alertdialog" aria-modal="true">
+          <div class="overlay-card">
+            <h4>Ops, precisamos de atenção</h4>
+            <p>Encontramos {{ getTamanhoErrors().length }} pendência(s):</p>
+            <ul>
+              <li *ngFor="let m of getTamanhoErrors()">{{ m }}</li>
+            </ul>
+            <button class="btn primary" type="button" (click)="submittedTamanho = false">OK, vou corrigir</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="empty-hint" *ngIf="tamanhos.length === 0">
+        Nenhum tamanho cadastrado para esta grade.
+      </div>
+
+      <table class="table" *ngIf="tamanhos.length > 0">
+        <thead>
+          <tr>
+            <th>Tamanho</th>
+            <th>Descrição</th>
+            <th>Status</th>
+            <th style="width:180px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of tamanhos">
+            <td>{{ t.Tamanho }}</td>
+            <td>{{ t.Descricao }}</td>
+            <td>{{ t.Status }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editarTamanho(t)">Editar</button>
+              <button class="btn sm danger" (click)="excluirTamanho(t)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>

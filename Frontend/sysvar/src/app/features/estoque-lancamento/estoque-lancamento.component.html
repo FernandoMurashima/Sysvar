@@ -1,0 +1,56 @@
+<section class="card">
+  <header class="card-header">
+    <h2>Estoque Lançamento</h2>
+    <p class="muted">Selecione a loja, busque produtos/SKUs e informe as quantidades para lançar.</p>
+  </header>
+
+  <form [formGroup]="form" (ngSubmit)="lancar()" class="form-grid">
+    <label class="fg-item fg-loja">
+      Loja*
+      <select formControlName="loja">
+        <option [ngValue]="null">Selecione...</option>
+        <option *ngFor="let l of lojas" [value]="l.Idloja">{{ l.nome_loja }}</option>
+      </select>
+    </label>
+
+    <label class="fg-item fg-busca">
+      Buscar Produto/EAN
+      <input type="text" formControlName="busca" (keyup.enter)="buscar()" placeholder="EAN, descrição..." />
+      <small class="hint">Pressione Enter para buscar</small>
+    </label>
+
+    <div class="resultados" *ngIf="resultados.length">
+      <div class="resultado" *ngFor="let r of resultados">
+        <div class="info">
+          <strong>{{ r.Descricao || r.descricao || r.CodigodeBarra }}</strong>
+          <small *ngIf="r.CodigodeBarra">EAN: {{ r.CodigodeBarra }}</small>
+          <small *ngIf="r.Codigoproduto || r.codigoproduto">Cod: {{ r.Codigoproduto || r.codigoproduto }}</small>
+        </div>
+        <button type="button" (click)="adicionarItem(r)">Adicionar</button>
+      </div>
+    </div>
+
+    <div class="itens" *ngIf="itens.length">
+      <h3>Itens para Lançamento</h3>
+
+      <div class="linha" *ngFor="let _ of itens.controls; let i = index" [formGroup]="getItemGroup(i)">
+        <div class="col ean">{{ getItemGroup(i).value.ean }}</div>
+        <div class="col desc">{{ getItemGroup(i).value.descricao }}</div>
+        <div class="col cod">{{ getItemGroup(i).value.codigoproduto }}</div>
+        <div class="col qtd">
+          <input type="number" formControlName="qtd" min="1" />
+        </div>
+        <div class="col acao">
+          <button type="button" (click)="removerItem(i)">Remover</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" [disabled]="loading()">Lançar Estoque</button>
+    </div>
+
+    <p class="ok" *ngIf="sucesso()">{{ sucesso() }}</p>
+    <p class="err" *ngIf="erro()">{{ erro() }}</p>
+  </form>
+</section>

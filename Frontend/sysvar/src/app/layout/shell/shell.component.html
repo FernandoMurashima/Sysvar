@@ -1,0 +1,41 @@
+<div class="layout" [class.sidebar-collapsed]="!sidebarOpen">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo">SYSVAR</span>
+    </div>
+
+    <nav class="menu">
+      <app-nav-item
+        *ngFor="let item of menuItems"
+        [item]="item">
+      </app-nav-item>
+
+      <button class="nav-link logout" (click)="sair()">
+        <i class="bi bi-box-arrow-right me-2"></i>
+        Sair
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <header class="topbar">
+      <button class="btn-toggle" (click)="toggleSidebar()">
+        <i class="bi" [ngClass]="sidebarOpen ? 'bi-layout-sidebar-inset' : 'bi-layout-sidebar'"></i>
+      </button>
+      <div class="spacer"></div>
+
+      <div class="user-chip">
+        <i class="bi bi-person-circle me-2"></i>
+         <span>{{ userName }} ({{ userType }})</span>
+      </div>
+
+    
+    </header>
+
+    <section class="content">
+      <router-outlet></router-outlet>
+    </section>
+  </main>
+</div>

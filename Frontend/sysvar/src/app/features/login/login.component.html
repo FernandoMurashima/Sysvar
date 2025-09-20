@@ -1,0 +1,29 @@
+<div class="login-wrapper">
+  <!-- Banner -->
+  <div class="login-banner">SYSVAR</div>
+
+  <div class="card">
+    <h1>Entrar</h1>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label>
+        Usuário
+        <input type="text" formControlName="username" placeholder="seu usuário" />
+      </label>
+
+      <label>
+        Senha
+        <input type="password" formControlName="password" placeholder="sua senha" />
+      </label>
+
+      <!-- feedback -->
+      <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+      <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+      <button type="submit" [disabled]="loading || form.invalid">
+        <span *ngIf="!loading">Entrar</span>
+        <span *ngIf="loading" class="spinner"></span>
+      </button>
+    </form>
+  </div>
+</div>

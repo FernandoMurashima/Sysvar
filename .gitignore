@@ -1,0 +1,16 @@
+@"
+# --- FRONTEND (Angular) ---
+Frontend/node_modules/
+Frontend/dist/
+
+# --- BACKEND (Django/Python) ---
+Backend/venv/
+Backend/**/__pycache__/
+Backend/**/*.pyc
+Backend/db.sqlite3
+
+# --- Comum ---
+.vscode/
+.idea/
+.DS_Store
+"@ | Out-File -Encoding utf8 .gitignore

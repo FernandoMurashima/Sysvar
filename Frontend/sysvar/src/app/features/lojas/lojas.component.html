@@ -1,0 +1,262 @@
+<div class="clientes-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Lojas</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por nome, apelido ou CNPJ..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Novo</button>
+    </div>
+  </header>
+
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <div class="content">
+    <!-- Placeholder quando o form estiver fechado -->
+    <section class="card form-placeholder" *ngIf="!showForm">
+      <div class="placeholder-inner">
+        <p>Para cadastrar uma loja, clique em <strong>Novo</strong>.</p>
+        <p>Para editar, localize na lista e clique em <strong>Editar</strong>.</p>
+      </div>
+    </section>
+
+    <!-- FORM -->
+    <section class="card form" *ngIf="showForm">
+      <h3>{{ editingId ? 'Editar Loja' : 'Nova Loja' }}</h3>
+
+      <div *ngIf="(submitted || form.touched) && form.invalid" class="alert error">
+        Existem {{ getFormErrors().length }} campo(s) com problema.
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+
+          <!-- Linha 1 -->
+          <label id="nome-box" class="input-item" [class.invalid]="form.get('nome_loja')?.invalid && (form.get('nome_loja')?.touched || submitted)">
+            Nome da Loja*
+            <input type="text" formControlName="nome_loja"
+              [attr.aria-invalid]="form.get('nome_loja')?.invalid && (form.get('nome_loja')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('nome_loja')?.touched || submitted">
+              <ng-container *ngIf="form.get('nome_loja')?.errors?.['required']">Informe o nome.</ng-container>
+              <ng-container *ngIf="form.get('nome_loja')?.errors?.['maxlength']">Máx. 50 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('nome_loja')?.errors?.['server']">{{ form.get('nome_loja')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="apelido-box" class="input-item" [class.invalid]="form.get('Apelido_loja')?.invalid && (form.get('Apelido_loja')?.touched || submitted)">
+            Apelido*
+            <input type="text" formControlName="Apelido_loja"
+              [attr.aria-invalid]="form.get('Apelido_loja')?.invalid && (form.get('Apelido_loja')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('Apelido_loja')?.touched || submitted">
+              <ng-container *ngIf="form.get('Apelido_loja')?.errors?.['required']">Apelido é obrigatório.</ng-container>
+              <ng-container *ngIf="form.get('Apelido_loja')?.errors?.['maxlength']">Máx. 20 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('Apelido_loja')?.errors?.['server']">{{ form.get('Apelido_loja')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="cnpj-box" class="input-item" [class.invalid]="form.get('cnpj')?.invalid && (form.get('cnpj')?.touched || submitted)">
+            CNPJ*
+            <input type="text" formControlName="cnpj" placeholder="00.000.000/0000-00"
+              [attr.aria-invalid]="form.get('cnpj')?.invalid && (form.get('cnpj')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('cnpj')?.touched || submitted">
+              <ng-container *ngIf="form.get('cnpj')?.errors?.['required']">CNPJ é obrigatório.</ng-container>
+              <ng-container *ngIf="form.get('cnpj')?.errors?.['cnpj']">CNPJ inválido.</ng-container>
+              <ng-container *ngIf="form.get('cnpj')?.errors?.['server']">{{ form.get('cnpj')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="email-box" class="input-item" [class.invalid]="form.get('email')?.invalid && (form.get('email')?.touched || submitted)">
+            Email
+            <input type="email" formControlName="email" placeholder="exemplo@email.com"
+              [attr.aria-invalid]="form.get('email')?.invalid && (form.get('email')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('email')?.touched || submitted">
+              <ng-container *ngIf="form.get('email')?.errors?.['email']">Email inválido.</ng-container>
+              <ng-container *ngIf="form.get('email')?.errors?.['server']">{{ form.get('email')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- Linha 2 -->
+          <label id="tipo-box" class="input-item">
+            Logradouro
+            <select formControlName="Logradouro">
+              <option *ngFor="let op of logradouroOptions" [value]="op">{{ op }}</option>
+            </select>
+            <span class="field-error" *ngIf="form.get('Logradouro')?.errors?.['server']">{{ form.get('Logradouro')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="endereco-box" class="input-item">
+            Endereço
+            <input type="text" formControlName="Endereco" />
+            <span class="field-error" *ngIf="form.get('Endereco')?.errors?.['server']">{{ form.get('Endereco')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="numero-box" class="input-item" [class.invalid]="form.get('numero')?.invalid && (form.get('numero')?.touched || submitted)">
+            Número
+            <input type="text" formControlName="numero" maxlength="10"
+              [attr.aria-invalid]="form.get('numero')?.invalid && (form.get('numero')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('numero')?.touched || submitted">
+              <ng-container *ngIf="form.get('numero')?.errors?.['maxlength']">Máx. 10 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('numero')?.errors?.['server']">{{ form.get('numero')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- Linha 3 -->
+          <label id="complemento-box" class="input-item">
+            Complemento
+            <input type="text" formControlName="Complemento" />
+            <span class="field-error" *ngIf="form.get('Complemento')?.errors?.['server']">{{ form.get('Complemento')?.errors?.['server'] }}</span>
+          </label>
+
+          <!-- Linha 4 -->
+          <label id="cep-box" class="input-item">
+            CEP
+            <input type="text" formControlName="Cep" />
+            <span class="field-error" *ngIf="form.get('Cep')?.errors?.['server']">{{ form.get('Cep')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="bairro-box" class="input-item">
+            Bairro
+            <input type="text" formControlName="Bairro" />
+            <span class="field-error" *ngIf="form.get('Bairro')?.errors?.['server']">{{ form.get('Bairro')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="cidade-box" class="input-item">
+            Cidade
+            <input type="text" formControlName="Cidade" />
+            <span class="field-error" *ngIf="form.get('Cidade')?.errors?.['server']">{{ form.get('Cidade')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="telefone1-box" class="input-item" [class.invalid]="form.get('Telefone1')?.invalid && (form.get('Telefone1')?.touched || submitted)">
+            Telefone 1
+            <input type="text" formControlName="Telefone1" placeholder="(99)-99999-9999"
+                   (input)="onPhoneInput('Telefone1')"
+                   [attr.aria-invalid]="form.get('Telefone1')?.invalid && (form.get('Telefone1')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('Telefone1')?.touched || submitted">
+              <ng-container *ngIf="form.get('Telefone1')?.errors?.['phone']">Formato: (99)-99999-9999</ng-container>
+              <ng-container *ngIf="form.get('Telefone1')?.errors?.['server']">{{ form.get('Telefone1')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- Linha 5 -->
+          <label id="telefone2-box" class="input-item" [class.invalid]="form.get('Telefone2')?.invalid && (form.get('Telefone2')?.touched || submitted)">
+            Telefone 2
+            <input type="text" formControlName="Telefone2" placeholder="(99)-99999-9999"
+                   (input)="onPhoneInput('Telefone2')"
+                   [attr.aria-invalid]="form.get('Telefone2')?.invalid && (form.get('Telefone2')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('Telefone2')?.touched || submitted">
+              <ng-container *ngIf="form.get('Telefone2')?.errors?.['phone']">Formato: (99)-99999-9999</ng-container>
+              <ng-container *ngIf="form.get('Telefone2')?.errors?.['server']">{{ form.get('Telefone2')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="conta-contabil-box" class="input-item">
+            Conta Contábil
+            <input type="text" formControlName="ContaContabil" />
+            <span class="field-error" *ngIf="form.get('ContaContabil')?.errors?.['server']">{{ form.get('ContaContabil')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="abertura-box" class="input-item">
+            Data de Abertura
+            <input type="date" formControlName="DataAbertura" />
+            <span class="field-error" *ngIf="form.get('DataAbertura')?.errors?.['server']">{{ form.get('DataAbertura')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="encerramento-box" class="input-item">
+            Data de Encerramento
+            <input type="date" formControlName="DataEnceramento" />
+            <span class="field-error" *ngIf="form.get('DataEnceramento')?.errors?.['server']">{{ form.get('DataEnceramento')?.errors?.['server'] }}</span>
+          </label>
+
+          <!-- Linha 6 (flags estilo select SIM/NAO) -->
+          <label id="estoque-neg-box" class="input-item">
+            Estoque Negativo
+            <select formControlName="EstoqueNegativo">
+              <option value="SIM">Sim</option>
+              <option value="NAO">Não</option>
+            </select>
+          </label>
+
+          <label id="rede-box" class="input-item">
+            Rede
+            <select formControlName="Rede">
+              <option value="SIM">Sim</option>
+              <option value="NAO">Não</option>
+            </select>
+          </label>
+
+          <label id="matriz-box" class="input-item">
+            Matriz
+            <select formControlName="Matriz">
+              <option value="SIM">Sim</option>
+              <option value="NAO">Não</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+            {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && lojas.length === 0">
+        Nenhuma loja encontrada.
+      </div>
+
+      <table class="table" *ngIf="lojas.length > 0">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Apelido</th>
+            <th>CNPJ</th>
+            <th>Cidade</th>
+            <th>Email</th>
+            <th>Telefone</th>
+            <th style="width:140px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let l of lojas">
+            <td>{{ l.nome_loja }}</td>
+            <td>{{ l.Apelido_loja }}</td>
+            <td>{{ l.cnpj }}</td>
+            <td>{{ l.Cidade }}</td>
+            <td class="email">{{ l.email }}</td>
+            <td>{{ l.Telefone1 }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editar(l)">Editar</button>
+              <button class="btn sm danger" (click)="excluir(l)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+  </div>
+
+  <!-- OVERLAY ERROS -->
+  <div class="overlay" *ngIf="errorOverlayOpen" role="alertdialog" aria-modal="true">
+    <div class="overlay-card">
+      <h4>Ops! Revise as informações</h4>
+      <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
+      <ul>
+        <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+      </ul>
+      <div class="overlay-actions">
+        <button class="btn primary" type="button" (click)="closeErrorOverlay()">OK, vou corrigir</button>
+      </div>
+    </div>
+  </div>
+</div>

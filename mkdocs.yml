@@ -1,0 +1,12 @@
+site_name: Sysvar Docs
+nav:
+  - Início: docs/index.md
+  - Especificações: docs/specs/
+  - ADRs: docs/adr/
+  - API: docs/api/
+  - Banco: docs/db/
+  - UX: docs/ux/
+theme:
+  name: material
+plugins:
+  - search

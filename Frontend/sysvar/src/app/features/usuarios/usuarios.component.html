@@ -1,0 +1,164 @@
+<div class="clientes-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Usuários</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por usuário, nome, email..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Novo</button>
+    </div>
+  </header>
+
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+
+  <div class="content">
+    <!-- Placeholder -->
+    <section class="card form-placeholder" *ngIf="!showForm">
+      <div class="placeholder-inner">
+        <p>Para cadastrar um usuário, clique em <strong>Novo</strong>.</p>
+        <p>Para editar, localize na lista e clique em <strong>Editar</strong>.</p>
+      </div>
+    </section>
+
+    <!-- FORM -->
+    <section class="card form" *ngIf="showForm">
+      <h3>{{ editingId ? 'Editar Usuário' : 'Novo Usuário' }}</h3>
+
+      <div *ngIf="(submitted || form.touched) && getFormErrors().length" class="alert error">
+        Existem {{ getFormErrors().length }} pendência(s) no formulário.
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+          <label id="username-box" class="input-item" [class.invalid]="form.get('username')?.invalid && (form.get('username')?.touched || submitted)">
+            Usuário*
+            <input type="text" formControlName="username"
+              [attr.aria-invalid]="form.get('username')?.invalid && (form.get('username')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('username')?.touched || submitted">
+              <ng-container *ngIf="form.get('username')?.errors?.['required']">Informe o usuário.</ng-container>
+              <ng-container *ngIf="form.get('username')?.errors?.['maxlength']">Máx. 150 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('username')?.errors?.['username']">Use letras, números, . _ - (sem espaços).</ng-container>
+              <ng-container *ngIf="form.get('username')?.errors?.['server']">{{ form.get('username')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="first-box" class="input-item">
+            Nome
+            <input type="text" formControlName="first_name" />
+            <span class="field-error" *ngIf="form.get('first_name')?.errors?.['server']">{{ form.get('first_name')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="last-box" class="input-item">
+            Sobrenome
+            <input type="text" formControlName="last_name" />
+            <span class="field-error" *ngIf="form.get('last_name')?.errors?.['server']">{{ form.get('last_name')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="email-box" class="input-item" [class.invalid]="form.get('email')?.invalid && (form.get('email')?.touched || submitted)">
+            Email
+            <input type="email" formControlName="email"
+              [attr.aria-invalid]="form.get('email')?.invalid && (form.get('email')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('email')?.touched || submitted">
+              <ng-container *ngIf="form.get('email')?.errors?.['email']">Email inválido.</ng-container>
+              <ng-container *ngIf="form.get('email')?.errors?.['server']">{{ form.get('email')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="type-box" class="input-item" [class.invalid]="form.get('type')?.invalid && (form.get('type')?.touched || submitted)">
+            Tipo*
+            <select formControlName="type"
+              [attr.aria-invalid]="form.get('type')?.invalid && (form.get('type')?.touched || submitted) ? 'true' : null">
+              <option *ngFor="let t of typeOptions" [value]="t">{{ t }}</option>
+            </select>
+            <span class="field-error" *ngIf="form.get('type')?.touched || submitted">
+              <ng-container *ngIf="form.get('type')?.errors?.['required']">Selecione o tipo.</ng-container>
+              <ng-container *ngIf="form.get('type')?.errors?.['server']">{{ form.get('type')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- NOVO: Loja (simples select) -->
+          <label id="loja-box" class="input-item">
+            Loja
+            <select formControlName="Idloja">
+              <option [ngValue]="null">—</option>
+              <option *ngFor="let l of lojas" [ngValue]="l.Idloja">
+                {{ l.nome_loja || l.Apelido_loja || ('Loja #' + l.Idloja) }}
+              </option>
+            </select>
+            <span class="field-error" *ngIf="form.get('Idloja')?.errors?.['server']">{{ form.get('Idloja')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="pwd-box" class="input-item">
+            Senha {{ editingId ? '(opcional para alterar)' : '*' }}
+            <input type="password" formControlName="password" />
+            <span class="field-error" *ngIf="form.get('password')?.errors?.['server']">{{ form.get('password')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="pwdc-box" class="input-item">
+            Confirmar Senha {{ editingId ? '(se alterar)' : '*' }}
+            <input type="password" formControlName="confirm_password" />
+          </label>
+        </div>
+
+      <div class="actions-form">
+        <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+          {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+        </button>
+        <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+      </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && usuarios.length === 0">Nenhum usuário encontrado.</div>
+
+      <table class="table" *ngIf="usuarios.length > 0">
+        <thead>
+          <tr>
+            <th>Usuário</th>
+            <th>Nome</th>
+            <th>Email</th>
+            <th>Tipo</th>
+            <th style="width:140px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of usuarios">
+            <td>{{ u.username }}</td>
+            <td>{{ (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '') }}</td>
+            <td class="email">{{ u.email }}</td>
+            <td>{{ u.type }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editar(u)">Editar</button>
+              <button class="btn sm danger" (click)="excluir(u)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+  </div>
+
+  <!-- OVERLAY ERROS -->
+  <div class="overlay" *ngIf="errorOverlayOpen" role="alertdialog" aria-modal="true">
+    <div class="overlay-card">
+      <h4>Ops! Revise as informações</h4>
+      <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
+      <ul>
+        <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+      </ul>
+      <div class="overlay-actions">
+        <button class="btn primary" type="button" (click)="closeErrorOverlay()">OK, vou corrigir</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,113 @@
+/* mesmo visual dos cadastros anteriores */
+
+/* página */
+.clientes-page { display: flex; flex-direction: column; gap: 12px; }
+
+/* toolbar */
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;
+}
+.toolbar h2 { margin: 0; }
+.toolbar-actions { display: flex; gap: 8px; align-items: center; }
+.toolbar-actions input {
+  min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #e5e7eb;
+}
+
+/* conteúdo vertical */
+.content { display: flex; flex-direction: column; gap: 16px; }
+
+/* alerts */
+.alert { padding: 10px 12px; border-radius: 8px; }
+.alert.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+.alert.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+
+/* cards */
+.card { background:#fff; border:1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+
+/* lista */
+.table { width: 100%; border-collapse: collapse; }
+.table thead th {
+  background:#f8fafc; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
+  padding: 10px 12px;
+}
+.table td {
+  border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle;
+}
+.table .email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.actions { display:flex; gap:6px; }
+.loading, .empty-hint { text-align:center; color:#64748b; padding: 12px; }
+
+/* formulário */
+.form h3 { margin: 0 0 10px 0; }
+.grid-10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+label { display: grid; gap: 6px; font-size: 14px; }
+input, select {
+  padding: 8px 10px; border-radius: 8px; border: 1px solid #e5e7eb; outline: none;
+}
+.input-item.invalid input, .input-item.invalid select, input[aria-invalid="true"] {
+  border-color: #ef4444; background: #fef2f2;
+}
+.field-error { color:#b91c1c; font-size: 12px; min-height: 16px; }
+.flags-item { display: flex; align-items: center; gap: 8px; }
+
+.actions-form { margin-top: 12px; display: flex; gap: 8px; }
+
+/* botões */
+.btn { padding: 8px 12px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; cursor: pointer; }
+.btn:hover { background: #f8fafc; }
+.btn.primary { background: #111827; color: #fff; border-color: #111827; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 6px 10px; font-size: 13px; }
+.btn.danger { border-color: #fecaca; color: #991b1b; }
+.btn.danger:hover { background: #fef2f2; }
+
+/* posicionamento 10 colunas */
+#nome-box           { grid-column: 1 / span 6; }
+#apelido-box        { grid-column: 7 / span 2; }
+#cnpj-box           { grid-column: 1 / span 3; }
+#email-box          { grid-column: 4 / span 4; }
+
+#tipo-box           { grid-column: 1 / span 1; }
+#endereco-box       { grid-column: 2 / span 7; }
+#numero-box         { grid-column: 9 / span 2; }
+
+#complemento-box    { grid-column: 1 / span 10; }
+
+#cep-box            { grid-column: 1 / span 2; }
+#bairro-box         { grid-column: 3 / span 3; }
+#cidade-box         { grid-column: 6 / span 3; }
+#telefone1-box      { grid-column: 9 / span 2; }
+
+#telefone2-box      { grid-column: 1 / span 2; }
+#categoria-box      { grid-column: 3 / span 2; }
+#conta-contabil-box { grid-column: 5 / span 3; }
+
+#bloqueio-box       { grid-column: 1 / span 2; }
+#mala-direta-box    { grid-column: 3 / span 2; }
+
+/* responsivo */
+@media (max-width: 600px) {
+  .grid-10 { grid-template-columns: 1fr; }
+  #nome-box, #apelido-box, #cnpj-box, #email-box,
+  #tipo-box, #endereco-box, #numero-box, #complemento-box,
+  #cep-box, #bairro-box, #cidade-box, #telefone1-box, #telefone2-box,
+  #categoria-box, #conta-contabil-box, #bloqueio-box, #mala-direta-box { grid-column: 1 / -1; }
+}
+
+/* overlay e placeholder (mesmos padrões) */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.25);
+  display: flex; align-items: center; justify-content: center; z-index: 60;
+}
+.overlay-card {
+  background: #fff; border-radius: 12px; padding: 16px; width: 520px; max-width: calc(100% - 24px);
+  border: 1px solid #e5e7eb; box-shadow: 0 10px 30px rgba(0,0,0,.15);
+}
+.overlay-card h4 { margin: 0 0 8px; }
+.overlay-card ul { margin: 8px 0 0 18px; }
+.overlay-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+.form-placeholder { display:flex; align-items:center; justify-content:center; min-height: 120px; }
+.placeholder-inner { color:#64748b; text-align:center; }

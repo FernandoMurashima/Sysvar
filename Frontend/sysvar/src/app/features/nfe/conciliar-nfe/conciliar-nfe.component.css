@@ -1,0 +1,7 @@
+.card { padding: 16px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.grid { width: 100%; border-collapse: collapse; }
+.grid th, .grid td { border-bottom: 1px solid #eee; padding: 8px; }
+.grid input { width: 100%; }
+.num { text-align: right; }
+.err { color: #c0392b; margin: 8px 0; }
+.actions { margin-top: 12px; }

@@ -1,0 +1,117 @@
+<div class="colecoes-page">
+  <header class="toolbar">
+    <h2>Coleções</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por descrição, código ou estação..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Novo</button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <section class="card form-placeholder" *ngIf="formMode === null && !submitted">
+    <div class="placeholder-inner">
+      <p>Para cadastrar um <strong>grupo</strong>, clique em <strong>Novo Grupo</strong>.</p>
+      <p>Para editar, localize um grupo na lista e clique em <strong>Editar</strong>.</p>
+    </div>
+  </section>
+
+
+  <div class="content">
+    <!-- FORM agora controlado por formMode -->
+    <section class="card form" *ngIf="formMode !== null || submitted">
+      <h3>{{ formMode === 'edit' ? 'Editar Coleção' : 'Nova Coleção' }}</h3>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+          <label id="descricao-box">
+            Descrição*
+            <input type="text" formControlName="Descricao" maxlength="100" />
+            <span class="field-error" *ngIf="(form.get('Descricao')?.touched || submitted) && form.get('Descricao')?.invalid">
+              Informe a descrição (máx. 100).
+            </span>
+          </label>
+
+          <label id="codigo-box">
+            Código (2 dígitos)*
+            <input type="text" formControlName="Codigo" maxlength="2" />
+            <span class="field-error" *ngIf="(form.get('Codigo')?.touched || submitted) && form.get('Codigo')?.invalid">
+              Informe um código com 2 dígitos numéricos.
+            </span>
+          </label>
+
+          <label id="estacao-box">
+            Estação*
+            <select formControlName="Estacao">
+              <option value="">Selecione...</option>
+              <option *ngFor="let e of estacoes" [value]="e.value">{{ e.label }}</option>
+            </select>
+            <span class="field-error" *ngIf="(form.get('Estacao')?.touched || submitted) && form.get('Estacao')?.invalid">
+              Selecione a estação.
+            </span>
+          </label>
+
+          <label id="status-box">
+            Status
+            <input type="text" formControlName="Status" />
+          </label>
+
+          <label id="contador-box">
+            Contador (auto)
+            <input type="number" formControlName="Contador" readonly />
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+            {{ formMode === 'edit' ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && colecoes.length === 0">
+        Nenhuma coleção encontrada.
+      </div>
+
+      <table class="table" *ngIf="colecoes.length > 0">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Código</th>
+            <th>Estação</th>
+            <th>Contador</th>
+            <th>Status</th>
+            <th style="width:140px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of colecoes">
+            <td>{{ c.Descricao }}</td>
+            <td>{{ c.Codigo }}</td>
+            <td>{{ c.Estacao }}</td>
+            <td>{{ c.Contador }}</td>
+            <td>{{ c.Status }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editar(c)">Editar</button>
+              <button class="btn sm danger" (click)="excluir(c)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+  </div>
+</div>

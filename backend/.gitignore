@@ -1,0 +1,72 @@
+# Ignorar arquivos e diretórios do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.env
+*.venv
+db.sqlite3
+instance/
+config/settings/local.py
+config/settings/local.yml
+*.log
+*.pot
+*.mo
+*.swp
+*.swo
+*.swn
+*.swd
+.mypy_cache/
+.idea/
+.vscode/
+pytest_cache/
+.DS_Store
+*.orig
+
+# Ignorar arquivos do Django
+media/
+staticfiles/
+static/
+*.sqlite3
+local_settings.py
+
+# Ignorar dependências do Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Ignorar arquivos de cache do Django
+*.cache
+*.bak
+*.swp
+*.swo
+
+# Ignorar arquivos do Angular
+node_modules/
+dist/
+.tmp/
+out-tsc/
+coverage/
+.angular/
+.angular.cache/
+*.map
+src/environments/environment.ts
+src/environments/environment.prod.ts
+
+# Ignorar dependências do npm/yarn
+package-lock.json
+yarn.lock
+
+# Ignorar arquivos do MacOS
+*.DS_Store
+
+# Ignorar arquivos do JetBrains (PyCharm, WebStorm, etc.)
+*.iml
+.idea/
+out/
+
+# Ignorar arquivos do VS Code
+.vscode/
+.history/

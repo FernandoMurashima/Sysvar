@@ -1,0 +1,138 @@
+<div class="page-header">
+  <h2>PDV</h2>
+  <div class="actions-right">
+    <span class="kbd">F2</span> Finalizar
+    <span class="sep">•</span>
+    <span class="kbd">F4</span> Cancelar Venda
+  </div>
+</div>
+
+<!-- mensagens -->
+<div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+<div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+<div *ngIf="infoMsg" class="alert info">{{ infoMsg }}</div>
+
+<!-- aguarda tecla após finalizar -->
+<div *ngIf="awaitKeyAfterFinish" class="alert info">
+  Pressione qualquer tecla para iniciar uma nova venda.
+</div>
+
+<ng-container *ngIf="!awaitKeyAfterFinish">
+  <section class="card">
+    <h3>Identificação</h3>
+    <div class="row">
+      <div class="col">
+        <label>Loja*</label>
+        <select [(ngModel)]="lojaId" name="loja">
+          <option [ngValue]="null" disabled>Selecione</option>
+          <option *ngFor="let l of lojas" [ngValue]="l.Idloja">{{ l.nome_loja }}</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>Operador</label>
+        <input type="text" [(ngModel)]="operador" name="operador" />
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Leitura / Busca</h3>
+    <div class="row two-cols">
+      <div class="col">
+        <label>EAN</label>
+        <input #eanBox type="text" [(ngModel)]="eanInput" name="ean"
+               (keyup.enter)="addByEan()" placeholder="Aponte o leitor e pressione Enter" />
+      </div>
+      <div class="col">
+        <label>Buscar por descrição</label>
+        <input type="text" [(ngModel)]="buscaInput" name="busca"
+               (keyup.enter)="buscarPorDescricao()" placeholder="Digite parte da descrição e Enter" />
+      </div>
+    </div>
+
+    <div class="resultados" *ngIf="resultados.length">
+      <div class="resultado" *ngFor="let r of resultados">
+        <div class="desc">
+          <strong>{{ r.Descricao }}</strong>
+          <small *ngIf="r.CodigodeBarra">EAN: {{ r.CodigodeBarra }}</small>
+        </div>
+        <div class="preco">R$ {{ (r.preco_atual ?? r.Preco ?? 0) | number:'1.2-2' }}</div>
+        <button type="button" class="btn" (click)="addFromResultado(r)">Adicionar</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Itens</h3>
+
+    <div class="sku-table-wrapper" *ngIf="itens.length; else vazio">
+      <table class="sku-table">
+        <thead>
+          <tr>
+            <th>EAN</th>
+            <th>Descrição</th>
+            <th class="num">Qtd</th>
+            <th class="num">Preço</th>
+            <th class="num">Subtotal</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let it of itens; let i = index">
+            <td>{{ it.ean }}</td>
+            <td>{{ it.descricao }}</td>
+            <td class="num">
+              <input type="number" min="1" [ngModel]="it.quantidade" (ngModelChange)="setQty(i, $event)" />
+            </td>
+            <td class="num">
+              <input type="number" step="0.01" min="0" [ngModel]="it.preco" (ngModelChange)="setPreco(i, $event)" />
+            </td>
+            <td class="num">R$ {{ it.subtotal | number:'1.2-2' }}</td>
+            <td><button type="button" class="btn danger" (click)="remover(i)">Remover</button></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="totais">
+        <div class="linha">
+          <span>Total</span>
+          <strong>R$ {{ total | number:'1.2-2' }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #vazio>
+      <p class="hint">Nenhum item no carrinho.</p>
+    </ng-template>
+  </section>
+
+  <section class="card">
+    <h3>Pagamento</h3>
+    <div class="row three-cols">
+      <div class="col">
+        <label>Forma</label>
+        <select [(ngModel)]="formaPagamento" name="fp">
+          <option value="dinheiro">Dinheiro</option>
+          <option value="cartao">Cartão</option>
+          <option value="pix">PIX</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>Valor pago</label>
+        <input type="number" step="0.01" min="0"
+               [(ngModel)]="valorPago" name="valorPago"
+               (ngModelChange)="calcTroco()" />
+      </div>
+      <div class="col">
+        <label>Troco</label>
+        <input type="text" [value]="'R$ ' + (troco | number:'1.2-2')" readonly />
+      </div>
+    </div>
+
+    <div class="row actions">
+      <button class="btn btn-primary" type="button" (click)="finalizar()">Finalizar (F2)</button>
+      <button class="btn" type="button" (click)="cancelarVenda()">Cancelar (F4)</button>
+    </div>
+  </section>
+</ng-container>
+

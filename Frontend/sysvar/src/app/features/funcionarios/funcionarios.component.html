@@ -1,0 +1,187 @@
+<div class="clientes-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Funcionários</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por nome, apelido ou CPF..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn" (click)="doSearch()">Buscar</button>
+      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Novo</button>
+    </div>
+  </header>
+
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+
+  <div class="content">
+    <!-- Placeholder quando o form estiver fechado -->
+    <section class="card form-placeholder" *ngIf="!showForm">
+      <div class="placeholder-inner">
+        <p>Para cadastrar um funcionário, clique em <strong>Novo</strong>.</p>
+        <p>Para editar, localize na lista e clique em <strong>Editar</strong>.</p>
+      </div>
+    </section>
+
+    <!-- FORM -->
+    <section class="card form" *ngIf="showForm">
+      <h3>{{ editingId ? 'Editar Funcionário' : 'Novo Funcionário' }}</h3>
+
+      <div *ngIf="(submitted || form.touched) && form.invalid" class="alert error">
+        Existem {{ getFormErrors().length }} campo(s) com problema.
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+          <!-- Linha 1 -->
+          <label id="nome-box" class="input-item" [class.invalid]="form.get('nomefuncionario')?.invalid && (form.get('nomefuncionario')?.touched || submitted)">
+            Nome*
+            <input type="text" formControlName="nomefuncionario"
+              [attr.aria-invalid]="form.get('nomefuncionario')?.invalid && (form.get('nomefuncionario')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('nomefuncionario')?.touched || submitted">
+              <ng-container *ngIf="form.get('nomefuncionario')?.errors?.['required']">Informe o nome.</ng-container>
+              <ng-container *ngIf="form.get('nomefuncionario')?.errors?.['maxlength']">Máx. 50 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('nomefuncionario')?.errors?.['server']">{{ form.get('nomefuncionario')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="apelido-box" class="input-item" [class.invalid]="form.get('apelido')?.invalid && (form.get('apelido')?.touched || submitted)">
+            Apelido*
+            <input type="text" formControlName="apelido"
+              [attr.aria-invalid]="form.get('apelido')?.invalid && (form.get('apelido')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('apelido')?.touched || submitted">
+              <ng-container *ngIf="form.get('apelido')?.errors?.['required']">Apelido é obrigatório.</ng-container>
+              <ng-container *ngIf="form.get('apelido')?.errors?.['maxlength']">Máx. 20 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('apelido')?.errors?.['server']">{{ form.get('apelido')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="cpf-box" class="input-item" [class.invalid]="form.get('cpf')?.invalid && (form.get('cpf')?.touched || submitted)">
+            CPF
+            <input type="text" formControlName="cpf" placeholder="000.000.000-00"
+              [attr.aria-invalid]="form.get('cpf')?.invalid && (form.get('cpf')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('cpf')?.touched || submitted">
+              <ng-container *ngIf="form.get('cpf')?.errors?.['cpf']">CPF inválido.</ng-container>
+              <ng-container *ngIf="form.get('cpf')?.errors?.['server']">{{ form.get('cpf')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- Linha 2 -->
+          <label id="categoria-box" class="input-item" [class.invalid]="form.get('categoria')?.invalid && (form.get('categoria')?.touched || submitted)">
+            Categoria*
+            <select formControlName="categoria"
+              [attr.aria-invalid]="form.get('categoria')?.invalid && (form.get('categoria')?.touched || submitted) ? 'true' : null">
+              <option *ngFor="let c of categoriaOptions" [value]="c">{{ c }}</option>
+            </select>
+            <span class="field-error" *ngIf="form.get('categoria')?.touched || submitted">
+              <ng-container *ngIf="form.get('categoria')?.errors?.['required']">Selecione uma categoria.</ng-container>
+              <ng-container *ngIf="form.get('categoria')?.errors?.['server']">{{ form.get('categoria')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="meta-box" class="input-item" [class.invalid]="form.get('meta')?.invalid && (form.get('meta')?.touched || submitted)">
+            Meta
+            <input type="number" step="0.01" min="0" formControlName="meta"
+              [attr.aria-invalid]="form.get('meta')?.invalid && (form.get('meta')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('meta')?.touched || submitted">
+              <ng-container *ngIf="form.get('meta')?.errors?.['min']">Valor não pode ser negativo.</ng-container>
+              <ng-container *ngIf="form.get('meta')?.errors?.['server']">{{ form.get('meta')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="loja-box" class="input-item" [class.invalid]="form.get('idloja')?.invalid && (form.get('idloja')?.touched || submitted)">
+            Loja*
+            <select formControlName="idloja"
+              [attr.aria-invalid]="form.get('idloja')?.invalid && (form.get('idloja')?.touched || submitted) ? 'true' : null">
+              <option [ngValue]="null">-- selecione --</option>
+              <option *ngFor="let l of lojas" [value]="getLojaId(l)">{{ l.nome_loja }}</option>
+            </select>
+            <span class="field-error" *ngIf="form.get('idloja')?.touched || submitted">
+              <ng-container *ngIf="form.get('idloja')?.errors?.['required']">Selecione a loja (vínculo obrigatório).</ng-container>
+              <ng-container *ngIf="form.get('idloja')?.errors?.['server']">{{ form.get('idloja')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- Linha 3 -->
+          <label id="inicio-box" class="input-item">
+            Início
+            <input type="date" formControlName="inicio" />
+            <span class="field-error" *ngIf="form.get('inicio')?.errors?.['server']">{{ form.get('inicio')?.errors?.['server'] }}</span>
+          </label>
+
+          <label id="fim-box" class="input-item">
+            Fim
+            <input type="date" formControlName="fim" />
+            <span class="field-error" *ngIf="form.get('fim')?.errors?.['server']">{{ form.get('fim')?.errors?.['server'] }}</span>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+            {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && funcionarios.length === 0">
+        Nenhum funcionário encontrado.
+      </div>
+
+      <table class="table" *ngIf="funcionarios.length > 0">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Apelido</th>
+            <th>CPF</th>
+            <th>Categoria</th>
+            <th>Loja</th>
+            <th>Meta</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th style="width:140px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of funcionarios">
+            <td>{{ f.nomefuncionario }}</td>
+            <td>{{ f.apelido }}</td>
+            <td>{{ f.cpf }}</td>
+            <td>{{ f.categoria }}</td>
+            <td>{{ lojaNameById(f.idloja) }}</td>
+            <td>{{ f.meta | number:'1.2-2' }}</td>
+            <td>{{ f.inicio }}</td>
+            <td>{{ f.fim }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editar(f)">Editar</button>
+              <button class="btn sm danger" (click)="excluir(f)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+  </div>
+
+  <!-- OVERLAY ERROS -->
+  <div class="overlay" *ngIf="errorOverlayOpen" role="alertdialog" aria-modal="true">
+    <div class="overlay-card">
+      <h4>Ops! Revise as informações</h4>
+      <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
+      <ul>
+        <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+      </ul>
+      <div class="overlay-actions">
+        <button class="btn primary" type="button" (click)="closeErrorOverlay()">OK, vou corrigir</button>
+      </div>
+    </div>
+  </div>
+</div>

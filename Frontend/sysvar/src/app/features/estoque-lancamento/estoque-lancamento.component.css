@@ -1,0 +1,24 @@
+.card { padding: 16px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); background: #fff; }
+.card-header { margin-bottom: 12px; }
+.card-header h2 { margin: 0 0 4px 0; }
+.muted { color: #6b7280; font-size: .9rem; }
+
+.form-grid { display: grid; gap: 12px; grid-template-columns: repeat(12, 1fr); align-items: end; }
+.fg-item { display: flex; flex-direction: column; gap: 6px; }
+.fg-loja { grid-column: span 3; }
+.fg-busca { grid-column: span 9; }
+
+.resultados { margin-top: 8px; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 240px; overflow: auto; }
+.resultado { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
+.resultado:last-child { border-bottom: none; }
+.resultado .info { display: flex; flex-direction: column; }
+
+.itens { margin-top: 16px; }
+.itens h3 { margin: 0 0 8px 0; }
+.linha { display: grid; grid-template-columns: 160px 1fr 140px 120px 100px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed #eee; }
+.linha:last-child { border-bottom: none; }
+.col input[type=number] { width: 100%; }
+
+.actions { margin-top: 16px; display: flex; gap: 12px; }
+.ok { color: #059669; }
+.err { color: #dc2626; }
