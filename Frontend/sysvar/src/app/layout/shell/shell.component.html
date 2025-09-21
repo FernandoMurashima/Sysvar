@@ -16,22 +16,24 @@
         Sair
       </button>
     </nav>
-  </aside>
 
-  <!-- Main -->
-  <main class="main">
-    <header class="topbar">
-      <button class="btn-toggle" (click)="toggleSidebar()">
-        <i class="bi" [ngClass]="sidebarOpen ? 'bi-layout-sidebar-inset' : 'bi-layout-sidebar'"></i>
-      </button>
-      <div class="spacer"></div>
-
+    <!-- Rodapé da sidebar: usuário -->
+    <div class="sidebar-footer">
       <div class="user-chip">
         <i class="bi bi-person-circle me-2"></i>
-         <span>{{ userName }} ({{ userType }})</span>
+        <span>{{ userName }} ({{ userType }})</span>
       </div>
+    </div>
+  </aside>
 
-    
+  <!-- Área principal -->
+  <main class="main">
+    <header class="topbar">
+      <button class="btn-toggle" (click)="toggleSidebar()" aria-label="Alternar menu">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="spacer"></div>
+      <!-- (nada de user-chip aqui) -->
     </header>
 
     <section class="content">

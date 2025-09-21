@@ -131,7 +131,22 @@ export class ShellComponent {
   get userName(): string {
     return this.auth.getUserName() || 'Usuário';
   }
+
+
   get userType(): string {
-    return this.auth.getUserType() || 'Regular';
+    const raw = this.auth.getUserType() || '';
+    const t = raw.toLowerCase().trim();
+
+    const map: Record<string, string> = {
+      'admin': 'Admin',
+      'administrador': 'Admin',
+      'regular': 'Regular',
+      'user': 'Regular',
+      'usuário': 'Regular',
+      'usuario': 'Regular',
+    };
+
+  return map[t] ?? raw ;
   }
+
 }

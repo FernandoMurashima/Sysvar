@@ -66,7 +66,20 @@ export class AuthService {
 
   // --- user type/name helpers (para topo/permissions) ---
   setUserType(type: string) { sessionStorage.setItem(this.userTypeKey, type); }
-  getUserType(): string | null { return sessionStorage.getItem(this.userTypeKey); }
+
+  // getUserType(): string | null { return sessionStorage.getItem(this.userTypeKey); }
+
+  getUserType(): string | null {
+  const v = sessionStorage.getItem(this.userTypeKey);
+  if (!v) return null;
+
+  const t = v.toLowerCase().trim();
+  if (t === 'admin' || t === 'administrador') return 'Admin';
+  if (t === 'regular' || t === 'user' || t === 'usuário' || t === 'usuario') return 'Regular';
+
+  return v;
+}
+
 
   setUserName(username: string) { sessionStorage.setItem(this.userNameKey, username); }
   getUserName(): string | null { return sessionStorage.getItem(this.userNameKey); }
