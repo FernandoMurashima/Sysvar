@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, HostListener, ViewChild } from '@angular/core'; // + ViewChild
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -14,6 +14,10 @@ import { GradesService } from '../../core/services/grades.service';
 import { TamanhosService } from '../../core/services/tamanhos.service';
 import { CoresService } from '../../core/services/cores.service';
 import { LojasSelectorComponent } from '../../shared/lojas-selector/lojas-selector.component';
+
+// + NOVOS imports (lookup + model básico)
+import { ProdutoLookupComponent } from './produto-lookup/produto-lookup.component';
+import { ProdutoBasic } from '../../core/models/produto-basic.model';
 
 import { GrupoModel } from '../../core/models/grupo';
 import { SubgrupoModel } from '../../core/models/subgrupo';
@@ -31,12 +35,16 @@ type Ncm = { ncm: string; descricao?: string };
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, LojasSelectorComponent],
+  // + inclui ProdutoLookupComponent nos imports do standalone
+  imports: [CommonModule, FormsModule, LojasSelectorComponent, ProdutoLookupComponent],
   templateUrl: './produtos.component.html',
   styleUrls: ['./produtos.component.css']
 })
 export class ProdutosComponent implements OnInit {
   action: '' | 'novo' | 'consultar' = '';
+
+  // + referência para o componente filho (lookup)
+  @ViewChild(ProdutoLookupComponent) lookupCmp!: ProdutoLookupComponent;
 
   // listas
   grupos: GrupoModel[] = [];
@@ -505,5 +513,42 @@ export class ProdutosComponent implements OnInit {
         }
       }
     });
+  }
+
+  /* =======================
+     MÉTODOS DO LOOKUP (NOVOS)
+     ======================= */
+
+  // Chama o filho para buscar pela referência digitada no input da aba "Consultar"
+  buscarProduto(ref: string): void {
+    const referencia = (ref || '').trim();
+    if (!referencia) return;
+    if (this.lookupCmp) {
+      this.lookupCmp.buscarComReferencia(referencia);
+    }
+  }
+
+  // Limpa o input e o card do filho
+  limparBusca(inputEl: HTMLInputElement): void {
+    if (inputEl) inputEl.value = '';
+    if (this.lookupCmp) {
+      // acesso direto aos signals do filho para reset — simples e efetivo
+      (this.lookupCmp as any).resultado?.set(null);
+      (this.lookupCmp as any).buscou?.set(false);
+      (this.lookupCmp as any).erroMsg?.set(null);
+    }
+  }
+
+  // Recebe o produto básico selecionado (quando o filho encontra)
+  onProdutoSelecionado(prod: ProdutoBasic): void {
+    // Aqui você pode, futuramente, trocar para edição e preencher a tela.
+    // Por ora, apenas mantém o card como preview.
+    // console.log('Selecionado p/ edição:', prod);
+  }
+
+  // Ação do botão "Ver variações" no card do filho
+  onVerVariacoes(prod: ProdutoBasic): void {
+    // Próxima fase: abrir uma sobre-tela/modal com cores/tamanhos/SKUs do produto
+    // this.modalService.open(ModalVariacoesComponent, { data: prod });
   }
 }

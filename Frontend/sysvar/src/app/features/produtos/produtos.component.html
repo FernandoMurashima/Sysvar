@@ -224,9 +224,32 @@
     </div>
   </section>
 
+  <!-- ====== CONSULTAR (com lookup por referência) ====== -->
   <section class="card" *ngIf="action === 'consultar'">
     <h3>Consulta</h3>
-    <p>Em breve listaremos e filtraremos os produtos aqui.</p>
+
+    <!-- Seu campo Procura -->
+    <div class="row two-cols" style="align-items:end;">
+      <div class="col">
+        <label for="refBusca">Referência</label>
+        <input id="refBusca" type="text" #refProcura placeholder="Digite a referência e pressione Enter" (keyup.enter)="buscarProduto(refProcura.value)" />
+      </div>
+      <div class="col" style="display:flex; gap:8px;">
+        <button class="btn btn-primary" type="button" (click)="buscarProduto(refProcura.value)">Buscar</button>
+        <button class="btn" type="button" (click)="limparBusca(refProcura)">Limpar</button>
+      </div>
+    </div>
+
+    <!-- Resultado (card básico) -->
+    <div class="row" style="margin-top:12px;">
+      <div class="col col-full">
+        <app-produto-lookup
+          [usarCampoInterno]="false"
+          (selecionado)="onProdutoSelecionado($event)"
+          (verVariacoes)="onVerVariacoes($event)">
+        </app-produto-lookup>
+      </div>
+    </div>
   </section>
 
 </ng-container>

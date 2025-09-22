@@ -1,0 +1,116 @@
+<div class="lookup-wrap">
+  <!-- Campo interno só aparece se usarCampoInterno = true -->
+  <div *ngIf="usarCampoInterno" class="input-row">
+    <label class="lbl">
+      Procura (Referência)
+      <input
+        type="text"
+        [(ngModel)]="procura"
+        (keyup.enter)="onKeyEnter()"
+        placeholder="Digite a referência e pressione Enter"
+        aria-label="Referência do produto"
+      />
+    </label>
+    <button type="button" class="btn" (click)="buscar()">Buscar</button>
+  </div>
+
+  <div class="estado" *ngIf="carregando()">Buscando...</div>
+  <div class="erro" *ngIf="erroMsg()">{{ erroMsg() }}</div>
+  <div class="vazio" *ngIf="!carregando() && buscou() && !resultado()">Nenhum produto encontrado.</div>
+
+  <section class="card" *ngIf="resultado() as r">
+    <header class="card-hd">
+      <h3>{{ r.Nome_produto }}</h3>
+      <small class="muted">Ref: {{ r.Referencia }}</small>
+    </header>
+
+    <div class="card-body">
+      <div class="grid">
+        <!-- Coluna 1 -->
+        <div class="kv">
+          <span class="k">Coleção</span>
+          <span class="v">
+            <ng-container *ngIf="r.ColecaoCodigo || r.ColecaoDescricao; else colecaoFallback">
+              {{ r.ColecaoCodigo || '—' }}
+              <ng-container *ngIf="r.ColecaoDescricao"> — {{ r.ColecaoDescricao }}</ng-container>
+              <ng-container *ngIf="r.Estacao">&nbsp;· Estação {{ r.Estacao }}</ng-container>
+            </ng-container>
+            <ng-template #colecaoFallback>
+              {{ r.Idcolecao || '—' }}
+            </ng-template>
+          </span>
+        </div>
+
+        <div class="kv">
+          <span class="k">Grupo</span>
+          <span class="v">
+            <ng-container *ngIf="r.GrupoCodigo || r.GrupoDescricao; else grupoFallback">
+              {{ r.GrupoCodigo || '—' }}
+              <ng-container *ngIf="r.GrupoDescricao"> — {{ r.GrupoDescricao }}</ng-container>
+            </ng-container>
+            <ng-template #grupoFallback>
+              {{ r.Idgrupo || '—' }}
+            </ng-template>
+          </span>
+        </div>
+
+        <!-- Coluna 2 -->
+        <div class="kv">
+          <span class="k">Subgrupo</span>
+          <span class="v">{{ r.SubgrupoDescricao || r.Idsubgrupo || '—' }}</span>
+        </div>
+
+        <div class="kv">
+          <span class="k">Unidade</span>
+          <span class="v">
+            <ng-container *ngIf="r.UnidadeDescricao || r.UnidadeSigla; else unidadeFallback">
+              {{ r.UnidadeDescricao || '—' }}
+              <ng-container *ngIf="r.UnidadeSigla"> ({{ r.UnidadeSigla }})</ng-container>
+            </ng-container>
+            <ng-template #unidadeFallback>
+              {{ r.Idunidade || '—' }}
+            </ng-template>
+          </span>
+        </div>
+
+        <!-- Linha cheia -->
+        <div class="kv full" *ngIf="r.Descricao">
+          <span class="k">Descrição</span>
+          <span class="v">{{ r.Descricao }}</span>
+        </div>
+
+        <div class="kv">
+          <span class="k">Preço</span>
+          <span class="v">
+            <ng-container *ngIf="r.Preco != null; else precoBase">
+              R$ {{ r.Preco | number:'1.2-2' }}
+            </ng-container>
+            <ng-template #precoBase>
+              <ng-container *ngIf="r.PrecoBase != null; else semPreco">
+                R$ {{ r.PrecoBase | number:'1.2-2' }}
+              </ng-container>
+              <ng-template #semPreco>—</ng-template>
+            </ng-template>
+          </span>
+        </div>
+
+        <div class="kv" *ngIf="r.Ncm">
+          <span class="k">NCM</span>
+          <span class="v">{{ r.Ncm }}</span>
+        </div>
+
+        <div class="kv">
+          <span class="k">Ativo</span>
+          <span class="v">{{ r.Ativo ? 'Sim' : 'Não' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <footer class="card-ft">
+      <button type="button" class="btn-sec" (click)="abrirVariacoes()">
+        Ver variações (cores/tamanhos)
+      </button>
+      <!-- Ainda não abre modal; próximo passo implemento a sobre-tela -->
+    </footer>
+  </section>
+</div>
