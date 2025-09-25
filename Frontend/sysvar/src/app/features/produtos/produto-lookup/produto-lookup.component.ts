@@ -1,8 +1,18 @@
-import { Component, EventEmitter, Input, Output, signal, computed, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ProdutoLookupService } from '../../../core/services/produto-lookup.service';
-import { ProdutoBasic } from '../../../core/models/produto-basic.model';
+import { ProdutosService } from '../../../core/services/produtos.service';
+import { ProdutoBasic as ProdutoBasicModel } from '../../../core/models/produto-basic.model';
+
+type ProdutoBasicView = ProdutoBasicModel & {
+  colecao_desc?: string | null;
+  grupo_desc?: string | null;
+  subgrupo_desc?: string | null;
+  unidade_desc?: string | null;
+  classificacao_fiscal?: string | null;
+  produto_foto?: string | null;
+  Ativo?: boolean;
+};
 
 @Component({
   selector: 'app-produto-lookup',
@@ -11,80 +21,173 @@ import { ProdutoBasic } from '../../../core/models/produto-basic.model';
   templateUrl: './produto-lookup.component.html',
   styleUrls: ['./produto-lookup.component.css']
 })
-export class ProdutoLookupComponent implements OnInit {
-  /** Se false, o campo interno some e o pai chama buscarComReferencia(...) */
-  @Input() usarCampoInterno = true;
-  @Input() referenciaInicial?: string;
+export class ProdutoLookupComponent {
+  @Input() usarCampoInterno = false;
 
-  @Output() selecionado = new EventEmitter<ProdutoBasic>();
-  @Output() verVariacoes = new EventEmitter<ProdutoBasic>();
-
-  procura = '';
-  carregando = signal(false);
-  erroMsg = signal<string | null>(null);
-  resultado = signal<ProdutoBasic | null>(null);
+  resultado = signal<ProdutoBasicView | null>(null);
   buscou = signal(false);
+  erroMsg = signal<string | null>(null);
+  loading = signal(false);
 
-  temResultado = computed(() => !!this.resultado());
+  // ---- Foto (com múltiplas tentativas) ----
+  private imageCandidates: string[] = [];
+  private imageIdx = 0;
+  imgSrc = signal<string>('');
+  imageHidden = signal(false);
 
-  constructor(private lookup: ProdutoLookupService) {}
+  @Output() selecionado = new EventEmitter<ProdutoBasicModel>();
+  @Output() verVariacoes = new EventEmitter<ProdutoBasicModel>();
 
-  ngOnInit(): void {
-    if (this.referenciaInicial) {
-      this.procura = this.referenciaInicial;
-      this.buscar();
-    }
-  }
+  constructor(private produtosApi: ProdutosService) {}
 
-  /** Modo 2: pai chama diretamente */
-  public buscarComReferencia(ref: string) {
-    this.procura = (ref || '').trim();
-    this.buscar();
-  }
-
-  onKeyEnter() {
-    this.buscar();
-  }
-
-  buscar() {
-    this.buscou.set(true);
+  buscarComReferencia(referencia: string) {
     this.erroMsg.set(null);
+    this.loading.set(true);
     this.resultado.set(null);
+    this.resetImage();
+    this.buscou.set(true);
 
-    const ref = (this.procura || '').trim();
-    if (!ref) {
-      this.erroMsg.set('Informe a referência.');
-      return;
-    }
+    this.produtosApi.list({ search: referencia.trim(), page: 1, page_size: 1 }).subscribe({
+      next: (res: any) => {
+        const arr = Array.isArray(res) ? res : (res?.results ?? []);
+        const src = arr?.[0] as any | undefined;
 
-    this.carregando.set(true);
-    this.lookup.getByReferencia(ref).subscribe({
-      next: (prod) => {
-        this.resultado.set(prod);
-        this.carregando.set(false);
-        if (prod) this.selecionado.emit(prod);
+        if (!src) {
+          this.erroMsg.set('Nenhum produto encontrado.');
+          this.loading.set(false);
+          return;
+        }
+
+        const basic: ProdutoBasicView = {
+          Idproduto: src.Idproduto ?? src.id ?? 0,
+          Referencia: src.Referencia ?? src.referencia ?? '',
+          Nome_produto: src.Nome_produto ?? src.Descricao ?? '',
+          colecao_desc: src.colecao_desc ?? null,
+          grupo_desc: src.grupo_desc ?? null,
+          subgrupo_desc: src.subgrupo_desc ?? null,
+          unidade_desc: src.unidade_desc ?? null,
+          classificacao_fiscal: src.classificacao_fiscal ?? null,
+          produto_foto: src.produto_foto ?? null,
+          Ativo: !!(src.Ativo ?? src.ativo ?? true),
+        };
+
+        this.resultado.set(basic);
+        this.prepareImage(basic.produto_foto || '');
+        this.loading.set(false);
       },
-      error: (err) => {
-        this.carregando.set(false);
-        this.erroMsg.set(this.normalizaErro(err));
+      error: () => {
+        this.erroMsg.set('Falha ao buscar produto.');
+        this.loading.set(false);
       }
     });
   }
 
-  abrirVariacoes() {
-    const prod = this.resultado();
-    if (prod) this.verVariacoes.emit(prod);
+  onToggleStatus(prod: ProdutoBasicView) {
+    if (!prod || !prod.Idproduto) return;
+
+    if (prod.Ativo) {
+      const motivo = window.prompt('Informe o motivo da inativação (mín. 3 caracteres):', '');
+      if (motivo === null) return;
+      if (!motivo || motivo.trim().length < 3) {
+        this.erroMsg.set('Motivo inválido. Digite ao menos 3 caracteres.');
+        return;
+      }
+      this.loading.set(true);
+      this.produtosApi.inativarProduto(prod.Idproduto, motivo.trim()).subscribe({
+        next: (resp) => {
+          const novo = { ...prod, Ativo: !!resp?.Ativo };
+          this.resultado.set(novo);
+          this.erroMsg.set(null);
+          alert('Produto inativado com sucesso.');
+        },
+        error: (err) => {
+          const msg = err?.error?.detail || 'Não foi possível inativar o produto.';
+          this.erroMsg.set(String(msg));
+        },
+        complete: () => this.loading.set(false)
+      });
+    } else {
+      this.loading.set(true);
+      this.produtosApi.ativarProduto(prod.Idproduto).subscribe({
+        next: (resp) => {
+          const novo = { ...prod, Ativo: !!resp?.Ativo };
+          this.resultado.set(novo);
+          this.erroMsg.set(null);
+          alert('Produto ativado com sucesso.');
+        },
+        error: (err) => {
+          const msg = err?.error?.detail || 'Não foi possível ativar o produto.';
+          this.erroMsg.set(String(msg));
+        },
+        complete: () => this.loading.set(false)
+      });
+    }
   }
 
-  private normalizaErro(err: any): string {
-    // Evita exibir HTML de 404 do Django no template
-    if (typeof err?.error === 'string' && err.error.startsWith('<!DOCTYPE')) {
-      return 'Recurso não encontrado (404).';
+  // -------- Foto helpers --------
+  private resetImage() {
+    this.imageCandidates = [];
+    this.imageIdx = 0;
+    this.imgSrc.set('');
+    this.imageHidden.set(false);
+  }
+
+  private prepareImage(nomeBruto: string) {
+    this.resetImage();
+
+    // 1) basename: retira qualquer pasta (C:\..., /alguma/pasta/..., etc.)
+    const basename = (nomeBruto || '').trim().replace(/^.*[\\/]/, '');
+    if (!basename) { this.imageHidden.set(true); return; }
+
+    // 2) bases possíveis (aceita tanto em /assets/produtos quanto /assets)
+    const bases = ['/assets/produtos/', '/assets/'];
+
+    // 3) variações de nome
+    const lower = basename.toLowerCase();
+    const hasExt = /\.(jpe?g)$/i.test(lower);
+    const noSpaces = lower.replace(/\s+/g, '');
+
+    const candidates = new Set<string>();
+
+    for (const base of bases) {
+      // nome como veio
+      candidates.add(base + basename);
+      candidates.add(base + lower);
+      candidates.add(base + noSpaces);
+
+      // sem extensão → tenta .jpg/.jpeg
+      if (!hasExt) {
+        candidates.add(base + lower + '.jpg');
+        candidates.add(base + lower + '.jpeg');
+        candidates.add(base + noSpaces + '.jpg');
+        candidates.add(base + noSpaces + '.jpeg');
+      } else {
+        // troca .jpeg <-> .jpg
+        if (lower.endsWith('.jpeg')) {
+          candidates.add(base + lower.replace(/\.jpeg$/, '.jpg'));
+          candidates.add(base + noSpaces.replace(/\.jpeg$/, '.jpg'));
+        }
+        if (lower.endsWith('.jpg')) {
+          candidates.add(base + lower.replace(/\.jpg$/, '.jpeg'));
+          candidates.add(base + noSpaces.replace(/\.jpg$/, '.jpeg'));
+        }
+      }
     }
-    if (err?.status === 404) return 'Produto não encontrado (404).';
-    if (err?.error?.detail) return String(err.error.detail);
-    if (typeof err?.error === 'string') return err.error.slice(0, 500);
-    if (err?.message) return err.message;
-    return 'Falha na busca. Verifique a referência e tente novamente.';
+
+    this.imageCandidates = Array.from(candidates.values());
+    if (this.imageCandidates.length) {
+      this.imgSrc.set(this.imageCandidates[0]);
+    } else {
+      this.imageHidden.set(true);
+    }
+  }
+
+  onImageError(_ev: Event): void {
+    this.imageIdx++;
+    if (this.imageIdx < this.imageCandidates.length) {
+      this.imgSrc.set(this.imageCandidates[this.imageIdx]);
+    } else {
+      this.imageHidden.set(true);
+    }
   }
 }

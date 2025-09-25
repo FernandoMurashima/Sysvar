@@ -25,6 +25,7 @@ INSTALLED_APPS = [
 
     # App 
     'sysvar_app.apps.SysvarAppConfig',
+    'auditoria'
 
   
 ]

@@ -1,89 +1,103 @@
-.lookup-wrap {
-  display: grid;
-  gap: 12px;
-  align-items: start;
-}
-
-.input-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  align-items: end;
-}
-
-.lbl {
-  display: grid;
-  gap: 6px;
-  font-weight: 600;
-}
-
-input[type="text"] {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  outline: none;
-}
-
-.btn, .btn-sec {
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  border: 1px solid #ddd;
-  background: #f7f7f7;
-}
-
-.btn:hover { background: #eee; }
-.btn-sec { background: #fff; }
-
-.estado { color: #555; font-size: 0.95rem; }
-.erro   { color: #b00020; }
-.vazio  { color: #777; }
-
-.card {
-  border: 1px solid #e6e6e6;
-  border-radius: 14px;
+/* ----- Layout local do lookup (não usa .row/.col do cadastro) ----- */
+.pl-card {
   background: #fff;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
 }
 
-.card-hd {
-  padding: 12px 14px 0 14px;
-}
-
-.card-hd h3 {
-  margin: 0;
-  font-size: 1.06rem;
-}
-
-.card-hd .muted {
-  color: #777;
-}
-
-.card-body {
-  padding: 8px 14px 14px 14px;
-}
-
-.grid {
+.pl-card-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 10px 18px;
+  grid-template-columns: 1fr 320px; /* dados | foto */
+  gap: 16px;
 }
 
-.kv .k {
-  display: block;
-  color: #666;
-  font-size: 0.85rem;
+/* Grades por linha */
+.pl-grid {
+  display: grid;
+  gap: 12px 16px;
+  margin-bottom: 10px;
 }
 
-.kv .v {
-  display: block;
-  font-weight: 600;
+.pl-line1 { grid-template-columns: 1fr 1fr 1fr; }
+.pl-line2 { grid-template-columns: 2fr 1fr 1fr; } /* descrição mais larga */
+.pl-line3 { grid-template-columns: 1fr 1fr; }
+
+.pl-col-span-2 { grid-column: span 2; }
+
+.pl-field { min-width: 0; }
+.pl-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+.pl-value {
+  font-size: 15px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.kv.full {
-  grid-column: 1 / -1;
+/* Situação */
+.pl-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+}
+.pl-badge-ok { color: #1e4620; background: #edf7ed; border-color: #c8e6c9; }
+.pl-badge-no { color: #8a1f11; background: #fdecea; border-color: #f5c2c0; }
+
+.pl-actions { margin-top: 8px; }
+
+/* Foto */
+.pl-photo {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+}
+.pl-photo img {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+.pl-photo-name {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+.pl-photo-missing {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 6px;
 }
 
-.card-ft {
-  padding: 0 14px 14px 14px;
+/* Toolbar de busca opcional */
+.pl-toolbar {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+.pl-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+.pl-toolbar input[type="text"] {
+  flex: 1;
+  height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* Responsivo */
+@media (max-width: 900px) {
+  .pl-card-grid { grid-template-columns: 1fr; }
 }

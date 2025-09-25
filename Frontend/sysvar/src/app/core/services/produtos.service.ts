@@ -40,12 +40,21 @@ export class ProdutosService {
     return this.http.delete(`${this.baseProdutos}${id}/`);
   }
 
+  /** >>> NOVO: inativar/ativar com motivo (somente inativar exige motivo) */
+  inativarProduto(id: number, motivo: string): Observable<{ Ativo: boolean }> {
+    return this.http.post<{ Ativo: boolean }>(`${this.baseProdutos}${id}/inativar/`, { motivo });
+  }
+  ativarProduto(id: number, motivo?: string): Observable<{ Ativo: boolean }> {
+    const body = motivo && motivo.trim().length ? { audit_reason: motivo.trim() } : {};
+    return this.http.post<{ Ativo: boolean }>(`${this.baseProdutos}${id}/ativar/`, body);
+  }
+
   // ---- Produto Detalhe ----
   createDetalhe(payload: ProdutoDetalhe): Observable<ProdutoDetalhe> {
     return this.http.post<ProdutoDetalhe>(this.baseDetalhes, payload);
   }
 
-  /** Novo: salva SKUs em lote via ProdutoDetalheViewSet.batch_create */
+  /** Salva SKUs em lote via ProdutoDetalheViewSet.batch_create */
   saveSkus(payload: {
     product_id: number;
     tabela_preco_id: number;
@@ -58,7 +67,7 @@ export class ProdutosService {
     detalhes: any[];
     errors: any[];
   }> {
-    const url = `${environment.apiBaseUrl}/produtos-detalhes/batch-create/`; // <- caminho correto
+    const url = `${this.baseDetalhes}batch-create/`;
     return this.http.post<any>(url, payload);
   }
 

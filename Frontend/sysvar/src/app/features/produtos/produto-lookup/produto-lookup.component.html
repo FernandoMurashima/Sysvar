@@ -1,116 +1,86 @@
-<div class="lookup-wrap">
-  <!-- Campo interno só aparece se usarCampoInterno = true -->
-  <div *ngIf="usarCampoInterno" class="input-row">
-    <label class="lbl">
-      Procura (Referência)
-      <input
-        type="text"
-        [(ngModel)]="procura"
-        (keyup.enter)="onKeyEnter()"
-        placeholder="Digite a referência e pressione Enter"
-        aria-label="Referência do produto"
-      />
-    </label>
-    <button type="button" class="btn" (click)="buscar()">Buscar</button>
+<!-- Toolbar interna opcional -->
+<div *ngIf="usarCampoInterno" class="pl-toolbar">
+  <label>Referência</label>
+  <div class="pl-toolbar-actions">
+    <input type="text" #ref (keyup.enter)="buscarComReferencia(ref.value)" placeholder="Digite a referência e pressione Enter" />
+    <button class="btn btn-primary" type="button" (click)="buscarComReferencia(ref.value)">Buscar</button>
   </div>
+</div>
 
-  <div class="estado" *ngIf="carregando()">Buscando...</div>
-  <div class="erro" *ngIf="erroMsg()">{{ erroMsg() }}</div>
-  <div class="vazio" *ngIf="!carregando() && buscou() && !resultado()">Nenhum produto encontrado.</div>
+<!-- Mensagens -->
+<div *ngIf="erroMsg()" class="alert error">{{ erroMsg() }}</div>
 
-  <section class="card" *ngIf="resultado() as r">
-    <header class="card-hd">
-      <h3>{{ r.Nome_produto }}</h3>
-      <small class="muted">Ref: {{ r.Referencia }}</small>
-    </header>
-
-    <div class="card-body">
-      <div class="grid">
-        <!-- Coluna 1 -->
-        <div class="kv">
-          <span class="k">Coleção</span>
-          <span class="v">
-            <ng-container *ngIf="r.ColecaoCodigo || r.ColecaoDescricao; else colecaoFallback">
-              {{ r.ColecaoCodigo || '—' }}
-              <ng-container *ngIf="r.ColecaoDescricao"> — {{ r.ColecaoDescricao }}</ng-container>
-              <ng-container *ngIf="r.Estacao">&nbsp;· Estação {{ r.Estacao }}</ng-container>
-            </ng-container>
-            <ng-template #colecaoFallback>
-              {{ r.Idcolecao || '—' }}
-            </ng-template>
-          </span>
+<!-- Card -->
+<div *ngIf="resultado() as p" class="pl-card">
+  <div class="pl-card-grid">
+    <div>
+      <!-- Linha 1 -->
+      <div class="pl-grid pl-line1">
+        <div class="pl-field">
+          <div class="pl-label">Referência</div>
+          <div class="pl-value">{{ p.Referencia }}</div>
         </div>
-
-        <div class="kv">
-          <span class="k">Grupo</span>
-          <span class="v">
-            <ng-container *ngIf="r.GrupoCodigo || r.GrupoDescricao; else grupoFallback">
-              {{ r.GrupoCodigo || '—' }}
-              <ng-container *ngIf="r.GrupoDescricao"> — {{ r.GrupoDescricao }}</ng-container>
-            </ng-container>
-            <ng-template #grupoFallback>
-              {{ r.Idgrupo || '—' }}
-            </ng-template>
-          </span>
+        <div class="pl-field">
+          <div class="pl-label">Coleção</div>
+          <div class="pl-value">{{ p.colecao_desc || '—' }}</div>
         </div>
-
-        <!-- Coluna 2 -->
-        <div class="kv">
-          <span class="k">Subgrupo</span>
-          <span class="v">{{ r.SubgrupoDescricao || r.Idsubgrupo || '—' }}</span>
+        <div class="pl-field">
+          <div class="pl-label">NCM</div>
+          <div class="pl-value">{{ p.classificacao_fiscal || '—' }}</div>
         </div>
+      </div>
 
-        <div class="kv">
-          <span class="k">Unidade</span>
-          <span class="v">
-            <ng-container *ngIf="r.UnidadeDescricao || r.UnidadeSigla; else unidadeFallback">
-              {{ r.UnidadeDescricao || '—' }}
-              <ng-container *ngIf="r.UnidadeSigla"> ({{ r.UnidadeSigla }})</ng-container>
-            </ng-container>
-            <ng-template #unidadeFallback>
-              {{ r.Idunidade || '—' }}
-            </ng-template>
-          </span>
+      <!-- Linha 2 -->
+      <div class="pl-grid pl-line2">
+        <div class="pl-field pl-col-span-2">
+          <div class="pl-label">Descrição</div>
+          <div class="pl-value">{{ p.Nome_produto }}</div>
         </div>
+        <div class="pl-field">
+          <div class="pl-label">Grupo</div>
+          <div class="pl-value">{{ p.grupo_desc || '—' }}</div>
+        </div>
+        <div class="pl-field">
+          <div class="pl-label">Subgrupo</div>
+          <div class="pl-value">{{ p.subgrupo_desc || '—' }}</div>
+        </div>
+      </div>
 
-        <!-- Linha cheia -->
-        <div class="kv full" *ngIf="r.Descricao">
-          <span class="k">Descrição</span>
-          <span class="v">{{ r.Descricao }}</span>
+      <!-- Linha 3 -->
+      <div class="pl-grid pl-line3">
+        <div class="pl-field">
+          <div class="pl-label">Unidade</div>
+          <div class="pl-value">{{ p.unidade_desc || '—' }}</div>
         </div>
+        <div class="pl-field">
+          <div class="pl-label">Situação</div>
+          <div class="pl-value">
+            <span class="pl-badge" [class.pl-badge-ok]="p.Ativo" [class.pl-badge-no]="!p.Ativo">
+              {{ p.Ativo ? 'Ativo: Sim' : 'Ativo: Não' }}
+            </span>
+          </div>
+        </div>
+      </div>
 
-        <div class="kv">
-          <span class="k">Preço</span>
-          <span class="v">
-            <ng-container *ngIf="r.Preco != null; else precoBase">
-              R$ {{ r.Preco | number:'1.2-2' }}
-            </ng-container>
-            <ng-template #precoBase>
-              <ng-container *ngIf="r.PrecoBase != null; else semPreco">
-                R$ {{ r.PrecoBase | number:'1.2-2' }}
-              </ng-container>
-              <ng-template #semPreco>—</ng-template>
-            </ng-template>
-          </span>
-        </div>
-
-        <div class="kv" *ngIf="r.Ncm">
-          <span class="k">NCM</span>
-          <span class="v">{{ r.Ncm }}</span>
-        </div>
-
-        <div class="kv">
-          <span class="k">Ativo</span>
-          <span class="v">{{ r.Ativo ? 'Sim' : 'Não' }}</span>
-        </div>
+      <div class="pl-actions">
+        <button class="btn btn-primary" type="button" (click)="onToggleStatus(p)" [disabled]="loading()">
+          {{ p.Ativo ? 'Desativar produto' : 'Ativar produto' }}
+        </button>
       </div>
     </div>
 
-    <footer class="card-ft">
-      <button type="button" class="btn-sec" (click)="abrirVariacoes()">
-        Ver variações (cores/tamanhos)
-      </button>
-      <!-- Ainda não abre modal; próximo passo implemento a sobre-tela -->
-    </footer>
-  </section>
+    <!-- Foto -->
+    <div>
+      <div class="pl-photo">
+        <img
+          *ngIf="!imageHidden() && imgSrc()"
+          [src]="imgSrc()"
+          alt="Foto do produto"
+          (error)="onImageError($event)"
+        />
+        <div class="pl-photo-name">{{ (resultado()?.produto_foto || '—') }}</div>
+        <div *ngIf="imageHidden()" class="pl-photo-missing">Imagem não disponível</div>
+      </div>
+    </div>
+  </div>
 </div>

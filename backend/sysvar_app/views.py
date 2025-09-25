@@ -14,6 +14,9 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 
+# >>> AUDITORIA <<<
+from auditoria.utils import write_product_status_change
+
 from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
@@ -205,39 +208,98 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     ordering_fields = ['data_cadastro', 'Descricao', 'referencia']
     filterset_fields = ['Ativo']
 
+    # ---------- helpers internos ----------
+    @staticmethod
+    def _to_bool(v):
+        if isinstance(v, bool): return v
+        if isinstance(v, (int, float)): return bool(int(v))
+        if isinstance(v, str):
+            s = v.strip().lower()
+            if s in {'1','true','ativo','active','sim','yes'}: return True
+            if s in {'0','false','inativo','inactive','não','nao','no'}: return False
+        return None
+
+    @staticmethod
+    def _get_reason(request):
+        return (request.headers.get('X-Audit-Reason')
+                or request.data.get('audit_reason')
+                or request.data.get('motivo')
+                or request.data.get('motivo_inativacao')
+                or '').strip()
+
+    # ---------- ações explícitas (POST /ativar, /inativar) ----------
     @action(detail=True, methods=['post'], url_path='inativar')
     def inativar(self, request, pk=None):
         produto = self.get_object()
-        motivo = (request.data.get('motivo') or request.data.get('motivo_inativacao') or '').strip()[:255]
-        produto.Ativo = False
-        produto.motivo_inativacao = motivo
-        produto.inativado_em = timezone.now()
-        try:
-            produto.inativado_por = request.user if request.user.is_authenticated else None
-        except Exception:
-            produto.inativado_por = None
-        produto.save(update_fields=['Ativo','motivo_inativacao','inativado_em','inativado_por'])
-        return Response({'Ativo': False, 'motivo_inativacao': produto.motivo_inativacao}, status=200)
+        old_status = bool(produto.Ativo)
+        motivo = self._get_reason(request)
+
+        # motivo obrigatório (apenas AuditLog armazena o conteúdo)
+        if not motivo or len(motivo) < 3:
+            return Response(
+                {'detail': 'Informe o motivo da inativação (mín. 3 caracteres).'},
+                status=400
+            )
+
+        if old_status is True:
+            produto.Ativo = False
+            # NÃO gravamos o motivo no Produto — apenas status/ator/data
+            produto.inativado_em = timezone.now()
+            try:
+                produto.inativado_por = request.user if request.user.is_authenticated else None
+            except Exception:
+                produto.inativado_por = None
+            produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
+
+            # cascata: desativar SKUs
+            ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=True).update(Ativo=False)
+
+            # auditoria (guarda o motivo)
+            write_product_status_change(
+                request=request,
+                instance=produto,
+                old_status=True,
+                new_status=False,
+                reason=motivo
+            )
+
+        return Response({'Ativo': bool(produto.Ativo)}, status=200)
 
     @action(detail=True, methods=['post'], url_path='ativar')
     def ativar(self, request, pk=None):
         produto = self.get_object()
-        produto.Ativo = True
-        produto.motivo_inativacao = ''
-        produto.inativado_em = None
-        produto.inativado_por = None
-        produto.save(update_fields=['Ativo','motivo_inativacao','inativado_em','inativado_por'])
-        return Response({'Ativo': True}, status=200)
+        old_status = bool(produto.Ativo)
+        motivo = self._get_reason(request)  # opcional ao ativar
 
+        if old_status is False:
+            produto.Ativo = True
+            # limpar marcadores operacionais
+            produto.inativado_em = None
+            produto.inativado_por = None
+            produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
+
+            # auditoria (sem necessidade de motivo obrigatório)
+            write_product_status_change(
+                request=request,
+                instance=produto,
+                old_status=False,
+                new_status=True,
+                reason=(motivo or None)
+            )
+
+        return Response({'Ativo': bool(produto.Ativo)}, status=200)
 
     def get_queryset(self):
         """
-        Por padrão retorna apenas produtos ativos.
-        ?ativo=false  → somente inativos
-        ?ativo=all    → todos
-        ?ativo=true   → somente ativos (padrão)
+        LIST: filtra por ativo (padrão só ativos).
+        DEMAIS AÇÕES (retrieve, patch, ativar, inativar...): NÃO filtra por ativo.
         """
         qs = super().get_queryset()
+        action = getattr(self, 'action', None)
+        if action and action != 'list':
+            return qs  # não filtra em detalhes/edição/ações customizadas
+
+        # apenas LIST aplica o filtro por 'ativo'
         ativo = self.request.query_params.get('ativo')
         if ativo is None or ativo.lower() in ('true', '1', ''):
             return qs.filter(Ativo=True)
@@ -247,19 +309,79 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         """
-        Ao desativar um Produto (Ativo=False), desativa em cascata todos os SKUs.
-        Ao reativar (Ativo=True), NÃO reativa SKUs automaticamente (granular).
+        PATCH com suporte a aliases de status e auditoria.
+        - Aceita 'Ativo' (campo real) e também 'ativo' / 'status' / 'Status' / 'ativo_status' (mapeados p/ Ativo)
+        - Se houve mudança de status, grava auditoria (before/after)
+        - Se mudar de True→False, exige motivo (somente no AuditLog)
+        - Mantém a cascata de desativação de SKUs quando Ativo muda de True→False
         """
-        obj_before = self.get_object()
-        was_active = bool(obj_before.Ativo)
-        resp = super().partial_update(request, *args, **kwargs)
-        obj_after = self.get_object()
-        now_active = bool(obj_after.Ativo)
+        instance = self.get_object()
+        old_status = bool(getattr(instance, 'Ativo', False))
 
-        if was_active and not now_active:
-            # cascata: desativar SKUs
-            ProdutoDetalhe.objects.filter(Idproduto=obj_after, Ativo=True).update(Ativo=False)
-        return resp
+        # montar payload mutável
+        try:
+            data = request.data.copy()
+        except Exception:
+            data = dict(request.data or {})
+
+        # mapear aliases → 'Ativo'
+        aliases = ['ativo', 'status', 'Status', 'ativo_status']
+        new_status = None
+
+        if 'Ativo' in data and data['Ativo'] not in (None, ''):
+            new_status = self._to_bool(data.get('Ativo'))
+
+        if new_status is None:
+            for k in aliases:
+                if k in data and data[k] not in (None, ''):
+                    new_status = self._to_bool(data.get(k))
+                    break
+
+        if new_status is not None:
+            data['Ativo'] = new_status
+        # remover aliases
+        for k in aliases:
+            if k in data:
+                try:
+                    data.pop(k)
+                except Exception:
+                    pass
+
+        # >>> motivo obrigatório somente se for desativar (True → False)
+        if new_status is not None and old_status and not new_status:
+            motivo = self._get_reason(request)
+            if not motivo or len(motivo.strip()) < 3:
+                return Response(
+                    {'detail': 'Informe o motivo da inativação (mín. 3 caracteres).'},
+                    status=400
+                )
+
+        # salva normalmente
+        partial = kwargs.pop('partial', True)
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        # estado final
+        instance.refresh_from_db()
+        now_active = bool(getattr(instance, 'Ativo', False))
+
+        # cascata: se desativou, desativar SKUs
+        if old_status and not now_active:
+            ProdutoDetalhe.objects.filter(Idproduto=instance, Ativo=True).update(Ativo=False)
+
+        # auditoria: se tentou mudar e mudou de fato
+        if new_status is not None and old_status != now_active:
+            motivo = self._get_reason(request)
+            write_product_status_change(
+                request=request,
+                instance=instance,
+                old_status=old_status,
+                new_status=now_active,
+                reason=(motivo or None)
+            )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ProdutoDetalheViewSet(viewsets.ModelViewSet):
@@ -290,7 +412,6 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             pass
         else:
             qs = qs.filter(Ativo=False)
-        # manter filtros 'Idproduto' etc do filterset
         return qs
 
     # criação em lote de SKUs
