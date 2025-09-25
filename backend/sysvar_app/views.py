@@ -2,6 +2,7 @@ from decimal import Decimal
 from xml.etree import ElementTree as ET
 
 from django.http import JsonResponse
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filters as df
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import viewsets, filters, status
@@ -19,7 +20,7 @@ from .models import (
     Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm,
     TabelaPrecoItem,
     # modelos fiscais / compras
-    NFeEntrada, NFeItem, FornecedorSkuMap, Compra, CompraItem, MovimentacaoProdutos
+    NFeEntrada, NFeItem, FornecedorSkuMap, Compra, CompraItem, MovimentacaoProdutos, 
 )
 from .serializers import (
     UserSerializer,
@@ -27,7 +28,7 @@ from .serializers import (
     FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer,
     CorSerializer, ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer,
     SubgrupoSerializer, CodigosSerializer, TabelaprecoSerializer, NcmSerializer,
-    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer
+    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer, TabelaPrecoItemSerializer
 )
 
 # -------------------------
@@ -202,6 +203,63 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'referencia', 'grupo', 'subgrupo', 'colecao']
     ordering_fields = ['data_cadastro', 'Descricao', 'referencia']
+    filterset_fields = ['Ativo']
+
+    @action(detail=True, methods=['post'], url_path='inativar')
+    def inativar(self, request, pk=None):
+        produto = self.get_object()
+        motivo = (request.data.get('motivo') or request.data.get('motivo_inativacao') or '').strip()[:255]
+        produto.Ativo = False
+        produto.motivo_inativacao = motivo
+        produto.inativado_em = timezone.now()
+        try:
+            produto.inativado_por = request.user if request.user.is_authenticated else None
+        except Exception:
+            produto.inativado_por = None
+        produto.save(update_fields=['Ativo','motivo_inativacao','inativado_em','inativado_por'])
+        return Response({'Ativo': False, 'motivo_inativacao': produto.motivo_inativacao}, status=200)
+
+    @action(detail=True, methods=['post'], url_path='ativar')
+    def ativar(self, request, pk=None):
+        produto = self.get_object()
+        produto.Ativo = True
+        produto.motivo_inativacao = ''
+        produto.inativado_em = None
+        produto.inativado_por = None
+        produto.save(update_fields=['Ativo','motivo_inativacao','inativado_em','inativado_por'])
+        return Response({'Ativo': True}, status=200)
+
+
+    def get_queryset(self):
+        """
+        Por padrão retorna apenas produtos ativos.
+        ?ativo=false  → somente inativos
+        ?ativo=all    → todos
+        ?ativo=true   → somente ativos (padrão)
+        """
+        qs = super().get_queryset()
+        ativo = self.request.query_params.get('ativo')
+        if ativo is None or ativo.lower() in ('true', '1', ''):
+            return qs.filter(Ativo=True)
+        if ativo.lower() == 'all':
+            return qs
+        return qs.filter(Ativo=False)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Ao desativar um Produto (Ativo=False), desativa em cascata todos os SKUs.
+        Ao reativar (Ativo=True), NÃO reativa SKUs automaticamente (granular).
+        """
+        obj_before = self.get_object()
+        was_active = bool(obj_before.Ativo)
+        resp = super().partial_update(request, *args, **kwargs)
+        obj_after = self.get_object()
+        now_active = bool(obj_after.Ativo)
+
+        if was_active and not now_active:
+            # cascata: desativar SKUs
+            ProdutoDetalhe.objects.filter(Idproduto=obj_after, Ativo=True).update(Ativo=False)
+        return resp
 
 
 class ProdutoDetalheViewSet(viewsets.ModelViewSet):
@@ -212,9 +270,28 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
     serializer_class = ProdutoDetalheSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['CodigodeBarra', 'Codigoproduto', 'Idproduto']
+    filterset_fields = ['CodigodeBarra', 'Codigoproduto', 'Idproduto', 'Ativo']
     search_fields = ['CodigodeBarra', 'Codigoproduto']
     ordering_fields = ['data_cadastro', 'CodigodeBarra']
+
+    def get_queryset(self):
+        """
+        Por padrão retorna apenas SKUs ativos.
+        ?ativo=false  → somente inativos
+        ?ativo=all    → todos
+        ?ativo=true   → somente ativos (padrão)
+        Mantém filtros existentes (Idproduto, etc).
+        """
+        qs = super().get_queryset()
+        ativo = self.request.query_params.get('ativo')
+        if ativo is None or (isinstance(ativo, str) and ativo.lower() in ('true', '1', '')):
+            qs = qs.filter(Ativo=True)
+        elif isinstance(ativo, str) and ativo.lower() == 'all':
+            pass
+        else:
+            qs = qs.filter(Ativo=False)
+        # manter filtros 'Idproduto' etc do filterset
+        return qs
 
     # criação em lote de SKUs
     @action(detail=False, methods=['post'], url_path='batch-create')
@@ -304,7 +381,8 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                         'Idproduto': produto,
                         'Idcor': cor,
                         'Idtamanho': tamanho,
-                        'Codigoproduto': cod_prod
+                        'Codigoproduto': cod_prod,
+                        'Ativo': True,
                     }
                 )
                 if not created_pd:
@@ -317,6 +395,8 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                         pd.Idtamanho = tamanho; changed = True
                     if pd.Codigoproduto != cod_prod:
                         pd.Codigoproduto = cod_prod; changed = True
+                    if not pd.Ativo:
+                        pd.Ativo = True; changed = True
                     if changed:
                         pd.save()
                     updated += 1
@@ -525,17 +605,40 @@ class NcmViewSet(viewsets.ModelViewSet):
     ordering_fields = ['ncm', 'descricao']
 
 
+# ---- Preços por EAN (read-only) -----------------
+class TabelaPrecoItemFilter(FilterSet):
+    idtabela_id = df.NumberFilter(field_name='idtabela_id')
+    codigodebarra = df.CharFilter(field_name='codigodebarra', lookup_expr='exact')
+    codigodebarra__in = df.CharFilter(method='filter_eans')
+
+    def filter_eans(self, queryset, name, value):
+        codes = [c.strip() for c in (value or '').split(',') if c.strip()]
+        return queryset.filter(codigodebarra__in=codes)
+
+    class Meta:
+        model = TabelaPrecoItem
+        fields = ['idtabela_id', 'codigodebarra']
+
+class TabelaPrecoItemViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = TabelaPrecoItem.objects.all()
+    serializer_class = TabelaPrecoItemSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_class = TabelaPrecoItemFilter
+    ordering_fields = ['codigodebarra']
+    ordering = ['codigodebarra']
+
+
 # -----------------------------
 # FornecedorSkuMap CRUD
 # -----------------------------
 class FornecedorSkuMapViewSet(viewsets.ModelViewSet):
-    queryset = FornecedorSkuMap.objects.select_related('fornecedor', 'produtodetalhe', 'produto').all().order_by('-data_cadastro')
+    queryset = FornecedorSkuMap.objects.select_related('Idfornecedor', 'Idprodutodetalhe', 'Idproduto').all().order_by('-data_cadastro')
     serializer_class = FornecedorSkuMapSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['fornecedor']
-    search_fields = ['cProd_vendor', 'descricao_vendor']
-    ordering_fields = ['data_cadastro', 'cProd_vendor']
+    filterset_fields = ['Idfornecedor']
+    search_fields = ['cprod_fornecedor']
+    ordering_fields = ['data_cadastro', 'cprod_fornecedor']
 
 
 # =========================
@@ -721,10 +824,10 @@ class NFeEntradaViewSet(viewsets.ModelViewSet):
             # 2) Mapa fornecedor → SKU/Produto
             if not destino and fornecedor:
                 m = FornecedorSkuMap.objects.filter(
-                    fornecedor=fornecedor, cProd_vendor=it.cProd
-                ).select_related('produtodetalhe', 'produto').first()
-                if m and m.produtodetalhe:
-                    pd = m.produtodetalhe
+                    Idfornecedor=fornecedor, cprod_fornecedor=it.cProd
+                ).select_related('Idprodutodetalhe', 'Idproduto').first()
+                if m and m.Idprodutodetalhe:
+                    pd = m.Idprodutodetalhe
                     destino = {
                         'tipo': 'sku',
                         'Idprodutodetalhe': pd.Idprodutodetalhe,
@@ -734,8 +837,8 @@ class NFeEntradaViewSet(viewsets.ModelViewSet):
                         'produto_ref': pd.Idproduto.referencia,
                         'produto_desc': pd.Idproduto.Descricao
                     }
-                elif m and m.produto:
-                    p = m.produto
+                elif m and m.Idproduto:
+                    p = m.Idproduto
                     destino = {
                         'tipo': 'produto',
                         'Idproduto': p.Idproduto,
@@ -806,12 +909,12 @@ class NFeEntradaViewSet(viewsets.ModelViewSet):
             # 2) Mapa do fornecedor (cProd)
             if not destino:
                 m = FornecedorSkuMap.objects.filter(
-                    fornecedor=fornecedor, cProd_vendor=it.cProd
-                ).select_related('produtodetalhe', 'produto').first()
-                if m and m.produtodetalhe:
-                    destino = ('sku', m.produtodetalhe)
-                elif m and m.produto:
-                    destino = ('produto', m.produto)
+                    Idfornecedor=fornecedor, cprod_fornecedor=it.cProd
+                ).select_related('Idprodutodetalhe', 'Idproduto').first()
+                if m and m.Idprodutodetalhe:
+                    destino = ('sku', m.Idprodutodetalhe)
+                elif m and m.Idproduto:
+                    destino = ('produto', m.Idproduto)
 
             if not destino:
                 faltantes.append({'item_id': it.Idnfeitem, 'ordem': it.ordem, 'cProd': it.cProd, 'xProd': it.xProd, 'ean': it.cean})

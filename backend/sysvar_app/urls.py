@@ -9,7 +9,7 @@ from .views import (
     FornecedorViewSet, VendedorViewSet, FuncionariosViewSet, GradeViewSet, TamanhoViewSet,
     CorViewSet, ColecaoViewSet, FamiliaViewSet, UnidadeViewSet, GrupoViewSet, SubgrupoViewSet,
     CodigosViewSet, TabelaprecoViewSet, NcmViewSet,
-    FornecedorSkuMapViewSet,
+    FornecedorSkuMapViewSet, TabelaPrecoItemViewSet,
     NFeEntradaViewSet
 )
 
@@ -34,6 +34,8 @@ router.register(r'subgrupos', SubgrupoViewSet)
 router.register(r'codigos', CodigosViewSet)
 router.register(r'tabelas-preco', TabelaprecoViewSet)
 router.register(r'ncms', NcmViewSet)
+router.register(r'tabelaprecoitem', TabelaPrecoItemViewSet, basename='tabelaprecoitem')
+
 
 # novos
 router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet)

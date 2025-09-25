@@ -281,6 +281,10 @@ class Produto(models.Model):
     produto_foto2 = models.CharField(max_length=1000, null=True, blank=True)
     Material = models.CharField(max_length=50, null=True, blank=True)
     data_cadastro = models.DateTimeField(default=timezone.now)
+    Ativo = models.BooleanField(default=True)
+    inativado_em = models.DateTimeField(null=True, blank=True)
+    inativado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    motivo_inativacao = models.CharField(max_length=255, blank=True, default='')
 
     def __str__(self):
         return self.Descricao
@@ -295,6 +299,7 @@ class ProdutoDetalhe(models.Model):
     Idtamanho = models.ForeignKey(Tamanho, on_delete=models.CASCADE)
     Idcor = models.ForeignKey(Cor, on_delete=models.CASCADE)
     Item = models.IntegerField(null=True, blank=True, default=0)
+    Ativo = models.BooleanField(default=True)
 
     def __str__(self):
         return f'{self.CodigodeBarra} - {self.Codigoproduto}'

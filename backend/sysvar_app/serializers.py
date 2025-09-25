@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
@@ -8,8 +9,7 @@ from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
     Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco, Ncm,
-    TabelaPrecoItem,  # usado em ProdutoDetalhe batch
-    # >>> modelos fiscais e compras conforme seu models.py
+    TabelaPrecoItem,
     NFeEntrada, NFeItem, FornecedorSkuMap, Compra, CompraItem
 )
 
@@ -183,7 +183,7 @@ class ProdutoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Produto
         fields = '__all__'
-        read_only_fields = ['Idproduto', 'data_cadastro', 'referencia']
+        read_only_fields = ['Idproduto', 'data_cadastro', 'referencia', 'inativado_em', 'inativado_por']
         extra_kwargs = {
             'Desc_reduzida': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
@@ -245,6 +245,25 @@ class ProdutoSerializer(serializers.ModelSerializer):
             produto = super().create(validated_data)
         return produto
 
+    def update(self, instance, validated_data):
+        """
+        Auditoria simples de (des)ativação:
+        - Quando Ativo muda de True -> False: seta inativado_em e inativado_por.
+        - Quando False -> True: limpa inativado_em/inativado_por (mantém motivo, se quiser).
+        """
+        novo_ativo = validated_data.get('Ativo', instance.Ativo)
+        if instance.Ativo and novo_ativo is False:
+            validated_data['inativado_em'] = timezone.now()
+            user = self.context.get('request').user if self.context.get('request') else None
+            if user and user.is_authenticated:
+                validated_data['inativado_por'] = user
+        elif (not instance.Ativo) and novo_ativo is True:
+            validated_data['inativado_em'] = None
+            validated_data['inativado_por'] = None
+            # opcional: também pode limpar o motivo
+            # validated_data['motivo_inativacao'] = ''
+        return super().update(instance, validated_data)
+
 
 class ProdutoDetalheSerializer(serializers.ModelSerializer):
     class Meta:
@@ -294,15 +313,15 @@ class TabelaprecoSerializer(serializers.ModelSerializer):
 # FornecedorSkuMap (mapeamento fornecedor -> SKU/Produto)
 # -----------------------------
 class FornecedorSkuMapSerializer(serializers.ModelSerializer):
-    fornecedor_nome = serializers.CharField(source='fornecedor.Nome_fornecedor', read_only=True)
-    sku_ean = serializers.CharField(source='produtodetalhe.CodigodeBarra', read_only=True)
-    produto_ref = serializers.CharField(source='produto.referencia', read_only=True)
-    produto_desc = serializers.CharField(source='produto.Descricao', read_only=True)
+    fornecedor_nome = serializers.CharField(source='Idfornecedor.Nome_fornecedor', read_only=True)
+    sku_ean = serializers.CharField(source='Idprodutodetalhe.CodigodeBarra', read_only=True)
+    produto_ref = serializers.CharField(source='Idproduto.referencia', read_only=True)
+    produto_desc = serializers.CharField(source='Idproduto.Descricao', read_only=True)
 
     class Meta:
         model = FornecedorSkuMap
         fields = '__all__'
-        read_only_fields = ['Idmap', 'data_cadastro']
+        read_only_fields = ['Idforn_sku_map', 'data_cadastro']
 
 
 # -----------------------------
@@ -324,3 +343,9 @@ class NFeEntradaSerializer(serializers.ModelSerializer):
         model = NFeEntrada
         fields = '__all__'
         read_only_fields = ['Idnfe', 'data_cadastro', 'status']
+
+
+class TabelaPrecoItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TabelaPrecoItem
+        fields = '__all__'
