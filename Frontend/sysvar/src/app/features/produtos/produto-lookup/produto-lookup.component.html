@@ -14,7 +14,7 @@
 <div *ngIf="resultado() as p" class="pl-card">
   <div class="pl-card-grid">
     <div>
-      <!-- Linha 1 -->
+      <!-- Linha 1 (sem mudanças) -->
       <div class="pl-grid pl-line1">
         <div class="pl-field">
           <div class="pl-label">Referência</div>
@@ -30,9 +30,9 @@
         </div>
       </div>
 
-      <!-- Linha 2 -->
+      <!-- Linha 2 (Descrição | Grupo | Subgrupo) -->
       <div class="pl-grid pl-line2">
-        <div class="pl-field pl-col-span-2">
+        <div class="pl-field">
           <div class="pl-label">Descrição</div>
           <div class="pl-value">{{ p.Nome_produto }}</div>
         </div>
@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <!-- Linha 3 -->
+      <!-- Linha 3 (Unidade | Situação) -->
       <div class="pl-grid pl-line3">
         <div class="pl-field">
           <div class="pl-label">Unidade</div>

@@ -1,7 +1,13 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+
 import { ProdutosService } from '../../../core/services/produtos.service';
+import { ColecoesService } from '../../../core/services/colecoes.service';
+import { GruposService } from '../../../core/services/grupos.service';
+import { SubgruposService } from '../../../core/services/subgrupos.service';
+import { UnidadesService } from '../../../core/services/unidades.service';
+
 import { ProdutoBasic as ProdutoBasicModel } from '../../../core/models/produto-basic.model';
 
 type ProdutoBasicView = ProdutoBasicModel & {
@@ -38,8 +44,17 @@ export class ProdutoLookupComponent {
   @Output() selecionado = new EventEmitter<ProdutoBasicModel>();
   @Output() verVariacoes = new EventEmitter<ProdutoBasicModel>();
 
-  constructor(private produtosApi: ProdutosService) {}
+  constructor(
+    private produtosApi: ProdutosService,
+    private colecoesApi: ColecoesService,
+    private gruposApi: GruposService,
+    private subgruposApi: SubgruposService,
+    private unidadesApi: UnidadesService,
+  ) {}
 
+  // ========================
+  // BUSCA POR REFERÊNCIA
+  // ========================
   buscarComReferencia(referencia: string) {
     this.erroMsg.set(null);
     this.loading.set(true);
@@ -62,17 +77,24 @@ export class ProdutoLookupComponent {
           Idproduto: src.Idproduto ?? src.id ?? 0,
           Referencia: src.Referencia ?? src.referencia ?? '',
           Nome_produto: src.Nome_produto ?? src.Descricao ?? '',
+          classificacao_fiscal: src.classificacao_fiscal ?? null,
+          produto_foto: src.produto_foto ?? null,
+          Ativo: !!(src.Ativo ?? src.ativo ?? true),
+          // descs virão preenchidas pelo hydrate abaixo
           colecao_desc: src.colecao_desc ?? null,
           grupo_desc: src.grupo_desc ?? null,
           subgrupo_desc: src.subgrupo_desc ?? null,
           unidade_desc: src.unidade_desc ?? null,
-          classificacao_fiscal: src.classificacao_fiscal ?? null,
-          produto_foto: src.produto_foto ?? null,
-          Ativo: !!(src.Ativo ?? src.ativo ?? true),
         };
 
         this.resultado.set(basic);
+
+        // Reconstroi as descrições caso não tenham vindo no payload
+        this.hydrateDescriptions(src);
+
+        // Prepara a imagem
         this.prepareImage(basic.produto_foto || '');
+
         this.loading.set(false);
       },
       error: () => {
@@ -82,6 +104,124 @@ export class ProdutoLookupComponent {
     });
   }
 
+  // ========================
+  // ENRIQUECER DESCRIÇÕES
+  // ========================
+  private pad2(v: any): string {
+    return (v ?? '').toString().padStart(2, '0');
+  }
+
+  /** Busca descrições de Coleção, Grupo, Subgrupo e Unidade a partir de códigos/ids do produto. */
+  private hydrateDescriptions(src: any) {
+    const cur = this.resultado();
+    if (!cur) return;
+
+    // ---- Coleção (normalmente é código de 2 dígitos) ----
+    if (!cur.colecao_desc) {
+      const cc = src.colecao ?? src.Colecao ?? src.colecao_codigo ?? null;
+      if (cc != null && cc !== '') {
+        const cc2 = this.pad2(cc);
+        this.colecoesApi.list({ search: cc2, ordering: '-data_cadastro' }).subscribe({
+          next: (res: any) => {
+            const arr = Array.isArray(res) ? res : (res?.results ?? []);
+            const item = arr.find((c: any) => this.pad2(c?.Codigo) === cc2);
+            if (item?.Descricao) this.patchResultado({ colecao_desc: item.Descricao });
+          }
+        });
+      }
+    }
+
+    // ---- Grupo (código) ----
+    if (!cur.grupo_desc) {
+      const gg = src.grupo ?? src.Grupo ?? src.grupo_codigo ?? null;
+      if (gg != null && gg !== '') {
+        const gg2 = this.pad2(gg);
+        this.gruposApi.list({ search: gg2, ordering: 'Descricao' }).subscribe({
+          next: (res: any) => {
+            const arr = Array.isArray(res) ? res : (res?.results ?? []);
+            const item = arr.find((g: any) => this.pad2(g?.Codigo) === gg2);
+            if (item?.Descricao) this.patchResultado({ grupo_desc: item.Descricao });
+          }
+        });
+      }
+    }
+
+    // ---- Subgrupo (Idsubgrupo) ----
+    if (!cur.subgrupo_desc) {
+      const sgId = src.subgrupo ?? src.Idsubgrupo ?? null;
+      if (sgId) {
+        // Preferir GET /subgrupos/{id}/ quando disponível
+        const id = Number(sgId);
+        if (!Number.isNaN(id) && id > 0 && (this.subgruposApi as any).get) {
+          (this.subgruposApi as any).get(id).subscribe({
+            next: (sg: any) => {
+              if (sg?.Descricao) this.patchResultado({ subgrupo_desc: sg.Descricao });
+            },
+            error: () => {
+              // fallback por busca textual (pode não achar por id)
+              this.subgruposApi.list({ search: String(id) }).subscribe({
+                next: (res: any) => {
+                  const arr = Array.isArray(res) ? res : (res?.results ?? []);
+                  const item = arr?.[0];
+                  if (item?.Descricao) this.patchResultado({ subgrupo_desc: item.Descricao });
+                }
+              });
+            }
+          });
+        } else {
+          // fallback direto
+          this.subgruposApi.list({ search: String(sgId) }).subscribe({
+            next: (res: any) => {
+              const arr = Array.isArray(res) ? res : (res?.results ?? []);
+              const item = arr?.[0];
+              if (item?.Descricao) this.patchResultado({ subgrupo_desc: item.Descricao });
+            }
+          });
+        }
+      }
+    }
+
+    // ---- Unidade (Idunidade) ----
+    if (!cur.unidade_desc) {
+      const uid = src.unidade ?? src.Unidade ?? src.unidade_id ?? null;
+      const id = Number(uid);
+      if (id && !Number.isNaN(id) && (this.unidadesApi as any).get) {
+        (this.unidadesApi as any).get(id).subscribe({
+          next: (u: any) => {
+            if (u?.Descricao) this.patchResultado({ unidade_desc: u.Descricao });
+          },
+          error: () => {
+            // fallback textual
+            this.unidadesApi.list({ search: String(uid) }).subscribe({
+              next: (res: any) => {
+                const arr = Array.isArray(res) ? res : (res?.results ?? []);
+                const item = arr?.[0];
+                if (item?.Descricao) this.patchResultado({ unidade_desc: item.Descricao });
+              }
+            });
+          }
+        });
+      } else if (uid != null) {
+        this.unidadesApi.list({ search: String(uid) }).subscribe({
+          next: (res: any) => {
+            const arr = Array.isArray(res) ? res : (res?.results ?? []);
+            const item = arr?.[0];
+            if (item?.Descricao) this.patchResultado({ unidade_desc: item.Descricao });
+          }
+        });
+      }
+    }
+  }
+
+  private patchResultado(partial: Partial<ProdutoBasicView>) {
+    const cur = this.resultado();
+    if (!cur) return;
+    this.resultado.set({ ...cur, ...partial });
+  }
+
+  // ========================
+  // ATIVAR / INATIVAR
+  // ========================
   onToggleStatus(prod: ProdutoBasicView) {
     if (!prod || !prod.Idproduto) return;
 
@@ -124,7 +264,9 @@ export class ProdutoLookupComponent {
     }
   }
 
-  // -------- Foto helpers --------
+  // ========================
+  // FOTO
+  // ========================
   private resetImage() {
     this.imageCandidates = [];
     this.imageIdx = 0;
@@ -135,34 +277,25 @@ export class ProdutoLookupComponent {
   private prepareImage(nomeBruto: string) {
     this.resetImage();
 
-    // 1) basename: retira qualquer pasta (C:\..., /alguma/pasta/..., etc.)
     const basename = (nomeBruto || '').trim().replace(/^.*[\\/]/, '');
     if (!basename) { this.imageHidden.set(true); return; }
 
-    // 2) bases possíveis (aceita tanto em /assets/produtos quanto /assets)
     const bases = ['/assets/produtos/', '/assets/'];
-
-    // 3) variações de nome
     const lower = basename.toLowerCase();
     const hasExt = /\.(jpe?g)$/i.test(lower);
     const noSpaces = lower.replace(/\s+/g, '');
 
     const candidates = new Set<string>();
-
     for (const base of bases) {
-      // nome como veio
       candidates.add(base + basename);
       candidates.add(base + lower);
       candidates.add(base + noSpaces);
-
-      // sem extensão → tenta .jpg/.jpeg
       if (!hasExt) {
         candidates.add(base + lower + '.jpg');
         candidates.add(base + lower + '.jpeg');
         candidates.add(base + noSpaces + '.jpg');
         candidates.add(base + noSpaces + '.jpeg');
       } else {
-        // troca .jpeg <-> .jpg
         if (lower.endsWith('.jpeg')) {
           candidates.add(base + lower.replace(/\.jpeg$/, '.jpg'));
           candidates.add(base + noSpaces.replace(/\.jpeg$/, '.jpg'));

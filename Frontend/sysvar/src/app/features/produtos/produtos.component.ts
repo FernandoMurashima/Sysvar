@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, ViewChild } from '@angular/core'; // + ViewChild
+import { Component, OnInit, HostListener, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -35,7 +35,6 @@ type Ncm = { ncm: string; descricao?: string };
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  // + inclui ProdutoLookupComponent nos imports do standalone
   imports: [CommonModule, FormsModule, LojasSelectorComponent, ProdutoLookupComponent],
   templateUrl: './produtos.component.html',
   styleUrls: ['./produtos.component.css']
@@ -43,7 +42,6 @@ type Ncm = { ncm: string; descricao?: string };
 export class ProdutosComponent implements OnInit {
   action: '' | 'novo' | 'consultar' = '';
 
-  // + referência para o componente filho (lookup)
   @ViewChild(ProdutoLookupComponent) lookupCmp!: ProdutoLookupComponent;
 
   // listas
@@ -95,6 +93,12 @@ export class ProdutosComponent implements OnInit {
   // aguarda tecla após salvar SKUs (esconde formulário)
   awaitKeyAfterSave = false;
 
+  // >>> NOVO: foto (nome do arquivo) + preview
+  private fotoCandidates: string[] = [];
+  private fotoIdx = 0;
+  fotoSrc = '';
+  fotoHidden = false;
+
   form = {
     colecao: null as string | null,
     estacao: null as string | null,
@@ -106,7 +110,9 @@ export class ProdutosComponent implements OnInit {
     Preco: null as number | null,
     grade: null as number | null,
     Descricao: '' as string,
-    Desc_reduzida: '' as string | null
+    Desc_reduzida: '' as string | null,
+    // >>> NOVO campo: será gravado no backend como string (apenas o nome do arquivo)
+    produto_foto: '' as string | null
   };
 
   constructor(
@@ -208,7 +214,7 @@ export class ProdutosComponent implements OnInit {
   /** carrega tamanhos da grade ao selecionar e limpa o preview de SKUs */
   onGradeChange(): void {
     this.tamanhosDaGrade = [];
-    this.combinacoes = []; // evita manter SKUs de uma grade anterior
+    this.combinacoes = [];
     if (!this.form.grade) return;
     this.tamanhosApi.list({ idgrade: this.form.grade, ordering: 'Tamanho' }).subscribe({
       next: (res: any) => { this.tamanhosDaGrade = Array.isArray(res) ? res : (res?.results ?? []); }
@@ -232,7 +238,8 @@ export class ProdutosComponent implements OnInit {
       Preco: null,
       grade: null,
       Descricao: '',
-      Desc_reduzida: ''
+      Desc_reduzida: '',
+      produto_foto: ''
     };
     this.estacoesDaColecao = [];
     this.subgrupos = [];
@@ -243,6 +250,9 @@ export class ProdutosComponent implements OnInit {
     this.corFiltro = '';
     this.tamanhosDaGrade = [];
     this.combinacoes = [];
+
+    // foto preview
+    this.resetFotoPreview();
 
     // mensagens
     this.batchMsg = '';
@@ -345,7 +355,6 @@ export class ProdutosComponent implements OnInit {
       return;
     }
 
-    // garante tamanhos carregados
     if (!this.tamanhosDaGrade.length) {
       const res = await firstValueFrom(this.tamanhosApi.list({ idgrade: this.form.grade!, ordering: 'Tamanho' }));
       this.tamanhosDaGrade = Array.isArray(res) ? res : (res?.results ?? []);
@@ -429,10 +438,8 @@ export class ProdutosComponent implements OnInit {
         if (errList.length) {
           this.batchErrors = errList.map((e: any) => `Item #${e.index}: ${e.detail || 'erro na validação'}`);
         }
-
-        // >>> NOVO COMPORTAMENTO: mostra mensagem e espera qualquer tecla
         this.successMsg = 'SKUs salvos com sucesso.';
-        this.awaitKeyAfterSave = true; // esconde o formulário até o usuário apertar uma tecla
+        this.awaitKeyAfterSave = true;
       },
       error: (err) => {
         this.savingSkus = false;
@@ -442,14 +449,13 @@ export class ProdutosComponent implements OnInit {
     });
   }
 
-  // Quando estiver aguardando, qualquer tecla volta pro começo (placeholder)
   @HostListener('document:keydown', ['$event'])
   onAnyKey(_ev: KeyboardEvent): void {
     if (!this.awaitKeyAfterSave) return;
     this.awaitKeyAfterSave = false;
     this.successMsg = '';
     this.batchMsg = '';
-    this.setAction(''); // volta para a tela inicial do cadastro (sem formulário visível)
+    this.setAction('');
   }
 
   salvar(): void {
@@ -476,6 +482,8 @@ export class ProdutosComponent implements OnInit {
       return;
     }
 
+    const fotoBasename = this.sanitizeFotoName(this.form.produto_foto || '');
+
     const payload: any = {
       Tipoproduto: '1',
       Descricao: this.form.Descricao,
@@ -488,7 +496,9 @@ export class ProdutosComponent implements OnInit {
       classificacao_fiscal: this.form.classificacao_fiscal,
       grade: this.form.grade,
       tabela_preco: this.form.tabela_preco,
-      preco: this.form.Preco
+      preco: this.form.Preco,
+      // >>> NOVO: enviar o nome do arquivo (apenas basename)
+      produto_foto: fotoBasename || null
     };
 
     this.produtosApi.create(payload).subscribe({
@@ -516,10 +526,8 @@ export class ProdutosComponent implements OnInit {
   }
 
   /* =======================
-     MÉTODOS DO LOOKUP (NOVOS)
+     MÉTODOS DO LOOKUP
      ======================= */
-
-  // Chama o filho para buscar pela referência digitada no input da aba "Consultar"
   buscarProduto(ref: string): void {
     const referencia = (ref || '').trim();
     if (!referencia) return;
@@ -528,27 +536,88 @@ export class ProdutosComponent implements OnInit {
     }
   }
 
-  // Limpa o input e o card do filho
   limparBusca(inputEl: HTMLInputElement): void {
     if (inputEl) inputEl.value = '';
     if (this.lookupCmp) {
-      // acesso direto aos signals do filho para reset — simples e efetivo
       (this.lookupCmp as any).resultado?.set(null);
       (this.lookupCmp as any).buscou?.set(false);
       (this.lookupCmp as any).erroMsg?.set(null);
     }
   }
 
-  // Recebe o produto básico selecionado (quando o filho encontra)
-  onProdutoSelecionado(prod: ProdutoBasic): void {
-    // Aqui você pode, futuramente, trocar para edição e preencher a tela.
-    // Por ora, apenas mantém o card como preview.
-    // console.log('Selecionado p/ edição:', prod);
+  onProdutoSelecionado(_prod: ProdutoBasic): void {
+    // reservado para edição futura
   }
 
-  // Ação do botão "Ver variações" no card do filho
-  onVerVariacoes(prod: ProdutoBasic): void {
-    // Próxima fase: abrir uma sobre-tela/modal com cores/tamanhos/SKUs do produto
-    // this.modalService.open(ModalVariacoesComponent, { data: prod });
+  onVerVariacoes(_prod: ProdutoBasic): void {
+    // reservado para modal futura
+  }
+
+  /* =======================
+     FOTO – helpers / preview
+     ======================= */
+  private sanitizeFotoName(nome: string): string {
+    return (nome || '').trim().replace(/^.*[\\/]/, '');
+  }
+
+  onFotoInputChange(): void {
+    const base = this.sanitizeFotoName(this.form.produto_foto || '');
+    this.prepareFoto(base);
+  }
+
+  private resetFotoPreview(): void {
+    this.fotoCandidates = [];
+    this.fotoIdx = 0;
+    this.fotoSrc = '';
+    this.fotoHidden = false;
+  }
+
+  private prepareFoto(basename: string): void {
+    this.resetFotoPreview();
+    if (!basename) { this.fotoHidden = true; return; }
+
+    const lower = basename.toLowerCase();
+    const noSpaces = lower.replace(/\s+/g, '');
+    const hasExt = /\.(jpe?g)$/i.test(lower);
+    const bases = ['/assets/produtos/', '/assets/'];
+
+    const set = new Set<string>();
+    for (const b of bases) {
+      set.add(b + basename);
+      set.add(b + lower);
+      set.add(b + noSpaces);
+
+      if (!hasExt) {
+        set.add(b + lower + '.jpg');
+        set.add(b + lower + '.jpeg');
+        set.add(b + noSpaces + '.jpg');
+        set.add(b + noSpaces + '.jpeg');
+      } else {
+        if (lower.endsWith('.jpeg')) {
+          set.add(b + lower.replace(/\.jpeg$/, '.jpg'));
+          set.add(b + noSpaces.replace(/\.jpeg$/, '.jpg'));
+        }
+        if (lower.endsWith('.jpg')) {
+          set.add(b + lower.replace(/\.jpg$/, '.jpeg'));
+          set.add(b + noSpaces.replace(/\.jpg$/, '.jpeg'));
+        }
+      }
+    }
+
+    this.fotoCandidates = Array.from(set.values());
+    if (this.fotoCandidates.length) {
+      this.fotoSrc = this.fotoCandidates[0];
+    } else {
+      this.fotoHidden = true;
+    }
+  }
+
+  onFotoError(): void {
+    this.fotoIdx++;
+    if (this.fotoIdx < this.fotoCandidates.length) {
+      this.fotoSrc = this.fotoCandidates[this.fotoIdx];
+    } else {
+      this.fotoHidden = true;
+    }
   }
 }

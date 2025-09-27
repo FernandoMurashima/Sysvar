@@ -20,10 +20,12 @@
 }
 
 .pl-line1 { grid-template-columns: 1fr 1fr 1fr; }
-.pl-line2 { grid-template-columns: 2fr 1fr 1fr; } /* descrição mais larga */
-.pl-line3 { grid-template-columns: 1fr 1fr; }
 
-.pl-col-span-2 { grid-column: span 2; }
+/* Linha 2 agora em três colunas: Descrição | Grupo | Subgrupo */
+.pl-line2 { grid-template-columns: 1fr 1fr 1fr; }
+
+/* Linha 3 permanece com duas colunas: Unidade | Situação */
+.pl-line3 { grid-template-columns: 1fr 1fr; }
 
 .pl-field { min-width: 0; }
 .pl-label {
@@ -100,4 +102,6 @@
 /* Responsivo */
 @media (max-width: 900px) {
   .pl-card-grid { grid-template-columns: 1fr; }
+  .pl-line2 { grid-template-columns: 1fr; } /* empilha em telas menores */
+  .pl-line3 { grid-template-columns: 1fr; }
 }
