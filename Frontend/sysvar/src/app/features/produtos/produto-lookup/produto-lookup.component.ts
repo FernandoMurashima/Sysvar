@@ -35,11 +35,17 @@ export class ProdutoLookupComponent {
   erroMsg = signal<string | null>(null);
   loading = signal(false);
 
-  // ---- Foto (com múltiplas tentativas) ----
+  // Foto
   private imageCandidates: string[] = [];
   private imageIdx = 0;
   imgSrc = signal<string>('');
   imageHidden = signal(false);
+
+  // Detalhamento
+  skus = signal<any[] | null>(null);
+  tabelas = signal<any[] | null>(null);
+  mostrandoSkus = signal(false);
+  mostrandoTabelas = signal(false);
 
   @Output() selecionado = new EventEmitter<ProdutoBasicModel>();
   @Output() verVariacoes = new EventEmitter<ProdutoBasicModel>();
@@ -60,6 +66,10 @@ export class ProdutoLookupComponent {
     this.loading.set(true);
     this.resultado.set(null);
     this.resetImage();
+    this.skus.set(null);
+    this.tabelas.set(null);
+    this.mostrandoSkus.set(false);
+    this.mostrandoTabelas.set(false);
     this.buscou.set(true);
 
     this.produtosApi.list({ search: referencia.trim(), page: 1, page_size: 1 }).subscribe({
@@ -80,7 +90,6 @@ export class ProdutoLookupComponent {
           classificacao_fiscal: src.classificacao_fiscal ?? null,
           produto_foto: src.produto_foto ?? null,
           Ativo: !!(src.Ativo ?? src.ativo ?? true),
-          // descs virão preenchidas pelo hydrate abaixo
           colecao_desc: src.colecao_desc ?? null,
           grupo_desc: src.grupo_desc ?? null,
           subgrupo_desc: src.subgrupo_desc ?? null,
@@ -88,13 +97,8 @@ export class ProdutoLookupComponent {
         };
 
         this.resultado.set(basic);
-
-        // Reconstroi as descrições caso não tenham vindo no payload
         this.hydrateDescriptions(src);
-
-        // Prepara a imagem
         this.prepareImage(basic.produto_foto || '');
-
         this.loading.set(false);
       },
       error: () => {
@@ -111,12 +115,11 @@ export class ProdutoLookupComponent {
     return (v ?? '').toString().padStart(2, '0');
   }
 
-  /** Busca descrições de Coleção, Grupo, Subgrupo e Unidade a partir de códigos/ids do produto. */
   private hydrateDescriptions(src: any) {
     const cur = this.resultado();
     if (!cur) return;
 
-    // ---- Coleção (normalmente é código de 2 dígitos) ----
+    // Coleção
     if (!cur.colecao_desc) {
       const cc = src.colecao ?? src.Colecao ?? src.colecao_codigo ?? null;
       if (cc != null && cc !== '') {
@@ -131,7 +134,7 @@ export class ProdutoLookupComponent {
       }
     }
 
-    // ---- Grupo (código) ----
+    // Grupo
     if (!cur.grupo_desc) {
       const gg = src.grupo ?? src.Grupo ?? src.grupo_codigo ?? null;
       if (gg != null && gg !== '') {
@@ -146,11 +149,10 @@ export class ProdutoLookupComponent {
       }
     }
 
-    // ---- Subgrupo (Idsubgrupo) ----
+    // Subgrupo
     if (!cur.subgrupo_desc) {
       const sgId = src.subgrupo ?? src.Idsubgrupo ?? null;
       if (sgId) {
-        // Preferir GET /subgrupos/{id}/ quando disponível
         const id = Number(sgId);
         if (!Number.isNaN(id) && id > 0 && (this.subgruposApi as any).get) {
           (this.subgruposApi as any).get(id).subscribe({
@@ -158,7 +160,6 @@ export class ProdutoLookupComponent {
               if (sg?.Descricao) this.patchResultado({ subgrupo_desc: sg.Descricao });
             },
             error: () => {
-              // fallback por busca textual (pode não achar por id)
               this.subgruposApi.list({ search: String(id) }).subscribe({
                 next: (res: any) => {
                   const arr = Array.isArray(res) ? res : (res?.results ?? []);
@@ -169,7 +170,6 @@ export class ProdutoLookupComponent {
             }
           });
         } else {
-          // fallback direto
           this.subgruposApi.list({ search: String(sgId) }).subscribe({
             next: (res: any) => {
               const arr = Array.isArray(res) ? res : (res?.results ?? []);
@@ -181,7 +181,7 @@ export class ProdutoLookupComponent {
       }
     }
 
-    // ---- Unidade (Idunidade) ----
+    // Unidade
     if (!cur.unidade_desc) {
       const uid = src.unidade ?? src.Unidade ?? src.unidade_id ?? null;
       const id = Number(uid);
@@ -191,7 +191,6 @@ export class ProdutoLookupComponent {
             if (u?.Descricao) this.patchResultado({ unidade_desc: u.Descricao });
           },
           error: () => {
-            // fallback textual
             this.unidadesApi.list({ search: String(uid) }).subscribe({
               next: (res: any) => {
                 const arr = Array.isArray(res) ? res : (res?.results ?? []);
@@ -220,7 +219,7 @@ export class ProdutoLookupComponent {
   }
 
   // ========================
-  // ATIVAR / INATIVAR
+  // ATIVAR / INATIVAR (com senha)
   // ========================
   onToggleStatus(prod: ProdutoBasicView) {
     if (!prod || !prod.Idproduto) return;
@@ -232,17 +231,35 @@ export class ProdutoLookupComponent {
         this.erroMsg.set('Motivo inválido. Digite ao menos 3 caracteres.');
         return;
       }
+      const senha = window.prompt('Confirme sua SENHA para desativar:', '');
+      if (senha === null) return;
+      if (!senha || senha.trim().length < 1) {
+        this.erroMsg.set('Senha obrigatória.');
+        return;
+      }
+
       this.loading.set(true);
-      this.produtosApi.inativarProduto(prod.Idproduto, motivo.trim()).subscribe({
-        next: (resp) => {
+
+      // Se seu service ainda tipa só (id, motivo), use "as any" para não dar erro de tipo.
+      (this.produtosApi as any).inativarProduto(prod.Idproduto, motivo.trim(), senha.trim()).subscribe({
+        next: (resp: any) => {
           const novo = { ...prod, Ativo: !!resp?.Ativo };
           this.resultado.set(novo);
           this.erroMsg.set(null);
           alert('Produto inativado com sucesso.');
         },
-        error: (err) => {
-          const msg = err?.error?.detail || 'Não foi possível inativar o produto.';
-          this.erroMsg.set(String(msg));
+        error: (err: any) => {
+          // SEMPRE religar o loading no erro
+          this.loading.set(false);
+
+          const status = err?.status;
+          const detail = (err?.error?.detail || '').toString().toLowerCase();
+
+          if (status === 403 || detail.includes('senha')) {
+            this.erroMsg.set('Senha errada. Desativação não autorizada.');
+          } else {
+            this.erroMsg.set(err?.error?.detail || 'Não foi possível inativar o produto.');
+          }
         },
         complete: () => this.loading.set(false)
       });
@@ -256,12 +273,41 @@ export class ProdutoLookupComponent {
           alert('Produto ativado com sucesso.');
         },
         error: (err) => {
+          this.loading.set(false);
           const msg = err?.error?.detail || 'Não foi possível ativar o produto.';
           this.erroMsg.set(String(msg));
         },
         complete: () => this.loading.set(false)
       });
     }
+  }
+
+  // ========================
+  // DETALHAMENTO (SKUs / Tabelas)
+  // ========================
+  carregarSkus(prod: ProdutoBasicView) {
+    if (!prod?.Idproduto) return;
+    this.mostrandoTabelas.set(false);
+    this.mostrandoSkus.set(true);
+    this.skus.set(null);
+
+    // idem: se ainda não tipou no service, use as any.
+    (this.produtosApi as any).getSkus(prod.Idproduto).subscribe({
+      next: (resp: any) => this.skus.set(resp?.skus ?? []),
+      error: () => this.erroMsg.set('Falha ao carregar SKUs.')
+    });
+  }
+
+  carregarTabelas(prod: ProdutoBasicView) {
+    if (!prod?.Idproduto) return;
+    this.mostrandoSkus.set(false);
+    this.mostrandoTabelas.set(true);
+    this.tabelas.set(null);
+
+    (this.produtosApi as any).getPrecos(prod.Idproduto).subscribe({
+      next: (resp: any) => this.tabelas.set(resp?.tabelas ?? []),
+      error: () => this.erroMsg.set('Falha ao carregar Tabelas/Preços.')
+    });
   }
 
   // ========================
@@ -282,7 +328,7 @@ export class ProdutoLookupComponent {
 
     const bases = ['/assets/produtos/', '/assets/'];
     const lower = basename.toLowerCase();
-    const hasExt = /\.(jpe?g)$/i.test(lower);
+    const hasExt = /\.(jpe?g|png|webp)$/i.test(lower);
     const noSpaces = lower.replace(/\s+/g, '');
 
     const candidates = new Set<string>();
@@ -291,18 +337,16 @@ export class ProdutoLookupComponent {
       candidates.add(base + lower);
       candidates.add(base + noSpaces);
       if (!hasExt) {
-        candidates.add(base + lower + '.jpg');
-        candidates.add(base + lower + '.jpeg');
-        candidates.add(base + noSpaces + '.jpg');
-        candidates.add(base + noSpaces + '.jpeg');
-      } else {
-        if (lower.endsWith('.jpeg')) {
-          candidates.add(base + lower.replace(/\.jpeg$/, '.jpg'));
-          candidates.add(base + noSpaces.replace(/\.jpeg$/, '.jpg'));
+        for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
+          candidates.add(base + lower + ext);
+          candidates.add(base + noSpaces + ext);
         }
-        if (lower.endsWith('.jpg')) {
-          candidates.add(base + lower.replace(/\.jpg$/, '.jpeg'));
-          candidates.add(base + noSpaces.replace(/\.jpg$/, '.jpeg'));
+      } else {
+        for (const [from, to] of [['.jpeg', '.jpg'], ['.jpg', '.jpeg']]) {
+          if (lower.endsWith(from)) {
+            candidates.add(base + lower.replace(from, to));
+            candidates.add(base + noSpaces.replace(from, to));
+          }
         }
       }
     }
