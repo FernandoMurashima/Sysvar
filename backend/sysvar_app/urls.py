@@ -17,7 +17,9 @@ router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'lojas', LojaViewSet)
 router.register(r'clientes', ClienteViewSet)
-router.register(r'produtos', ProdutoViewSet)
+router.register(r'produtos', ProdutoViewSet, basename='produtos')
+
+
 router.register(r'produtos-detalhes', ProdutoDetalheViewSet)
 router.register(r'estoques', EstoqueViewSet)
 router.register(r'fornecedores', FornecedorViewSet)
@@ -48,5 +50,5 @@ urlpatterns = [
     path('auth/logout/', logout_view, name='logout'),
     path('me/', me, name='me'),
     path('', include(router.urls)),
-    
+    path('api/', include(router.urls)),
 ]

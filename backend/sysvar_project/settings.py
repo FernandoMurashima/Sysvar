@@ -117,3 +117,7 @@ LOGGING = {
     'handlers': {'console': {'level': LOG_LEVEL, 'class': 'logging.StreamHandler'}},
     'root': {'handlers': ['console'], 'level': LOG_LEVEL},
 }
+
+""" REST_FRAMEWORK = {
+    'DEFAULT_ROUTER_TRAILING_SLASH': '',  # (se você removeu a barra)
+} """

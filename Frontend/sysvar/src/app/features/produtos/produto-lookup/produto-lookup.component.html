@@ -151,3 +151,25 @@
     </div>
   </div>
 </div>
+<!-- MODAL de senha (oculto até askPwdOpen() = true) -->
+<div *ngIf="askPwdOpen()" class="pl-modal-backdrop">
+  <div class="pl-modal">
+    <h4>Confirmar desativação</h4>
+    <p>Digite sua senha para confirmar a desativação do produto.</p>
+
+    <label class="pl-label" for="pwdInput">Senha</label>
+    <input
+      id="pwdInput"
+      type="password"
+      [ngModel]="pwdValue()"
+      (ngModelChange)="pwdValue.set($event)"
+      (keyup.enter)="confirmPassword()"
+      autofocus
+    />
+
+    <div class="pl-modal-actions">
+      <button class="btn btn-primary" type="button" (click)="confirmPassword()">Confirmar</button>
+      <button class="btn" type="button" (click)="cancelPassword()">Cancelar</button>
+    </div>
+  </div>
+</div>

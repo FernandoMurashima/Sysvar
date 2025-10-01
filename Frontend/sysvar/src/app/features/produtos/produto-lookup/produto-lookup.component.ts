@@ -47,6 +47,11 @@ export class ProdutoLookupComponent {
   mostrandoSkus = signal(false);
   mostrandoTabelas = signal(false);
 
+  // Modal de senha
+  askPwdOpen = signal(false);
+  pwdValue = signal('');
+  private pwdResolver: ((val: string | null) => void) | null = null;
+
   @Output() selecionado = new EventEmitter<ProdutoBasicModel>();
   @Output() verVariacoes = new EventEmitter<ProdutoBasicModel>();
 
@@ -61,7 +66,7 @@ export class ProdutoLookupComponent {
   // ========================
   // BUSCA POR REFERÊNCIA
   // ========================
-  buscarComReferencia(referencia: string) {
+  buscarComReferencia(referencia: string): void {
     this.erroMsg.set(null);
     this.loading.set(true);
     this.resultado.set(null);
@@ -101,7 +106,7 @@ export class ProdutoLookupComponent {
         this.prepareImage(basic.produto_foto || '');
         this.loading.set(false);
       },
-      error: () => {
+      error: (_err: any) => {
         this.erroMsg.set('Falha ao buscar produto.');
         this.loading.set(false);
       }
@@ -111,11 +116,11 @@ export class ProdutoLookupComponent {
   // ========================
   // ENRIQUECER DESCRIÇÕES
   // ========================
-  private pad2(v: any): string {
+  private pad2(v: unknown): string {
     return (v ?? '').toString().padStart(2, '0');
   }
 
-  private hydrateDescriptions(src: any) {
+  private hydrateDescriptions(src: any): void {
     const cur = this.resultado();
     if (!cur) return;
 
@@ -159,7 +164,7 @@ export class ProdutoLookupComponent {
             next: (sg: any) => {
               if (sg?.Descricao) this.patchResultado({ subgrupo_desc: sg.Descricao });
             },
-            error: () => {
+            error: (_e: any) => {
               this.subgruposApi.list({ search: String(id) }).subscribe({
                 next: (res: any) => {
                   const arr = Array.isArray(res) ? res : (res?.results ?? []);
@@ -190,7 +195,7 @@ export class ProdutoLookupComponent {
           next: (u: any) => {
             if (u?.Descricao) this.patchResultado({ unidade_desc: u.Descricao });
           },
-          error: () => {
+          error: (_e: any) => {
             this.unidadesApi.list({ search: String(uid) }).subscribe({
               next: (res: any) => {
                 const arr = Array.isArray(res) ? res : (res?.results ?? []);
@@ -212,115 +217,170 @@ export class ProdutoLookupComponent {
     }
   }
 
-  private patchResultado(partial: Partial<ProdutoBasicView>) {
+  private patchResultado(partial: Partial<ProdutoBasicView>): void {
     const cur = this.resultado();
     if (!cur) return;
     this.resultado.set({ ...cur, ...partial });
   }
 
   // ========================
-  // ATIVAR / INATIVAR (com senha)
+  // PROMPT DE SENHA (modal)
   // ========================
-  onToggleStatus(prod: ProdutoBasicView) {
+  private askPassword(): Promise<string | null> {
+    this.pwdValue.set('');
+    this.askPwdOpen.set(true);
+    return new Promise<string | null>((resolve) => {
+      this.pwdResolver = resolve;
+    });
+  }
+
+  confirmPassword(): void {
+    const v = (this.pwdValue() || '').trim();
+    this.askPwdOpen.set(false);
+    if (this.pwdResolver) {
+      this.pwdResolver(v);
+      this.pwdResolver = null;
+    }
+  }
+
+  cancelPassword(): void {
+    this.askPwdOpen.set(false);
+    if (this.pwdResolver) {
+      this.pwdResolver(null);
+      this.pwdResolver = null;
+    }
+  }
+
+  // ========================
+  // ATIVAR / INATIVAR
+  // ========================
+  async onToggleStatus(prod: ProdutoBasicView): Promise<void> {
     if (!prod || !prod.Idproduto) return;
 
+    // INATIVAR
     if (prod.Ativo) {
       const motivo = window.prompt('Informe o motivo da inativação (mín. 3 caracteres):', '');
-      if (motivo === null) return;
+      if (motivo === null) return; // cancelado
       if (!motivo || motivo.trim().length < 3) {
-        this.erroMsg.set('Motivo inválido. Digite ao menos 3 caracteres.');
+        const msg = 'Motivo inválido. Digite ao menos 3 caracteres.';
+        this.erroMsg.set(msg);
+        alert(msg);
         return;
       }
-      const senha = window.prompt('Confirme sua SENHA para desativar:', '');
-      if (senha === null) return;
-      if (!senha || senha.trim().length < 1) {
-        this.erroMsg.set('Senha obrigatória.');
+
+      // senha via modal (oculta)
+      const senha = await this.askPassword();
+      if (senha === null) return; // cancelado
+      if (!senha) {
+        const msg = 'Senha obrigatória.';
+        this.erroMsg.set(msg);
+        alert(msg);
         return;
       }
 
       this.loading.set(true);
-
-      // Se seu service ainda tipa só (id, motivo), use "as any" para não dar erro de tipo.
-      (this.produtosApi as any).inativarProduto(prod.Idproduto, motivo.trim(), senha.trim()).subscribe({
-        next: (resp: any) => {
+      this.produtosApi.inativarProduto(prod.Idproduto, motivo.trim(), senha).subscribe({
+        next: (resp: { Ativo: boolean }) => {
           const novo = { ...prod, Ativo: !!resp?.Ativo };
           this.resultado.set(novo);
           this.erroMsg.set(null);
           alert('Produto inativado com sucesso.');
         },
         error: (err: any) => {
-          // SEMPRE religar o loading no erro
           this.loading.set(false);
 
-          const status = err?.status;
-          const detail = (err?.error?.detail || '').toString().toLowerCase();
+          if (err?.status === 0) {
+            const msg = 'Falha de rede/CORS: verifique CORS e o header X-Audit-Reason.';
+            this.erroMsg.set(msg);
+            alert(msg);
+            return;
+          }
 
-          if (status === 403 || detail.includes('senha')) {
-            this.erroMsg.set('Senha errada. Desativação não autorizada.');
+          const status = err?.status;
+          const detail = (err?.error?.detail || '').toString();
+
+          if (status === 403 || detail.toLowerCase().includes('senha')) {
+            const msg = 'Senha errada. Desativação não autorizada.';
+            this.erroMsg.set(msg);
+            alert(msg);
+          } else if (detail) {
+            this.erroMsg.set(detail);
+            alert(detail);
           } else {
-            this.erroMsg.set(err?.error?.detail || 'Não foi possível inativar o produto.');
+            const msg = 'Não foi possível inativar o produto.';
+            this.erroMsg.set(msg);
+            alert(msg);
           }
         },
         complete: () => this.loading.set(false)
       });
-    } else {
-      this.loading.set(true);
-      this.produtosApi.ativarProduto(prod.Idproduto).subscribe({
-        next: (resp) => {
-          const novo = { ...prod, Ativo: !!resp?.Ativo };
-          this.resultado.set(novo);
-          this.erroMsg.set(null);
-          alert('Produto ativado com sucesso.');
-        },
-        error: (err) => {
-          this.loading.set(false);
-          const msg = err?.error?.detail || 'Não foi possível ativar o produto.';
-          this.erroMsg.set(String(msg));
-        },
-        complete: () => this.loading.set(false)
-      });
+
+      return;
     }
+
+    // ATIVAR
+    this.loading.set(true);
+    this.produtosApi.ativarProduto(prod.Idproduto).subscribe({
+      next: (resp: { Ativo: boolean }) => {
+        const novo = { ...prod, Ativo: !!resp?.Ativo };
+        this.resultado.set(novo);
+        this.erroMsg.set(null);
+        alert('Produto ativado com sucesso.');
+      },
+      error: (err: any) => {
+        this.loading.set(false);
+        const msg = err?.error?.detail || 'Não foi possível ativar o produto.';
+        this.erroMsg.set(String(msg));
+        alert(String(msg));
+      },
+      complete: () => this.loading.set(false)
+    });
   }
 
   // ========================
   // DETALHAMENTO (SKUs / Tabelas)
   // ========================
-  carregarSkus(prod: ProdutoBasicView) {
+  carregarSkus(prod: ProdutoBasicView): void {
     if (!prod?.Idproduto) return;
     this.mostrandoTabelas.set(false);
     this.mostrandoSkus.set(true);
     this.skus.set(null);
 
-    // idem: se ainda não tipou no service, use as any.
-    (this.produtosApi as any).getSkus(prod.Idproduto).subscribe({
+    this.produtosApi.getSkus(prod.Idproduto).subscribe({
       next: (resp: any) => this.skus.set(resp?.skus ?? []),
-      error: () => this.erroMsg.set('Falha ao carregar SKUs.')
+      error: (_e: any) => {
+        this.erroMsg.set('Falha ao carregar SKUs.');
+        alert('Falha ao carregar SKUs.');
+      }
     });
   }
 
-  carregarTabelas(prod: ProdutoBasicView) {
+  carregarTabelas(prod: ProdutoBasicView): void {
     if (!prod?.Idproduto) return;
     this.mostrandoSkus.set(false);
     this.mostrandoTabelas.set(true);
     this.tabelas.set(null);
 
-    (this.produtosApi as any).getPrecos(prod.Idproduto).subscribe({
+    this.produtosApi.getPrecos(prod.Idproduto).subscribe({
       next: (resp: any) => this.tabelas.set(resp?.tabelas ?? []),
-      error: () => this.erroMsg.set('Falha ao carregar Tabelas/Preços.')
+      error: (_e: any) => {
+        this.erroMsg.set('Falha ao carregar Tabelas/Preços.');
+        alert('Falha ao carregar Tabelas/Preços.');
+      }
     });
   }
 
   // ========================
   // FOTO
   // ========================
-  private resetImage() {
+  private resetImage(): void {
     this.imageCandidates = [];
     this.imageIdx = 0;
     this.imgSrc.set('');
     this.imageHidden.set(false);
   }
 
-  private prepareImage(nomeBruto: string) {
+  private prepareImage(nomeBruto: string): void {
     this.resetImage();
 
     const basename = (nomeBruto || '').trim().replace(/^.*[\\/]/, '');

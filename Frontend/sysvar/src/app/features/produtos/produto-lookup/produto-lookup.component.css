@@ -105,3 +105,25 @@
   .pl-line2 { grid-template-columns: 1fr; } /* empilha em telas menores */
   .pl-line3 { grid-template-columns: 1fr; }
 }
+
+/* Modal simples para senha */
+.pl-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  display: grid; place-items: center;
+  z-index: 1000;
+}
+.pl-modal {
+  width: min(92vw, 420px);
+  background: #fff; border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.2);
+}
+.pl-modal h4 { margin: 0 0 8px; }
+.pl-modal p { margin: 0 0 10px; color: #374151; }
+.pl-modal input[type="password"] {
+  width: 100%; height: 36px;
+  border: 1px solid #d1d5db; border-radius: 6px;
+  padding: 6px 10px; box-sizing: border-box; margin-bottom: 12px;
+}
+.pl-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
