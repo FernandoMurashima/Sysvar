@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map, switchMap, of, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Produto } from '../models/produto';
@@ -42,39 +42,41 @@ export class ProdutosService {
   }
 
   /**
-   * PATCH genérico com fallback: tenta com header X-Audit-Reason;
-   * se o navegador bloquear (status 0 / CORS), repete SEM o header.
+   * PATCH de ativação/inativação enviando tudo no BODY
+   * - Ativo: boolean
+   * - audit_reason / motivo: string
+   * - password / senha: string
    */
-  private patchAtivo(id: number, ativo: boolean, motivo?: string) {
+  private patchAtivo(id: number, ativo: boolean, motivo?: string, senha?: string) {
     const url = `${this.baseProdutos}${id}/`;
-    const body = { Ativo: ativo };
+    const body: any = { Ativo: ativo };
 
-    const headersWithReason =
-      motivo && motivo.trim()
-        ? new HttpHeaders({ 'X-Audit-Reason': motivo.trim() })
-        : undefined;
+    const motivoTrim = (motivo ?? '').trim();
+    const senhaTrim  = (senha ?? '').trim();
 
-    const doPatch = (headers?: HttpHeaders) =>
-      this.http.patch<{ Ativo: boolean }>(url, body, headers ? { headers } : {});
+    if (motivoTrim) {
+      body.audit_reason = motivoTrim; // usado no backend
+      body.motivo = motivoTrim;       // alias p/ compatibilidade
+    }
+    if (senhaTrim) {
+      body.password = senhaTrim; // usado no backend
+      body.senha = senhaTrim;    // alias p/ compatibilidade
+    }
 
-    return doPatch(headersWithReason).pipe(
+    return this.http.patch<{ Ativo: boolean }>(url, body).pipe(
       catchError(err => {
-        // status 0 = bloqueio de rede/CORS/same-origin antes de chegar ao servidor
-        if (err?.status === 0 && headersWithReason) {
-          // tenta novamente sem header customizado
-          return doPatch();
-        }
+        // Deixa o erro passar para a UI exibir mensagens do backend (400/403)
         return throwError(() => err);
       })
     );
   }
 
-  /** INATIVAR */
-  inativarProduto(id: number, motivo: string, _senha?: string): Observable<{ Ativo: boolean }> {
-    return this.patchAtivo(id, false, motivo);
+  /** INATIVAR: envia motivo + senha em UMA chamada */
+  inativarProduto(id: number, motivo: string, senha: string): Observable<{ Ativo: boolean }> {
+    return this.patchAtivo(id, false, motivo, senha);
   }
 
-  /** ATIVAR */
+  /** ATIVAR: motivo opcional, sem senha */
   ativarProduto(id: number, motivo?: string): Observable<{ Ativo: boolean }> {
     return this.patchAtivo(id, true, motivo);
   }

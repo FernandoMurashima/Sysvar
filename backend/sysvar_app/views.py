@@ -7,7 +7,6 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.utils import timezone
 
@@ -234,49 +233,48 @@ class ProdutoViewSet(viewsets.ModelViewSet):
                 or '').strip()
 
     # ---------- ações explícitas ----------
-@action(detail=True, methods=['post'], url_path='inativar')
-def inativar(self, request, pk=None):
-    produto = self.get_object()
-    old_status = bool(produto.Ativo)
+    @action(detail=True, methods=['post'], url_path='inativar')
+    def inativar(self, request, pk=None):
+        produto = self.get_object()
+        old_status = bool(produto.Ativo)
 
-    motivo = self._get_reason(request)
-    if not motivo or len(motivo) < 3:
-        return Response(
-            {'detail': 'Informe o motivo da inativação (mín. 3 caracteres).'},
-            status=400
-        )
+        motivo = self._get_reason(request)
+        if not motivo or len(motivo) < 3:
+            return Response(
+                {'detail': 'Informe o motivo da inativação (mín. 3 caracteres).'},
+                status=400
+            )
 
-    # >>> NOVO: exigir senha do usuário logado
-    raw_password = (request.data.get('password') or request.data.get('senha') or '').strip()
-    if not raw_password or not request.user.check_password(raw_password):
-        return Response(
-            {'detail': 'Senha errada. Desativação não autorizada.'},
-            status=403
-        )
+        # >>> NOVO: exigir senha do usuário logado
+        raw_password = (request.data.get('password') or request.data.get('senha') or '').strip()
+        if not raw_password or not request.user.check_password(raw_password):
+            return Response(
+                {'detail': 'Senha errada. Desativação não autorizada.'},
+                status=403
+            )
 
-    if old_status is True:
-        produto.Ativo = False
-        produto.inativado_em = timezone.now()
-        try:
-            produto.inativado_por = request.user if request.user.is_authenticated else None
-        except Exception:
-            produto.inativado_por = None
-        produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
+        if old_status is True:
+            produto.Ativo = False
+            produto.inativado_em = timezone.now()
+            try:
+                produto.inativado_por = request.user if request.user.is_authenticated else None
+            except Exception:
+                produto.inativado_por = None
+            produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
 
-        # cascata: desativar SKUs
-        ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=True).update(Ativo=False)
+            # cascata: desativar SKUs
+            ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=True).update(Ativo=False)
 
-        # auditoria (guarda o motivo)
-        write_product_status_change(
-            request=request,
-            instance=produto,
-            old_status=True,
-            new_status=False,
-            reason=motivo
-        )
+            # auditoria (guarda o motivo)
+            write_product_status_change(
+                request=request,
+                instance=produto,
+                old_status=True,
+                new_status=False,
+                reason=motivo
+            )
 
-    return Response({'Ativo': bool(produto.Ativo)}, status=200)
-
+        return Response({'Ativo': bool(produto.Ativo)}, status=200)
 
     @action(detail=True, methods=['post'], url_path='ativar')
     def ativar(self, request, pk=None):
@@ -358,8 +356,8 @@ def inativar(self, request, pk=None):
         DEMAIS AÇÕES (retrieve, patch, ativar, inativar...): NÃO filtra por ativo.
         """
         qs = super().get_queryset()
-        action = getattr(self, 'action', None)
-        if action and action != 'list':
+        action_name = getattr(self, 'action', None)
+        if action_name and action_name != 'list':
             return qs
 
         ativo = self.request.query_params.get('ativo')
@@ -386,7 +384,7 @@ def inativar(self, request, pk=None):
 
         if new_status is None:
             for k in aliases:
-                if k in data and data[k] not in (None, ''):
+                if k in data and k in data and data[k] not in (None, ''):
                     new_status = self._to_bool(data.get(k))
                     break
 
