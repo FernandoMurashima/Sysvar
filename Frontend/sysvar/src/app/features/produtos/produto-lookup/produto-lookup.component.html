@@ -67,10 +67,9 @@
           {{ p.Ativo ? 'Desativar produto' : 'Ativar produto' }}
         </button>
 
-        <!-- ÚNICO botão: abre a SOBRETELA de SKUs -->
-        <button class="btn" type="button" (click)="openSkusOverlay(p)">
-          Ver SKUs
-        </button>
+        <!-- Botões que apenas abrem as SOBRETELAS -->
+        <button class="btn" type="button" (click)="openSkusOverlay(p)">Ver SKUs</button>
+        <button class="btn" type="button" (click)="openPrecoOverlay(p)">Ver Tabela/Preço</button>
       </div>
     </div>
 
@@ -121,3 +120,12 @@
   [referencia]="overlayRef()"
   (close)="closeSkusOverlay()">
 </app-produtos-sku-overlay>
+
+<!-- SOBRETELA DE PREÇO -->
+<app-produtos-preco-overlay
+  *ngIf="precoOverlayOpen()"
+  [aberto]="precoOverlayOpen()"
+  [produtoId]="precoOverlayProdutoId()!"
+  [referencia]="precoOverlayRef()"
+  (close)="closePrecoOverlay()">
+</app-produtos-preco-overlay>

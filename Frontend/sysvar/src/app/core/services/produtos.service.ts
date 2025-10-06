@@ -146,29 +146,73 @@ export class ProdutosService {
   }
 
   // ---- Preços (por produto) ----
+  /**
+   * Busca preços agrupados por tabela.
+   * 1) Tenta endpoint do backend: /produtos/{id}/precos/ (já vem agrupado)
+   * 2) Fallback: consulta detalhes -> itens de tabela e AGRUPA em memória
+   */
   getPrecos(produtoId: number): Observable<{ produto_id: number; referencia?: string; tabelas: any[] }> {
-    let paramsDetalhe = new HttpParams()
-      .set('Idproduto', String(produtoId))
-      .set('ativo', 'all');
+    const urlAgrupado = `${this.baseProdutos}${produtoId}/precos/`;
 
-    return this.http.get<any>(this.baseDetalhes, { params: paramsDetalhe }).pipe(
-      switchMap((resp: any) => {
-        const detalhes: any[] = Array.isArray(resp) ? resp : (resp?.results ?? []);
-        const eans = detalhes.map(d => d?.CodigodeBarra).filter((x: any) => !!x);
+    return this.http.get<any>(urlAgrupado).pipe(
+      map((resp: any) => {
+        const tabelas = Array.isArray(resp?.tabelas) ? resp.tabelas : [];
+        return {
+          produto_id: resp?.produto_id ?? produtoId,
+          referencia: resp?.referencia,
+          tabelas
+        };
+      }),
+      // Se o endpoint não existir/der erro, cai no fallback
+      catchError(() => {
+        // ------------- Fallback 2 passos (AGRUPA no front) -------------
+        let paramsDetalhe = new HttpParams()
+          .set('Idproduto', String(produtoId))
+          .set('ativo', 'all');
 
-        if (!eans.length) {
-          return of({ produto_id: produtoId, referencia: undefined, tabelas: [] });
-        }
+        return this.http.get<any>(this.baseDetalhes, { params: paramsDetalhe }).pipe(
+          switchMap((resp: any) => {
+            const detalhes: any[] = Array.isArray(resp) ? resp : (resp?.results ?? []);
+            const eans = detalhes.map(d => d?.CodigodeBarra).filter((x: any) => !!x);
 
-        const eanCsv = eans.join(',');
-        let paramsPreco = new HttpParams()
-          .set('codigodebarra__in', eanCsv)
-          .set('ordering', 'idtabela_id,codigodebarra');
+            if (!eans.length) {
+              return of({ produto_id: produtoId, referencia: undefined, tabelas: [] });
+            }
 
-        return this.http.get<any>(this.baseTabelaPrecoItem, { params: paramsPreco }).pipe(
-          map((r: any) => {
-            const itens = Array.isArray(r) ? r : (r?.results ?? []);
-            return { produto_id: produtoId, referencia: undefined, tabelas: itens };
+            const eanCsv = eans.join(',');
+            let paramsPreco = new HttpParams()
+              .set('codigodebarra__in', eanCsv)
+              .set('ordering', 'idtabela_id,codigodebarra');
+
+            return this.http.get<any>(this.baseTabelaPrecoItem, { params: paramsPreco }).pipe(
+              map((r: any) => {
+                const itens = Array.isArray(r) ? r : (r?.results ?? []);
+
+                // Agrupa no shape do backend:
+                // [{ tabela_id, tabela_nome?, itens: [{ean13, preco}, ...] }]
+                const byTabela: Record<string, { tabela_id: number; tabela_nome?: string; itens: any[] }> = {};
+
+                for (const it of itens) {
+                  const tid = Number(it?.idtabela_id ?? it?.idtabela ?? it?.tabela_id ?? 0);
+                  if (!tid) continue;
+
+                  if (!byTabela[tid]) {
+                    // Nome pode não vir nesse endpoint — se não vier, deixamos vazio
+                    byTabela[tid] = { tabela_id: tid, tabela_nome: it?.idtabela?.NomeTabela, itens: [] };
+                  }
+                  byTabela[tid].itens.push({
+                    ean13: it?.codigodebarra ?? it?.ean13,
+                    preco: Number(it?.preco ?? 0)
+                  });
+                }
+
+                return {
+                  produto_id: produtoId,
+                  referencia: undefined,
+                  tabelas: Object.values(byTabela)
+                };
+              })
+            );
           })
         );
       })

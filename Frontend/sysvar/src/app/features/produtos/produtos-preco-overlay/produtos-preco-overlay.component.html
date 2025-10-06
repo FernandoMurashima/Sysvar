@@ -1,0 +1,45 @@
+<div class="preco-ovl-backdrop" *ngIf="aberto">
+  <div class="preco-ovl">
+    <div class="preco-ovl-header">
+      <h3>
+        Tabelas de Preço
+        <span *ngIf="referencia">— {{ referencia }}</span>
+      </h3>
+
+      <div class="header-actions">
+        <button type="button" class="btn" (click)="recarregar()">Recarregar</button>
+        <button type="button" class="btn btn-plain" (click)="fechar()" aria-label="Fechar">✕</button>
+      </div>
+    </div>
+
+    <div class="preco-ovl-body">
+      <div *ngIf="erroMsg()" class="alert error">{{ erroMsg() }}</div>
+      <div *ngIf="loading()" class="muted">Carregando...</div>
+
+      <ng-container *ngIf="!loading()">
+        <div *ngIf="rows().length === 0" class="muted">
+          Nenhuma tabela de preço cadastrada para este produto.
+        </div>
+
+        <table *ngIf="rows().length" class="preco-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Tabela</th>
+              <th style="text-align:right; width: 160px;">Preço</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of rows()">
+              <td>{{ r.tabela_nome }}</td>
+              <td style="text-align:right;">{{ r.preco | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </ng-container>
+    </div>
+
+    <div class="preco-ovl-footer">
+      <button type="button" class="btn" (click)="fechar()">Fechar</button>
+    </div>
+  </div>
+</div>

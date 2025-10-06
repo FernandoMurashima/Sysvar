@@ -7,7 +7,9 @@ import { ColecoesService } from '../../../core/services/colecoes.service';
 import { GruposService } from '../../../core/services/grupos.service';
 import { SubgruposService } from '../../../core/services/subgrupos.service';
 import { UnidadesService } from '../../../core/services/unidades.service';
+
 import { ProdutoSkuOverlayComponent } from '../produtos-sku-overlay/produtos-sku-overlay.component';
+import { ProdutosPrecoOverlayComponent } from '../produtos-preco-overlay/produtos-preco-overlay.component';
 
 import { ProdutoBasic as ProdutoBasicModel } from '../../../core/models/produto-basic.model';
 
@@ -24,7 +26,7 @@ type ProdutoBasicView = ProdutoBasicModel & {
 @Component({
   selector: 'app-produto-lookup',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProdutoSkuOverlayComponent],
+  imports: [CommonModule, FormsModule, ProdutoSkuOverlayComponent, ProdutosPrecoOverlayComponent],
   templateUrl: './produto-lookup.component.html',
   styleUrls: ['./produto-lookup.component.css']
 })
@@ -47,10 +49,15 @@ export class ProdutoLookupComponent {
   pwdValue = signal('');
   private pwdResolver: ((val: string | null) => void) | null = null;
 
-  // >>> Controle da SOBRETELA de SKUs
+  // SOBRETELA de SKUs
   overlayOpen = signal(false);
   overlayProdutoId = signal<number | null>(null);
   overlayRef = signal<string>('');
+
+  // SOBRETELA de PREÇO
+  precoOverlayOpen = signal(false);
+  precoOverlayProdutoId = signal<number | null>(null);
+  precoOverlayRef = signal<string>('');
 
   @Output() selecionado = new EventEmitter<ProdutoBasicModel>();
   @Output() verVariacoes = new EventEmitter<ProdutoBasicModel>();
@@ -112,9 +119,7 @@ export class ProdutoLookupComponent {
   // ========================
   // ENRIQUECER DESCRIÇÕES
   // ========================
-  private pad2(v: unknown): string {
-    return (v ?? '').toString().padStart(2, '0');
-  }
+  private pad2(v: unknown): string { return (v ?? '').toString().padStart(2, '0'); }
 
   private hydrateDescriptions(src: any): void {
     const cur = this.resultado();
@@ -216,7 +221,7 @@ export class ProdutoLookupComponent {
   }
 
   // ========================
-  // ATIVAR / INATIVAR
+  // ATIVAR / INATIVAR PRODUTO
   // ========================
   async onToggleStatus(prod: ProdutoBasicView): Promise<void> {
     if (!prod || !prod.Idproduto) return;
@@ -232,13 +237,8 @@ export class ProdutoLookupComponent {
 
       this.loading.set(true);
       this.produtosApi.inativarProduto(prod.Idproduto, motivo.trim(), senha).subscribe({
-        next: (resp) => {
-          this.resultado.set({ ...prod, Ativo: !!resp?.Ativo });
-        },
-        error: (err) => {
-          const msg = err?.error?.detail || 'Não foi possível inativar.';
-          alert(String(msg));
-        },
+        next: (resp) => { this.resultado.set({ ...prod, Ativo: !!resp?.Ativo }); },
+        error: (err) => { const msg = err?.error?.detail || 'Não foi possível inativar.'; alert(String(msg)); },
         complete: () => this.loading.set(false)
       });
       return;
@@ -263,6 +263,19 @@ export class ProdutoLookupComponent {
   }
   closeSkusOverlay(): void {
     this.overlayOpen.set(false);
+  }
+
+  // ========================
+  // SOBRETELA DE PREÇO
+  // ========================
+  openPrecoOverlay(prod: ProdutoBasicView): void {
+    if (!prod?.Idproduto) return;
+    this.precoOverlayProdutoId.set(prod.Idproduto);
+    this.precoOverlayRef.set(prod.Referencia || '');
+    this.precoOverlayOpen.set(true);
+  }
+  closePrecoOverlay(): void {
+    this.precoOverlayOpen.set(false);
   }
 
   // ========================
