@@ -67,72 +67,10 @@
           {{ p.Ativo ? 'Desativar produto' : 'Ativar produto' }}
         </button>
 
-        <button class="btn" type="button" (click)="carregarSkus(p)">
+        <!-- ÚNICO botão: abre a SOBRETELA de SKUs -->
+        <button class="btn" type="button" (click)="openSkusOverlay(p)">
           Ver SKUs
         </button>
-        <button class="btn" type="button" (click)="carregarTabelas(p)">
-          Ver Tabelas/Preços
-        </button>
-      </div>
-
-      <!-- Detalhe: SKUs -->
-      <div *ngIf="mostrandoSkus()">
-        <h4 style="margin:12px 0 6px;">SKUs</h4>
-        <div *ngIf="skus() === null" class="pl-value">Carregando SKUs...</div>
-        <div *ngIf="skus() as rows">
-          <div *ngIf="rows.length === 0" class="pl-value">Nenhum SKU encontrado.</div>
-          <table *ngIf="rows.length" class="sku-table" style="width:100%; border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left; border-bottom:1px solid #eee; padding:6px 8px;">EAN-13</th>
-                <th style="text-align:left; border-bottom:1px solid #eee; padding:6px 8px;">Cor</th>
-                <th style="text-align:left; border-bottom:1px solid #eee; padding:6px 8px;">Tamanho</th>
-                <th style="text-align:left; border-bottom:1px solid #eee; padding:6px 8px;">Ativo</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let r of rows">
-                <td style="padding:6px 8px;">{{ r.ean13 }}</td>
-                <td style="padding:6px 8px;">
-                  <span>{{ r.cor || '—' }}</span>
-                  <small *ngIf="r.cor_codigo"> ({{ r.cor_codigo }})</small>
-                </td>
-                <td style="padding:6px 8px;">{{ r.tamanho || '—' }}</td>
-                <td style="padding:6px 8px;">{{ r.ativo ? 'Sim' : 'Não' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Detalhe: Tabelas / Preços -->
-      <div *ngIf="mostrandoTabelas()">
-        <h4 style="margin:12px 0 6px;">Tabelas / Preços</h4>
-        <div *ngIf="tabelas() === null" class="pl-value">Carregando tabelas...</div>
-        <div *ngIf="tabelas() as tabs">
-          <div *ngIf="tabs.length === 0" class="pl-value">Nenhum preço encontrado.</div>
-
-          <div *ngFor="let t of tabs" style="margin-bottom:10px;">
-            <div class="pl-label" style="font-weight:600; margin-bottom:6px;">
-              {{ t.tabela_nome }} (ID: {{ t.tabela_id }})
-            </div>
-            <table class="sku-table" style="width:100%; border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left; border-bottom:1px solid #eee; padding:6px 8px;">EAN-13</th>
-                  <th style="text-align:left; border-bottom:1px solid #eee; padding:6px 8px;">Preço</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let it of t.itens">
-                  <td style="padding:6px 8px;">{{ it.ean13 }}</td>
-                  <td style="padding:6px 8px;">{{ it.preco | number:'1.2-2' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        </div>
       </div>
     </div>
 
@@ -143,7 +81,7 @@
           *ngIf="!imageHidden() && imgSrc()"
           [src]="imgSrc()"
           alt="Foto do produto"
-          (error)="onImageError($event)"
+          (error)="onImageError()"
         />
         <div class="pl-photo-name">{{ (resultado()?.produto_foto || '—') }}</div>
         <div *ngIf="imageHidden()" class="pl-photo-missing">Imagem não disponível</div>
@@ -151,7 +89,8 @@
     </div>
   </div>
 </div>
-<!-- MODAL de senha (oculto até askPwdOpen() = true) -->
+
+<!-- MODAL de senha -->
 <div *ngIf="askPwdOpen()" class="pl-modal-backdrop">
   <div class="pl-modal">
     <h4>Confirmar desativação</h4>
@@ -173,3 +112,12 @@
     </div>
   </div>
 </div>
+
+<!-- SOBRETELA DE SKUs -->
+<app-produtos-sku-overlay
+  *ngIf="overlayOpen()"
+  [aberto]="overlayOpen()"
+  [produtoId]="overlayProdutoId()!"
+  [referencia]="overlayRef()"
+  (close)="closeSkusOverlay()">
+</app-produtos-sku-overlay>

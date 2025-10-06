@@ -7,6 +7,7 @@ import { ColecoesService } from '../../../core/services/colecoes.service';
 import { GruposService } from '../../../core/services/grupos.service';
 import { SubgruposService } from '../../../core/services/subgrupos.service';
 import { UnidadesService } from '../../../core/services/unidades.service';
+import { ProdutoSkuOverlayComponent } from '../produtos-sku-overlay/produtos-sku-overlay.component';
 
 import { ProdutoBasic as ProdutoBasicModel } from '../../../core/models/produto-basic.model';
 
@@ -23,7 +24,7 @@ type ProdutoBasicView = ProdutoBasicModel & {
 @Component({
   selector: 'app-produto-lookup',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ProdutoSkuOverlayComponent],
   templateUrl: './produto-lookup.component.html',
   styleUrls: ['./produto-lookup.component.css']
 })
@@ -41,16 +42,15 @@ export class ProdutoLookupComponent {
   imgSrc = signal<string>('');
   imageHidden = signal(false);
 
-  // Detalhamento
-  skus = signal<any[] | null>(null);
-  tabelas = signal<any[] | null>(null);
-  mostrandoSkus = signal(false);
-  mostrandoTabelas = signal(false);
-
   // Modal de senha
   askPwdOpen = signal(false);
   pwdValue = signal('');
   private pwdResolver: ((val: string | null) => void) | null = null;
+
+  // >>> Controle da SOBRETELA de SKUs
+  overlayOpen = signal(false);
+  overlayProdutoId = signal<number | null>(null);
+  overlayRef = signal<string>('');
 
   @Output() selecionado = new EventEmitter<ProdutoBasicModel>();
   @Output() verVariacoes = new EventEmitter<ProdutoBasicModel>();
@@ -71,10 +71,6 @@ export class ProdutoLookupComponent {
     this.loading.set(true);
     this.resultado.set(null);
     this.resetImage();
-    this.skus.set(null);
-    this.tabelas.set(null);
-    this.mostrandoSkus.set(false);
-    this.mostrandoTabelas.set(false);
     this.buscou.set(true);
 
     this.produtosApi.list({ search: referencia.trim(), page: 1, page_size: 1 }).subscribe({
@@ -106,7 +102,7 @@ export class ProdutoLookupComponent {
         this.prepareImage(basic.produto_foto || '');
         this.loading.set(false);
       },
-      error: (_err: any) => {
+      error: () => {
         this.erroMsg.set('Falha ao buscar produto.');
         this.loading.set(false);
       }
@@ -161,18 +157,7 @@ export class ProdutoLookupComponent {
         const id = Number(sgId);
         if (!Number.isNaN(id) && id > 0 && (this.subgruposApi as any).get) {
           (this.subgruposApi as any).get(id).subscribe({
-            next: (sg: any) => {
-              if (sg?.Descricao) this.patchResultado({ subgrupo_desc: sg.Descricao });
-            },
-            error: (_e: any) => {
-              this.subgruposApi.list({ search: String(id) }).subscribe({
-                next: (res: any) => {
-                  const arr = Array.isArray(res) ? res : (res?.results ?? []);
-                  const item = arr?.[0];
-                  if (item?.Descricao) this.patchResultado({ subgrupo_desc: item.Descricao });
-                }
-              });
-            }
+            next: (sg: any) => { if (sg?.Descricao) this.patchResultado({ subgrupo_desc: sg.Descricao }); }
           });
         } else {
           this.subgruposApi.list({ search: String(sgId) }).subscribe({
@@ -192,18 +177,7 @@ export class ProdutoLookupComponent {
       const id = Number(uid);
       if (id && !Number.isNaN(id) && (this.unidadesApi as any).get) {
         (this.unidadesApi as any).get(id).subscribe({
-          next: (u: any) => {
-            if (u?.Descricao) this.patchResultado({ unidade_desc: u.Descricao });
-          },
-          error: (_e: any) => {
-            this.unidadesApi.list({ search: String(uid) }).subscribe({
-              next: (res: any) => {
-                const arr = Array.isArray(res) ? res : (res?.results ?? []);
-                const item = arr?.[0];
-                if (item?.Descricao) this.patchResultado({ unidade_desc: item.Descricao });
-              }
-            });
-          }
+          next: (u: any) => { if (u?.Descricao) this.patchResultado({ unidade_desc: u.Descricao }); }
         });
       } else if (uid != null) {
         this.unidadesApi.list({ search: String(uid) }).subscribe({
@@ -229,26 +203,16 @@ export class ProdutoLookupComponent {
   private askPassword(): Promise<string | null> {
     this.pwdValue.set('');
     this.askPwdOpen.set(true);
-    return new Promise<string | null>((resolve) => {
-      this.pwdResolver = resolve;
-    });
+    return new Promise<string | null>((resolve) => { this.pwdResolver = resolve; });
   }
-
   confirmPassword(): void {
     const v = (this.pwdValue() || '').trim();
     this.askPwdOpen.set(false);
-    if (this.pwdResolver) {
-      this.pwdResolver(v);
-      this.pwdResolver = null;
-    }
+    if (this.pwdResolver) { this.pwdResolver(v); this.pwdResolver = null; }
   }
-
   cancelPassword(): void {
     this.askPwdOpen.set(false);
-    if (this.pwdResolver) {
-      this.pwdResolver(null);
-      this.pwdResolver = null;
-    }
+    if (this.pwdResolver) { this.pwdResolver(null); this.pwdResolver = null; }
   }
 
   // ========================
@@ -257,174 +221,79 @@ export class ProdutoLookupComponent {
   async onToggleStatus(prod: ProdutoBasicView): Promise<void> {
     if (!prod || !prod.Idproduto) return;
 
-    // INATIVAR
     if (prod.Ativo) {
       const motivo = window.prompt('Informe o motivo da inativação (mín. 3 caracteres):', '');
-      if (motivo === null) return; // cancelado
-      if (!motivo || motivo.trim().length < 3) {
-        const msg = 'Motivo inválido. Digite ao menos 3 caracteres.';
-        this.erroMsg.set(msg);
-        alert(msg);
-        return;
-      }
+      if (motivo === null) return;
+      if (!motivo || motivo.trim().length < 3) { alert('Motivo inválido.'); return; }
 
-      // senha via modal (oculta)
       const senha = await this.askPassword();
-      if (senha === null) return; // cancelado
-      if (!senha) {
-        const msg = 'Senha obrigatória.';
-        this.erroMsg.set(msg);
-        alert(msg);
-        return;
-      }
+      if (senha === null) return;
+      if (!senha) { alert('Senha obrigatória.'); return; }
 
       this.loading.set(true);
       this.produtosApi.inativarProduto(prod.Idproduto, motivo.trim(), senha).subscribe({
-        next: (resp: { Ativo: boolean }) => {
-          const novo = { ...prod, Ativo: !!resp?.Ativo };
-          this.resultado.set(novo);
-          this.erroMsg.set(null);
-          alert('Produto inativado com sucesso.');
+        next: (resp) => {
+          this.resultado.set({ ...prod, Ativo: !!resp?.Ativo });
         },
-        error: (err: any) => {
-          this.loading.set(false);
-
-          if (err?.status === 0) {
-            const msg = 'Falha de rede/CORS: verifique CORS e o header X-Audit-Reason.';
-            this.erroMsg.set(msg);
-            alert(msg);
-            return;
-          }
-
-          const status = err?.status;
-          const detail = (err?.error?.detail || '').toString();
-
-          if (status === 403 || detail.toLowerCase().includes('senha')) {
-            const msg = 'Senha errada. Desativação não autorizada.';
-            this.erroMsg.set(msg);
-            alert(msg);
-          } else if (detail) {
-            this.erroMsg.set(detail);
-            alert(detail);
-          } else {
-            const msg = 'Não foi possível inativar o produto.';
-            this.erroMsg.set(msg);
-            alert(msg);
-          }
+        error: (err) => {
+          const msg = err?.error?.detail || 'Não foi possível inativar.';
+          alert(String(msg));
         },
         complete: () => this.loading.set(false)
       });
-
       return;
     }
 
-    // ATIVAR
     this.loading.set(true);
     this.produtosApi.ativarProduto(prod.Idproduto).subscribe({
-      next: (resp: { Ativo: boolean }) => {
-        const novo = { ...prod, Ativo: !!resp?.Ativo };
-        this.resultado.set(novo);
-        this.erroMsg.set(null);
-        alert('Produto ativado com sucesso.');
-      },
-      error: (err: any) => {
-        this.loading.set(false);
-        const msg = err?.error?.detail || 'Não foi possível ativar o produto.';
-        this.erroMsg.set(String(msg));
-        alert(String(msg));
-      },
+      next: (resp) => this.resultado.set({ ...prod, Ativo: !!resp?.Ativo }),
+      error: (err) => alert(String(err?.error?.detail || 'Não foi possível ativar.')),
       complete: () => this.loading.set(false)
     });
   }
 
   // ========================
-  // DETALHAMENTO (SKUs / Tabelas)
+  // SOBRETELA DE SKUs
   // ========================
-  carregarSkus(prod: ProdutoBasicView): void {
+  openSkusOverlay(prod: ProdutoBasicView): void {
     if (!prod?.Idproduto) return;
-    this.mostrandoTabelas.set(false);
-    this.mostrandoSkus.set(true);
-    this.skus.set(null);
-
-    this.produtosApi.getSkus(prod.Idproduto).subscribe({
-      next: (resp: any) => this.skus.set(resp?.skus ?? []),
-      error: (_e: any) => {
-        this.erroMsg.set('Falha ao carregar SKUs.');
-        alert('Falha ao carregar SKUs.');
-      }
-    });
+    this.overlayProdutoId.set(prod.Idproduto);
+    this.overlayRef.set(prod.Referencia || '');
+    this.overlayOpen.set(true);
   }
-
-  carregarTabelas(prod: ProdutoBasicView): void {
-    if (!prod?.Idproduto) return;
-    this.mostrandoSkus.set(false);
-    this.mostrandoTabelas.set(true);
-    this.tabelas.set(null);
-
-    this.produtosApi.getPrecos(prod.Idproduto).subscribe({
-      next: (resp: any) => this.tabelas.set(resp?.tabelas ?? []),
-      error: (_e: any) => {
-        this.erroMsg.set('Falha ao carregar Tabelas/Preços.');
-        alert('Falha ao carregar Tabelas/Preços.');
-      }
-    });
+  closeSkusOverlay(): void {
+    this.overlayOpen.set(false);
   }
 
   // ========================
   // FOTO
   // ========================
   private resetImage(): void {
-    this.imageCandidates = [];
-    this.imageIdx = 0;
-    this.imgSrc.set('');
-    this.imageHidden.set(false);
+    this.imageCandidates = []; this.imageIdx = 0; this.imgSrc.set(''); this.imageHidden.set(false);
   }
-
   private prepareImage(nomeBruto: string): void {
     this.resetImage();
-
     const basename = (nomeBruto || '').trim().replace(/^.*[\\/]/, '');
     if (!basename) { this.imageHidden.set(true); return; }
-
     const bases = ['/assets/produtos/', '/assets/'];
     const lower = basename.toLowerCase();
     const hasExt = /\.(jpe?g|png|webp)$/i.test(lower);
     const noSpaces = lower.replace(/\s+/g, '');
-
     const candidates = new Set<string>();
-    for (const base of bases) {
-      candidates.add(base + basename);
-      candidates.add(base + lower);
-      candidates.add(base + noSpaces);
-      if (!hasExt) {
-        for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
-          candidates.add(base + lower + ext);
-          candidates.add(base + noSpaces + ext);
-        }
-      } else {
-        for (const [from, to] of [['.jpeg', '.jpg'], ['.jpg', '.jpeg']]) {
-          if (lower.endsWith(from)) {
-            candidates.add(base + lower.replace(from, to));
-            candidates.add(base + noSpaces.replace(from, to));
-          }
-        }
+    for (const b of bases) {
+      candidates.add(b + basename);
+      candidates.add(b + lower);
+      candidates.add(b + noSpaces);
+      if (!hasExt) for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
+        candidates.add(b + lower + ext); candidates.add(b + noSpaces + ext);
       }
     }
-
     this.imageCandidates = Array.from(candidates.values());
-    if (this.imageCandidates.length) {
-      this.imgSrc.set(this.imageCandidates[0]);
-    } else {
-      this.imageHidden.set(true);
-    }
+    if (this.imageCandidates.length) this.imgSrc.set(this.imageCandidates[0]); else this.imageHidden.set(true);
   }
-
-  onImageError(_ev: Event): void {
+  onImageError(): void {
     this.imageIdx++;
-    if (this.imageIdx < this.imageCandidates.length) {
-      this.imgSrc.set(this.imageCandidates[this.imageIdx]);
-    } else {
-      this.imageHidden.set(true);
-    }
+    if (this.imageIdx < this.imageCandidates.length) this.imgSrc.set(this.imageCandidates[this.imageIdx]);
+    else this.imageHidden.set(true);
   }
 }

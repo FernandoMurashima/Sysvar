@@ -309,6 +309,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         data = []
         for pd in qs:
             data.append({
+                'sku_id': pd.Idprodutodetalhe,  # <<< ADICIONADO
                 'ean13': pd.CodigodeBarra,
                 'codigoproduto': pd.Codigoproduto,
                 'cor': getattr(pd.Idcor, 'Descricao', None),

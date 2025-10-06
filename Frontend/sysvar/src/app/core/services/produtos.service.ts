@@ -55,19 +55,16 @@ export class ProdutosService {
     const senhaTrim  = (senha ?? '').trim();
 
     if (motivoTrim) {
-      body.audit_reason = motivoTrim; // usado no backend
-      body.motivo = motivoTrim;       // alias p/ compatibilidade
+      body.audit_reason = motivoTrim; // backend usa _get_reason
+      body.motivo = motivoTrim;       // alias compat
     }
     if (senhaTrim) {
-      body.password = senhaTrim; // usado no backend
-      body.senha = senhaTrim;    // alias p/ compatibilidade
+      body.password = senhaTrim; // backend usa _get_password
+      body.senha = senhaTrim;    // alias compat
     }
 
     return this.http.patch<{ Ativo: boolean }>(url, body).pipe(
-      catchError(err => {
-        // Deixa o erro passar para a UI exibir mensagens do backend (400/403)
-        return throwError(() => err);
-      })
+      catchError(err => throwError(() => err))
     );
   }
 
@@ -81,7 +78,19 @@ export class ProdutosService {
     return this.patchAtivo(id, true, motivo);
   }
 
-  // ---- Detalhamento ----
+  // ---------- SKUs (DETALHES) ----------
+  /** Novo: lista SKUs do produto via endpoint dedicado /produtos/{id}/skus/ (traz sku_id) */
+  getSkusDoProduto(produtoId: number): Observable<{ produto_id: number; referencia?: string; skus: any[] }> {
+    const url = `${this.baseProdutos}${produtoId}/skus/`;
+    return this.http.get<any>(url).pipe(
+      map((resp: any) => {
+        const skus = Array.isArray(resp?.skus) ? resp.skus : [];
+        return { produto_id: produtoId, referencia: resp?.referencia, skus };
+      })
+    );
+  }
+
+  /** Compat antigo: lista detalhes direto no /produtos-detalhes/ (sem sku_id garantido) */
   getSkus(produtoId: number): Observable<{ produto_id: number; referencia?: string; skus: any[] }> {
     let params = new HttpParams()
       .set('Idproduto', String(produtoId))
@@ -90,12 +99,53 @@ export class ProdutosService {
 
     return this.http.get<any>(this.baseDetalhes, { params }).pipe(
       map((resp: any) => {
-        const skus = Array.isArray(resp) ? resp : (resp?.results ?? []);
+        const rows = Array.isArray(resp) ? resp : (resp?.results ?? []);
+        // Normaliza shape mínimo esperado
+        const skus = rows.map((r: any) => ({
+          sku_id: r.Idprodutodetalhe ?? r.id ?? null,
+          ean13: r.CodigodeBarra ?? r.ean13,
+          codigoproduto: r.Codigoproduto ?? r.codigoproduto,
+          cor: r.Idcor?.Descricao ?? r.cor,
+          cor_codigo: r.Idcor?.Codigo ?? r.cor_codigo,
+          tamanho: r.Idtamanho?.Tamanho ?? r.Idtamanho?.Descricao ?? r.tamanho,
+          ativo: r.Ativo ?? r.ativo ?? true,
+        }));
         return { produto_id: produtoId, referencia: undefined, skus };
       })
     );
   }
 
+  /** PATCH em um SKU específico (ProdutoDetalhe) */
+  private patchSkuAtivoById(skuId: number, ativo: boolean, motivo?: string, senha?: string): Observable<{ Ativo: boolean }> {
+    const url = `${this.baseDetalhes}${skuId}/`;
+    const body: any = { Ativo: ativo };
+
+    // Mesmo payload do produto (backend ignora se não exigir)
+    const motivoTrim = (motivo ?? '').trim();
+    const senhaTrim  = (senha ?? '').trim();
+    if (motivoTrim) {
+      body.audit_reason = motivoTrim;
+      body.motivo = motivoTrim;
+    }
+    if (senhaTrim) {
+      body.password = senhaTrim;
+      body.senha = senhaTrim;
+    }
+
+    return this.http.patch<{ Ativo: boolean }>(url, body).pipe(
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  inativarSku(skuId: number, motivo: string, senha: string): Observable<{ Ativo: boolean }> {
+    return this.patchSkuAtivoById(skuId, false, motivo, senha);
+  }
+
+  ativarSku(skuId: number, motivo?: string): Observable<{ Ativo: boolean }> {
+    return this.patchSkuAtivoById(skuId, true, motivo);
+  }
+
+  // ---- Preços (por produto) ----
   getPrecos(produtoId: number): Observable<{ produto_id: number; referencia?: string; tabelas: any[] }> {
     let paramsDetalhe = new HttpParams()
       .set('Idproduto', String(produtoId))
@@ -125,7 +175,7 @@ export class ProdutosService {
     );
   }
 
-  // ---- Produto Detalhe ----
+  // ---- Produto Detalhe (CRUD) ----
   createDetalhe(payload: ProdutoDetalhe): Observable<ProdutoDetalhe> {
     return this.http.post<ProdutoDetalhe>(this.baseDetalhes, payload);
   }

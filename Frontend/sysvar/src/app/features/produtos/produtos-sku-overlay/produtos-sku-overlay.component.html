@@ -1,0 +1,50 @@
+<div class="sku-ovl-backdrop">
+  <div class="sku-ovl" role="dialog" aria-modal="true">
+    <div class="sku-ovl-header">
+      <h3 class="sku-ovl-title">
+        SKUs do Produto <span *ngIf="referencia">— {{ referencia }}</span>
+      </h3>
+
+      <button type="button" class="btn btn-ghost sku-ovl-close" (click)="fechar()" aria-label="Fechar">✕</button>
+    </div>
+
+    <!-- Banner de diagnóstico (removível) -->
+    <div class="sku-ovl-diagnostic">
+      produtoId: {{ produtoId || '—' }} • referência: {{ referencia || '—' }} •
+      SKUs: {{ skus()?.length ?? 0 }}
+    </div>
+
+    <div class="sku-ovl-body">
+      <div *ngIf="erroMsg()" class="alert error">{{ erroMsg() }}</div>
+      <div *ngIf="loading()" class="muted">Carregando...</div>
+
+      <ng-container *ngIf="!loading()">
+        <div *ngIf="(skus() ?? []).length === 0" class="muted">
+          Nenhum SKU encontrado.
+        </div>
+
+        <table *ngIf="(skus() ?? []).length" class="sku-table">
+          <thead>
+            <tr>
+              <th>EAN-13</th>
+              <th>Cor</th>
+              <th>Tamanho</th>
+              <th>Ativo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of skus()">
+              <td>{{ r.ean13 }}</td>
+              <td>
+                <span>{{ r.cor || '—' }}</span>
+                <small *ngIf="r.cor_codigo"> ({{ r.cor_codigo }})</small>
+              </td>
+              <td>{{ r.tamanho || '—' }}</td>
+              <td>{{ r.ativo ? 'Sim' : 'Não' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </ng-container>
+    </div>
+  </div>
+</div>
