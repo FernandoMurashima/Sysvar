@@ -51,6 +51,7 @@ REST_FRAMEWORK = {
 
 # === Middleware (com CORS no topo) ===
 MIDDLEWARE = [
+    "auditoria.middleware.RequestIDMiddleware",  # antes de middleware que use request_id
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # tem que vir antes de CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -58,6 +59,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
