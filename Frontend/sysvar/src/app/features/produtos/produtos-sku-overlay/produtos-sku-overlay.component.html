@@ -1,17 +1,12 @@
-<div class="sku-ovl-backdrop">
-  <div class="sku-ovl" role="dialog" aria-modal="true">
+<div class="sku-ovl-backdrop" *ngIf="aberto">
+  <div class="sku-ovl">
     <div class="sku-ovl-header">
-      <h3 class="sku-ovl-title">
-        SKUs do Produto <span *ngIf="referencia">— {{ referencia }}</span>
-      </h3>
+      <h3>SKUs do Produto <span *ngIf="referencia">— {{ referencia }}</span></h3>
 
-      <button type="button" class="btn btn-ghost sku-ovl-close" (click)="fechar()" aria-label="Fechar">✕</button>
-    </div>
-
-    <!-- Banner de diagnóstico (removível) -->
-    <div class="sku-ovl-diagnostic">
-      produtoId: {{ produtoId || '—' }} • referência: {{ referencia || '—' }} •
-      SKUs: {{ skus()?.length ?? 0 }}
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn" type="button" (click)="recarregar()">Recarregar</button>
+        <button class="btn" type="button" (click)="fechar()" aria-label="Fechar">✕</button>
+      </div>
     </div>
 
     <div class="sku-ovl-body">
@@ -29,7 +24,8 @@
               <th>EAN-13</th>
               <th>Cor</th>
               <th>Tamanho</th>
-              <th>Ativo</th>
+              <th>Status</th>
+              <th style="width:110px;">Ação</th>
             </tr>
           </thead>
           <tbody>
@@ -40,7 +36,16 @@
                 <small *ngIf="r.cor_codigo"> ({{ r.cor_codigo }})</small>
               </td>
               <td>{{ r.tamanho || '—' }}</td>
-              <td>{{ r.ativo ? 'Sim' : 'Não' }}</td>
+              <td>{{ r.ativo ? 'Ativo' : 'Inativo' }}</td>
+              <td>
+                <button
+                  class="btn btn-primary"
+                  type="button"
+                  [disabled]="r._saving"
+                  (click)="onToggleSku(r)">
+                  {{ r.ativo ? 'Desativar' : 'Ativar' }}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>

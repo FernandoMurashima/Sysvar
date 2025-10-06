@@ -1,16 +1,10 @@
-import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, signal } from '@angular/core';
+import {
+  Component, EventEmitter, Input, Output, signal,
+  OnChanges, SimpleChanges
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProdutosService } from '../../../core/services/produtos.service';
 
-/**
- * Overlay standalone para listar SKUs (e, depois, ativar/desativar).
- * Inputs:
- *  - aberto: boolean (opcional; só para detectar abertura)
- *  - produtoId: number
- *  - referencia: string|null (exibição)
- * Output:
- *  - close(): fechar
- */
 @Component({
   selector: 'app-produtos-sku-overlay',
   standalone: true,
@@ -22,6 +16,7 @@ export class ProdutoSkuOverlayComponent implements OnChanges {
   @Input() aberto = false;
   @Input() produtoId: number | null = null;
   @Input() referencia: string | null = null;
+
   @Output() close = new EventEmitter<void>();
 
   loading = signal(false);
@@ -34,23 +29,21 @@ export class ProdutoSkuOverlayComponent implements OnChanges {
     cor_codigo?: string;
     tamanho?: string;
     ativo: boolean;
+    _saving?: boolean;
   }> | null>(null);
 
   constructor(private produtosApi: ProdutosService) {}
 
-  /**
-   * Dispara carga sempre que produtoId OU aberto mudar.
-   * (Quando o pai abre a tela, overlay é criado e os @Input chegam.)
-   */
   ngOnChanges(changes: SimpleChanges): void {
-    const pid = Number(this.produtoId || 0);
-    if ((changes['produtoId'] || changes['aberto']) && pid > 0) {
-      this.carregarSkus(pid);
+    if ((changes['aberto'] || changes['produtoId']) && this.aberto && this.produtoId) {
+      this.carregarSkus(this.produtoId);
     }
   }
 
-  fechar(): void {
-    this.close.emit();
+  fechar(): void { this.close.emit(); }
+
+  recarregar(): void {
+    if (this.produtoId) this.carregarSkus(this.produtoId);
   }
 
   private carregarSkus(produtoId: number): void {
@@ -58,14 +51,49 @@ export class ProdutoSkuOverlayComponent implements OnChanges {
     this.erroMsg.set(null);
     this.skus.set(null);
 
-    // Usa endpoint dedicado /produtos/{id}/skus/ (retorna sku_id garantido)
+    // Usa o endpoint dedicado: /produtos/{id}/skus/
     this.produtosApi.getSkusDoProduto(produtoId).subscribe({
-      next: (resp) => {
-        const rows = Array.isArray(resp?.skus) ? resp.skus : [];
+      next: (resp: any) => {
+        const rows = (resp?.skus ?? []).map((r: any) => ({ ...r, _saving: false }));
         this.skus.set(rows);
       },
       error: () => this.erroMsg.set('Falha ao carregar SKUs.'),
-      complete: () => this.loading.set(false)
+      complete: () => this.loading.set(false),
+    });
+  }
+
+  onToggleSku(row: any): void {
+    if (!row || !row.sku_id) { alert('SKU sem identificador.'); return; }
+
+    const desativando = !!row.ativo;
+    let motivo: string | undefined;
+
+    if (desativando) {
+      const m = window.prompt('Motivo da desativação do SKU (opcional):', '');
+      motivo = (m || '').trim() || undefined;
+    }
+
+    row._saving = true;
+
+    // inativarSku exige (skuId, motivo, senha). Para SKU não usamos senha → ''.
+    const obs = desativando
+      ? this.produtosApi.inativarSku(row.sku_id, motivo || '', '')
+      : this.produtosApi.ativarSku(row.sku_id);
+
+    obs.subscribe({
+      next: (r: any) => {
+        // aceita tanto {Ativo:true/false} quanto objeto completo com Ativo
+        const ativo = typeof r?.Ativo === 'boolean' ? r.Ativo
+                    : (typeof r?.ativo === 'boolean' ? r.ativo
+                    : (typeof r?.Ativo === 'string' ? r.Ativo.toString().toLowerCase() === 'true' : !!row.ativo));
+        row.ativo = !!ativo;
+      },
+      error: (err) => {
+        const msg = err?.error?.detail || 'Falha ao alterar status do SKU.';
+        alert(String(msg));
+      },
+      complete: () => { row._saving = false; }
     });
   }
 }
+

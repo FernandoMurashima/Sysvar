@@ -451,13 +451,17 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Por padrão retorna apenas SKUs ativos.
-        ?ativo=false  → somente inativos
-        ?ativo=all    → todos
-        ?ativo=true   → somente ativos (padrão)
+        LIST: aplica filtro de ativo (padrão só ativos).
+        DEMAIS AÇÕES (retrieve, update, partial_update, destroy...): NÃO filtra por ativo.
         Mantém filtros existentes (Idproduto, etc).
         """
         qs = super().get_queryset()
+
+        # Se não for list, não restrinja por Ativo
+        action_name = getattr(self, 'action', None)
+        if action_name and action_name != 'list':
+            return qs
+
         ativo = self.request.query_params.get('ativo')
         if ativo is None or (isinstance(ativo, str) and ativo.lower() in ('true', '1', '')):
             qs = qs.filter(Ativo=True)
@@ -467,9 +471,10 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Ativo=False)
         return qs
 
-    # criação em lote de SKUs
+    # criação em lote de SKUs (mantém igual)
     @action(detail=False, methods=['post'], url_path='batch-create')
     def batch_create(self, request):
+        # ... (resto do método exatamente como já está no seu arquivo)
         data = request.data or {}
         product_id = data.get('product_id')
         tabela_preco_id = data.get('tabela_preco_id')
