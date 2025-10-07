@@ -1,49 +1,53 @@
+from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import (
-    health, register, me, logout_view, login_view,
-    UserViewSet,
-    LojaViewSet, ClienteViewSet, ProdutoViewSet, ProdutoDetalheViewSet, EstoqueViewSet,
-    FornecedorViewSet, VendedorViewSet, FuncionariosViewSet, GradeViewSet, TamanhoViewSet,
-    CorViewSet, ColecaoViewSet, FamiliaViewSet, UnidadeViewSet, GrupoViewSet, SubgrupoViewSet,
-    CodigosViewSet, TabelaprecoViewSet, NcmViewSet,
-    FornecedorSkuMapViewSet, TabelaPrecoItemViewSet,
-    NFeEntradaViewSet
+# seus viewsets existentes
+from sysvar_app.views import (
+    UserViewSet, LojaViewSet, ClienteViewSet, ProdutoViewSet, ProdutoDetalheViewSet,
+    EstoqueViewSet, FornecedorViewSet, VendedorViewSet, FuncionariosViewSet,
+    GradeViewSet, TamanhoViewSet, CorViewSet, ColecaoViewSet, FamiliaViewSet,
+    UnidadeViewSet, GrupoViewSet, SubgrupoViewSet, CodigosViewSet, TabelaprecoViewSet,
+    NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet,
+    NFeEntradaViewSet, health, register, login_view, me, logout_view
 )
 
+# >>> auditoria <<<
+from auditoria.views import AuditoriaLogViewSet
+
 router = DefaultRouter()
-router.register(r'users', UserViewSet, basename='user')
-router.register(r'lojas', LojaViewSet)
-router.register(r'clientes', ClienteViewSet)
+router.register(r'users', UserViewSet, basename='users')
+router.register(r'lojas', LojaViewSet, basename='lojas')
+router.register(r'clientes', ClienteViewSet, basename='clientes')
 router.register(r'produtos', ProdutoViewSet, basename='produtos')
-router.register(r'produtos-detalhes', ProdutoDetalheViewSet)
-router.register(r'estoques', EstoqueViewSet)
-router.register(r'fornecedores', FornecedorViewSet)
-router.register(r'veendedores', VendedorViewSet)
-router.register(r'funcionarios', FuncionariosViewSet)
-router.register(r'grades', GradeViewSet)
-router.register(r'tamanhos', TamanhoViewSet)
-router.register(r'cores', CorViewSet)
-router.register(r'colecoes', ColecaoViewSet)
-router.register(r'familias', FamiliaViewSet)
-router.register(r'unidades', UnidadeViewSet)
-router.register(r'grupos', GrupoViewSet)
-router.register(r'subgrupos', SubgrupoViewSet)
-router.register(r'codigos', CodigosViewSet)
-router.register(r'tabelas-preco', TabelaprecoViewSet)
-router.register(r'ncms', NcmViewSet)
+router.register(r'produtos-detalhes', ProdutoDetalheViewSet, basename='produtos-detalhes')
+router.register(r'estoques', EstoqueViewSet, basename='estoques')
+router.register(r'fornecedores', FornecedorViewSet, basename='fornecedores')
+router.register(r'vendedores', VendedorViewSet, basename='vendedores')
+router.register(r'funcionarios', FuncionariosViewSet, basename='funcionarios')
+router.register(r'grades', GradeViewSet, basename='grades')
+router.register(r'tamanhos', TamanhoViewSet, basename='tamanhos')
+router.register(r'cores', CorViewSet, basename='cores')
+router.register(r'colecoes', ColecaoViewSet, basename='colecoes')
+router.register(r'familias', FamiliaViewSet, basename='familias')
+router.register(r'unidades', UnidadeViewSet, basename='unidades')
+router.register(r'grupos', GrupoViewSet, basename='grupos')
+router.register(r'subgrupos', SubgrupoViewSet, basename='subgrupos')
+router.register(r'codigos', CodigosViewSet, basename='codigos')
+router.register(r'tabelaprecos', TabelaprecoViewSet, basename='tabelaprecos')
 router.register(r'tabelaprecoitem', TabelaPrecoItemViewSet, basename='tabelaprecoitem')
-# novos
-router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet)
-router.register(r'nfe-entradas', NFeEntradaViewSet, basename='nfe-entrada')
+router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet, basename='fornecedor-sku-map')
+router.register(r'nfe-entradas', NFeEntradaViewSet, basename='nfe-entradas')
+
+# >>> NOVO endpoint público de leitura da auditoria:
+router.register(r'auditoria-logs', AuditoriaLogViewSet, basename='auditoria-logs')
 
 urlpatterns = [
-    path('health/', health, name='health'),
-    path('auth/register/', register, name='register'),
-    path('auth/login/', login_view, name='login'),
-    path('auth/logout/', logout_view, name='logout'),
-    path('me/', me, name='me'),
-    # IMPORTANTE: mantenha apenas este include; o prefixo /api/ já é feito no urls.py do projeto
-    path('', include(router.urls)),
+    
+    path('api/health/', health),
+    path('api/register/', register),
+    path('api/login/', login_view),
+    path('api/me/', me),
+    path('api/auth/logout/', logout_view),
+    path('api/', include(router.urls)),
 ]

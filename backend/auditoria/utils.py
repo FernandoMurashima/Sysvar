@@ -1,116 +1,60 @@
-from __future__ import annotations
-from typing import Any, Dict, Optional, Tuple
-
-from django.db import transaction
+# auditoria/utils.py
+from typing import Any, Dict
 from django.utils import timezone
-
+from django.forms.models import model_to_dict
 from .models import AuditLog
 
+AUDIT_SAFE_KEYS = {"HTTP_X_FORWARDED_FOR", "REMOTE_ADDR"}
 
-def _get_client_ip(request) -> Optional[str]:
-    if not request:
-        return None
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        # pega o primeiro IP
-        return xff.split(",")[0].strip() or None
+def _get_client_ip(request) -> str | None:
+    xfwd = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xfwd:
+        return xfwd.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
 
+def _build_diff(before: Dict[str, Any], after: Dict[str, Any]) -> Dict[str, list]:
+    diff = {}
+    for k in after.keys() | before.keys():
+        if before.get(k) != after.get(k):
+            diff[k] = [before.get(k), after.get(k)]
+    return diff
 
-def _get_request_id(request) -> Optional[str]:
-    if not request:
-        return None
-    # compat: middleware abaixo injeta X-Request-ID em META
-    return request.META.get("HTTP_X_REQUEST_ID") or getattr(request, "request_id", None)
+def snapshot_instance(instance) -> Dict[str, Any]:
+    data = model_to_dict(instance)
+    # normalizações simples para JSON
+    for k, v in list(data.items()):
+        if hasattr(v, "isoformat"):
+            data[k] = v.isoformat()
+    return data
 
-
-def diff_instances(before, after, *, include_fields: Optional[Tuple[str, ...]] = None) -> Dict[str, Tuple[Any, Any]]:
-    """
-    Calcula diffs simples (por atributo) entre duas instâncias Django.
-    Retorna dict {campo: (antes, depois)} apenas quando valores divergem.
-    """
-    if not before or not after:
-        return {}
-
-    # lista de fields concretos (ignora M2M/similares)
-    fields = [f.name for f in before._meta.concrete_fields]
-    if include_fields:
-        fields = [f for f in fields if f in include_fields]
-
-    changes = {}
-    for fname in fields:
-        try:
-            old = getattr(before, fname)
-            new = getattr(after, fname)
-        except Exception:
-            continue
-        # normaliza para tipos básicos
-        if hasattr(old, "pk"):
-            old = old.pk
-        if hasattr(new, "pk"):
-            new = new.pk
-        if old != new:
-            changes[fname] = [old, new]
-    return changes
-
-
-@transaction.atomic
 def write_audit(
     *,
-    request=None,
-    user=None,
-    model: str,
-    object_id: Any,
-    action: str = "custom",
-    changes: Optional[Dict[str, Any]] = None,
-    reason: Optional[str] = None,
-    extra: Optional[Dict[str, Any]] = None,
-) -> AuditLog:
-    """
-    Grava um registro de auditoria resiliente.
-    """
-    # user / username snapshot
-    u = user or (getattr(request, "user", None) if request is not None else None)
-    username = None
-    if u and getattr(u, "is_authenticated", False):
-        username = getattr(u, "username", None)
-    else:
-        u = None
+    request,
+    model_name: str,
+    object_id: str,
+    action: str,
+    before: Dict[str, Any] | None = None,
+    after: Dict[str, Any] | None = None,
+    reason: str | None = None,
+    extra: Dict[str, Any] | None = None,
+):
+    user = getattr(request, "user", None)
+    username_snapshot = (user.get_full_name() if user and user.is_authenticated else None) or (user.username if user and user.is_authenticated else None)
 
-    ip = _get_client_ip(request)
-    req_id = _get_request_id(request)
+    changes = None
+    if before is not None or after is not None:
+        changes = _build_diff(before or {}, after or {})
 
-    log = AuditLog.objects.create(
+    return AuditLog.objects.create(
         ts=timezone.now(),
-        user=u,
-        username_snapshot=username,
-        ip=ip,
-        request_id=req_id,
-        model=str(model),
+        user=user if (user and user.is_authenticated) else None,
+        username_snapshot=username_snapshot,
+        ip=_get_client_ip(request),
+        request_id=getattr(request, "request_id", None) or request.META.get("HTTP_X_REQUEST_ID"),
+        model=model_name,
         object_id=str(object_id),
         action=action,
-        changes_json=changes or None,
-        reason=(reason or None),
-        extra=extra or None,
-    )
-    return log
-
-
-# ---------- Wrapper de compatibilidade com seu código atual ----------
-def write_product_status_change(*, request, instance, old_status: bool, new_status: bool, reason: Optional[str] = None):
-    """
-    Compatível com o import existente: from auditoria.utils import write_product_status_change
-    Loga uma mudança de status (produto) como 'status_change' com diff do campo Ativo.
-    """
-    return write_audit(
-        request=request,
-        model=instance.__class__.__name__,
-        object_id=getattr(instance, instance._meta.pk.name, None),
-        action="status_change",
-        changes={"Ativo": [bool(old_status), bool(new_status)]},
-        reason=reason or None,
-        extra={
-            "referencia": getattr(instance, "referencia", None),
-            "descricao": getattr(instance, "Descricao", None),
-        },
+        changes_json=changes,
+        reason=reason or "",
+        extra=extra or {},
     )

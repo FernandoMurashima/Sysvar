@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 
 # >>> AUDITORIA <<<
-from auditoria.utils import write_product_status_change
+from auditoria.utils import write_audit, snapshot_instance
 
 from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
@@ -245,7 +245,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
-        # >>> NOVO: exigir senha do usuário logado
+        # >>> EXIGE senha do usuário logado
         raw_password = (request.data.get('password') or request.data.get('senha') or '').strip()
         if not raw_password or not request.user.check_password(raw_password):
             return Response(
@@ -309,7 +309,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         data = []
         for pd in qs:
             data.append({
-                'sku_id': pd.Idprodutodetalhe,  # <<< ADICIONADO
+                'sku_id': pd.Idprodutodetalhe,
                 'ean13': pd.CodigodeBarra,
                 'codigoproduto': pd.Codigoproduto,
                 'cor': getattr(pd.Idcor, 'Descricao', None),
@@ -385,7 +385,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
         if new_status is None:
             for k in aliases:
-                if k in data and k in data and data[k] not in (None, ''):
+                if k in data and data[k] not in (None, ''):
                     new_status = self._to_bool(data.get(k))
                     break
 
@@ -435,7 +435,112 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # ----- AUDITORIA: create/update/destroy -----
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        try:
+            write_audit(
+                request=self.request,
+                model="Produto",
+                object_id=getattr(instance, "Idproduto", None),
+                verb="create",
+                diff={"new": serializer.data},
+                note=None,
+            )
+        except Exception:
+            pass
 
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        before = {
+            "Descricao": getattr(instance, "Descricao", None),
+            "referencia": getattr(instance, "referencia", None),
+            "Ativo": getattr(instance, "Ativo", None),
+        }
+        obj = serializer.save()
+        after = {
+            "Descricao": getattr(obj, "Descricao", None),
+            "referencia": getattr(obj, "referencia", None),
+            "Ativo": getattr(obj, "Ativo", None),
+        }
+        try:
+            write_audit(
+                request=self.request,
+                model="Produto",
+                object_id=getattr(obj, "Idproduto", None),
+                verb="update",
+                diff={"before": before, "after": after},
+                note=None,
+            )
+        except Exception:
+            pass
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        obj_id = getattr(instance, "Idproduto", None)
+        snap = {
+            "Descricao": getattr(instance, "Descricao", None),
+            "referencia": getattr(instance, "referencia", None),
+        }
+        resp = super().destroy(request, *args, **kwargs)
+        try:
+            write_audit(
+                request=request,
+                model="Produto",
+                object_id=obj_id,
+                verb="delete",
+                diff={"old": snap},
+                note=None,
+            )
+        except Exception:
+            pass
+        return resp
+
+        # >>> AUDITORIA AUTOMÁTICA <<<
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            instance = serializer.save()
+            after = snapshot_instance(instance)
+            write_audit(
+                request=self.request,
+                model_name="Produto",
+                object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
+                action="create",
+                before=None,
+                after=after,
+                reason="Criação de produto via API",
+            )
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            instance_before = self.get_object()
+            before = snapshot_instance(instance_before)
+            instance = serializer.save()
+            after = snapshot_instance(instance)
+            write_audit(
+                request=self.request,
+                model_name="Produto",
+                object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
+                action="update",
+                before=before,
+                after=after,
+                reason="Atualização de produto via API",
+            )
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            before = snapshot_instance(instance)
+            oid = getattr(instance, "Idproduto", getattr(instance, "pk", None))
+            instance.delete()
+            write_audit(
+                request=self.request,
+                model_name="Produto",
+                object_id=oid,
+                action="delete",
+                before=before,
+                after=None,
+                reason="Exclusão de produto via API",
+            )
 
 class ProdutoDetalheViewSet(viewsets.ModelViewSet):
     queryset = (ProdutoDetalhe.objects
@@ -451,17 +556,13 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        LIST: aplica filtro de ativo (padrão só ativos).
-        DEMAIS AÇÕES (retrieve, update, partial_update, destroy...): NÃO filtra por ativo.
+        Por padrão retorna apenas SKUs ativos.
+        ?ativo=false  → somente inativos
+        ?ativo=all    → todos
+        ?ativo=true   → somente ativos (padrão)
         Mantém filtros existentes (Idproduto, etc).
         """
         qs = super().get_queryset()
-
-        # Se não for list, não restrinja por Ativo
-        action_name = getattr(self, 'action', None)
-        if action_name and action_name != 'list':
-            return qs
-
         ativo = self.request.query_params.get('ativo')
         if ativo is None or (isinstance(ativo, str) and ativo.lower() in ('true', '1', '')):
             qs = qs.filter(Ativo=True)
@@ -471,10 +572,128 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Ativo=False)
         return qs
 
-    # criação em lote de SKUs (mantém igual)
+    # --- AUDITORIA >> create/update/partial_update/destroy ---
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        try:
+            write_audit(
+                request=self.request,
+                model="ProdutoDetalhe",
+                object_id=getattr(instance, "Idprodutodetalhe", None),
+                verb="create",
+                diff={"new": serializer.data},
+                note=None,
+            )
+        except Exception:
+            pass
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        before = {
+            "CodigodeBarra": getattr(instance, "CodigodeBarra", None),
+            "Codigoproduto": getattr(instance, "Codigoproduto", None),
+            "Ativo": getattr(instance, "Ativo", None),
+        }
+        obj = serializer.save()
+        after = {
+            "CodigodeBarra": getattr(obj, "CodigodeBarra", None),
+            "Codigoproduto": getattr(obj, "Codigoproduto", None),
+            "Ativo": getattr(obj, "Ativo", None),
+        }
+        try:
+            write_audit(
+                request=self.request,
+                model="ProdutoDetalhe",
+                object_id=getattr(obj, "Idprodutodetalhe", None),
+                verb="update",
+                diff={"before": before, "after": after},
+                note=None,
+            )
+        except Exception:
+            pass
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Mantém o comportamento padrão do DRF e adiciona auditoria.
+        Se o campo 'Ativo' mudar, registramos um evento específico (nota humana)
+        e também um write_audit genérico.
+        """
+        instance = self.get_object()
+        old_active = bool(getattr(instance, "Ativo", False))
+        old_snap = {
+            "CodigodeBarra": getattr(instance, "CodigodeBarra", None),
+            "Codigoproduto": getattr(instance, "Codigoproduto", None),
+            "Ativo": old_active,
+        }
+
+        resp = super().partial_update(request, *args, **kwargs)
+
+        try:
+            instance.refresh_from_db()
+        except Exception:
+            return resp
+
+        new_active = bool(getattr(instance, "Ativo", False))
+        new_snap = {
+            "CodigodeBarra": getattr(instance, "CodigodeBarra", None),
+            "Codigoproduto": getattr(instance, "Codigoproduto", None),
+            "Ativo": new_active,
+        }
+
+        # audit genérico (diff completo)
+        try:
+            write_audit(
+                request=request,
+                model="ProdutoDetalhe",
+                object_id=getattr(instance, "Idprodutodetalhe", None),
+                verb="update",
+                diff={"before": old_snap, "after": new_snap},
+                note=None,
+            )
+        except Exception:
+            pass
+
+        # nota amigável quando houve mudança de status
+        if old_active != new_active:
+            try:
+                note = f"SKU {'ativado' if new_active else 'inativado'}"
+                write_audit(
+                    request=request,
+                    model="ProdutoDetalhe",
+                    object_id=getattr(instance, "Idprodutodetalhe", None),
+                    verb="status",
+                    diff={"from": old_active, "to": new_active},
+                    note=note,
+                )
+            except Exception:
+                pass
+
+        return resp
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        obj_id = getattr(instance, "Idprodutodetalhe", None)
+        snap = {
+            "CodigodeBarra": getattr(instance, "CodigodeBarra", None),
+            "Codigoproduto": getattr(instance, "Codigoproduto", None),
+        }
+        resp = super().destroy(request, *args, **kwargs)
+        try:
+            write_audit(
+                request=request,
+                model="ProdutoDetalhe",
+                object_id=obj_id,
+                verb="delete",
+                diff={"old": snap},
+                note=None,
+            )
+        except Exception:
+            pass
+        return resp
+
+    # criação em lote de SKUs
     @action(detail=False, methods=['post'], url_path='batch-create')
     def batch_create(self, request):
-        # ... (resto do método exatamente como já está no seu arquivo)
         data = request.data or {}
         product_id = data.get('product_id')
         tabela_preco_id = data.get('tabela_preco_id')
