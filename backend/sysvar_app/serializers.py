@@ -10,7 +10,7 @@ from .models import (
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
     Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco, Ncm,
     TabelaPrecoItem,
-    NFeEntrada, NFeItem, FornecedorSkuMap, Compra, CompraItem
+    NFeEntrada, NFeItem, FornecedorSkuMap
 )
 
 # =============================

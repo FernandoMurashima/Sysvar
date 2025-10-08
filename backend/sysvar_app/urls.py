@@ -2,17 +2,14 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-# seus viewsets existentes
 from sysvar_app.views import (
     UserViewSet, LojaViewSet, ClienteViewSet, ProdutoViewSet, ProdutoDetalheViewSet,
     EstoqueViewSet, FornecedorViewSet, VendedorViewSet, FuncionariosViewSet,
     GradeViewSet, TamanhoViewSet, CorViewSet, ColecaoViewSet, FamiliaViewSet,
     UnidadeViewSet, GrupoViewSet, SubgrupoViewSet, CodigosViewSet, TabelaprecoViewSet,
     NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet,
-    NFeEntradaViewSet, health, register, login_view, me, logout_view
+    health, register, login_view, me, logout_view
 )
-
-# >>> auditoria <<<
 from auditoria.views import AuditoriaLogViewSet
 
 router = DefaultRouter()
@@ -37,17 +34,16 @@ router.register(r'codigos', CodigosViewSet, basename='codigos')
 router.register(r'tabelaprecos', TabelaprecoViewSet, basename='tabelaprecos')
 router.register(r'tabelaprecoitem', TabelaPrecoItemViewSet, basename='tabelaprecoitem')
 router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet, basename='fornecedor-sku-map')
-router.register(r'nfe-entradas', NFeEntradaViewSet, basename='nfe-entradas')
-
-# >>> NOVO endpoint público de leitura da auditoria:
 router.register(r'auditoria-logs', AuditoriaLogViewSet, basename='auditoria-logs')
 
 urlpatterns = [
-    
     path('api/health/', health),
     path('api/register/', register),
     path('api/login/', login_view),
     path('api/me/', me),
     path('api/auth/logout/', logout_view),
     path('api/', include(router.urls)),
+
+    # importa as rotas do pacote pedido_compra
+    path('api/', include('sysvar_app.pedido_compra.urls')),
 ]

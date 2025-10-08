@@ -22,6 +22,7 @@ class User(AbstractUser):
     type = models.CharField(max_length=10, choices=Type.choices, default='Regular')
     Idloja = models.ForeignKey('Loja', on_delete=models.SET_NULL, null=True, blank=True, related_name='usuarios')
 
+
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
@@ -100,7 +101,7 @@ class Fornecedor(models.Model):
     Cidade = models.CharField(max_length=50, null=True, blank=True)
     Estado = models.CharField(max_length=2, null=True, blank=True)
     Telefone1 = models.CharField(max_length=15, null=True, blank=True)
-    Telefone2 = models.CharField(max_length=15, null=True, blank=True)
+    Telefone2 = models.CharField(maxlength=15) if False else models.CharField(max_length=15, null=True, blank=True)
     email = models.CharField(max_length=50, null=True, blank=True)
     Categoria = models.CharField(max_length=15, null=True, blank=True)
     Bloqueio = models.BooleanField(default=False)
@@ -391,7 +392,7 @@ class Venda(models.Model):
     tcsll = models.DecimalField(max_digits=18, decimal_places=5, default=0.00)
 
     def __str__(self):
-        return f'{self.Documento} - {self.Valor}'  # noqa: E999 (editor pode inserir char invisível)
+        return f'{self.Documento} - {self.Valor}'  # noqa: E999
 
 
 class VendaItem(models.Model):
@@ -567,103 +568,56 @@ class PagarItem(models.Model):
 
 
 # =========================
-# Compras (Operacional)
+# Pedido de Compra
 # =========================
-class Compra(models.Model):
-    Idcompra = models.BigAutoField(primary_key=True)
-    Idfornecedor = models.ForeignKey('Fornecedor', on_delete=models.CASCADE)
-    Idloja = models.ForeignKey('Loja', on_delete=models.CASCADE)
-
-    Datacompra = models.DateField(null=True, blank=True)
-    Status = models.CharField(max_length=2, null=True, blank=True)
-    Documento = models.CharField(max_length=20)
-    Datadocumento = models.DateField()
-
-    # vínculo 1-1 com a NF-e importada (quando houver)
-    nfe = models.OneToOneField('NFeEntrada', on_delete=models.PROTECT, null=True, blank=True, related_name='compra')
-
-    # totais "operacionais"
-    Valorpedido = models.DecimalField(max_digits=18, decimal_places=2)
-    valor_total = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
-
-    # rateios consolidados da NF-e (proporcionais)
-    frete_rateado = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0)
-    desconto_rateado = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0)
-    outros_rateado = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0)
-
-    Idpedidocompra = models.IntegerField(null=True, blank=True)
-    # --- Confirmação ---
-    confirmacao_parcial = models.BooleanField(default=False)
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f'{self.Documento} - {self.Idfornecedor.Nome_fornecedor}'
-
-
-class CompraItem(models.Model):
-    Idcompraitem = models.BigAutoField(primary_key=True)
-    Idcompra = models.ForeignKey(Compra, on_delete=models.CASCADE)
-
-    # Revenda (SKU) OU uso/consumo (Produto) — exatamente UM deles deve estar preenchido
-    Idprodutodetalhe = models.ForeignKey('ProdutoDetalhe', on_delete=models.CASCADE, null=True, blank=True)
-    Idproduto = models.ForeignKey('Produto', on_delete=models.CASCADE, null=True, blank=True)
-
-    Qtd = models.IntegerField()
-    Valorunitario = models.DecimalField(max_digits=18, decimal_places=2)
-    Descontoitem = models.DecimalField(max_digits=18, decimal_places=2, default=0)
-    Totalitem = models.DecimalField(max_digits=18, decimal_places=2)
-
-    # rateios por item (gravados já rateados em Confirmar)
-    frete_rateado_item = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0)
-    outros_rateado_item = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0)
-
-    # custo por unidade após rateios/desc
-    custo_unitario = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
-
-    # --- Vínculo com Pedido de Compra ---
-    Idpedidocompraitem = models.ForeignKey('PedidoCompraItem', on_delete=models.SET_NULL, null=True, blank=True)
-
-    data_cadastro = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                name='compraitem_sku_xor_prod',
-                check=(
-                    (models.Q(Idprodutodetalhe__isnull=False, Idproduto__isnull=True) |
-                     models.Q(Idprodutodetalhe__isnull=True,  Idproduto__isnull=False))
-                ),
-            ),
-        ]
-        indexes = [
-            models.Index(fields=['Idcompra']),
-            models.Index(fields=['Idprodutodetalhe']),
-            models.Index(fields=['Idproduto']),
-        ]
-
-    def __str__(self):
-        alvo = self.Idprodutodetalhe or self.Idproduto
-        return f'{self.Idcompra.Documento} - {alvo} ({self.Qtd})'
-
-
 class PedidoCompra(models.Model):
+    class TipoPedido(models.TextChoices):
+        REVENDA = 'revenda', 'Revenda'
+        CONSUMO = 'consumo', 'Uso/Consumo'
+
+    class StatusChoices(models.TextChoices):
+        AB = 'AB', 'Aberto'
+        AP = 'AP', 'Aprovado'
+        RC = 'RC', 'Recebendo'
+        CL = 'CL', 'Concluído'
+        CA = 'CA', 'Cancelado'
+
     Idpedidocompra = models.BigAutoField(primary_key=True)
     Idfornecedor = models.ForeignKey(Fornecedor, on_delete=models.CASCADE)
+    Idloja = models.ForeignKey(Loja, on_delete=models.CASCADE)
+
     Datapedido = models.DateField(null=True, blank=True)
-    Dataentrega = models.DateField(null=True, blank=True)
+    Dataentrega = models.DateField(null=True, blank=True)  # entrega geral (opcional)
     Valorpedido = models.DecimalField(max_digits=18, decimal_places=2)
-    Status = models.CharField(max_length=2, null=True, blank=True)
+
+    Status = models.CharField(max_length=2, null=True, blank=True, choices=StatusChoices.choices, default=StatusChoices.AB)
     Documento = models.CharField(max_length=20, null=True, blank=True)
     data_nf = models.DateField(null=True, blank=True)
     Chave = models.CharField(max_length=100, null=True, blank=True)
-    Idloja = models.ForeignKey(Loja, on_delete=models.CASCADE)
+
+    # --- Novos campos do cabeçalho ---
+    tipo_pedido = models.CharField(max_length=15, choices=TipoPedido.choices, default=TipoPedido.REVENDA)
+    condicao_pagamento = models.CharField(max_length=60, null=True, blank=True)
+    condicao_pagamento_detalhe = models.TextField(null=True, blank=True)
+    parcelas = models.IntegerField(null=True, blank=True)
+    fornecedor_contato = models.CharField(max_length=120, null=True, blank=True)
+
+    aprovado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='pc_aprovados')
+    aprovado_em = models.DateTimeField(null=True, blank=True)
+    observacoes = models.TextField(null=True, blank=True)
+
+    percentual_desconto_global = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True, default=0)
+    frete_previsto = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0)
+    outros_previstos = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0)
+
     # --- Tolerâncias de recebimento ---
     tolerancia_qtd_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0)
     tolerancia_preco_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0)
+
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return self.Documento
+        return self.Documento or f'PC-{self.Idpedidocompra}'
 
 
 class PedidoCompraItem(models.Model):
@@ -679,10 +633,30 @@ class PedidoCompraItem(models.Model):
     unid_compra = models.CharField(max_length=10, blank=True, null=True)
     fator_conv = models.DecimalField(max_digits=18, decimal_places=6, default=1)
     Idprodutodetalhe = models.ForeignKey('ProdutoDetalhe', on_delete=models.SET_NULL, null=True, blank=True)
+
+    # Novo: entrega prevista por item (opcional)
+    data_entrega_prevista = models.DateField(null=True, blank=True)
+
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f'{self.Idpedidocompra} - {self.Total_item}'
+
+
+class PedidoCompraEntrega(models.Model):
+    """Programação de entregas (split de entregas do pedido)."""
+    Idpc_entrega = models.BigAutoField(primary_key=True)
+    pedido = models.ForeignKey(PedidoCompra, on_delete=models.CASCADE, related_name='entregas')
+    data_entrega = models.DateField()
+    quantidade_prevista = models.IntegerField(null=True, blank=True)
+    observacao = models.CharField(max_length=200, null=True, blank=True)
+    data_cadastro = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [models.Index(fields=['pedido', 'data_entrega'])]
+
+    def __str__(self):
+        return f'{self.pedido_id} -> {self.data_entrega}'
 
 
 # =========================
@@ -961,14 +935,16 @@ class NFeConciliacaoItem(models.Model):
 class RecebimentoPCItem(models.Model):
     Idrecpc = models.BigAutoField(primary_key=True)
     Idpedidocompraitem = models.ForeignKey('PedidoCompraItem', on_delete=models.CASCADE)
-    Idcompraitem = models.ForeignKey('CompraItem', on_delete=models.CASCADE)
     nfe_item = models.ForeignKey('NFeItem', on_delete=models.SET_NULL, null=True, blank=True)
     quantidade_atendida = models.DecimalField(max_digits=18, decimal_places=3)
     valor_atendido = models.DecimalField(max_digits=18, decimal_places=2)
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return f"PCItem {self.Idpedidocompraitem_id} <= CompraItem {self.Idcompraitem_id}"
+        base = f"PCItem {self.Idpedidocompraitem_id}"
+        if self.nfe_item_id:
+            base += f" <= NFeItem {self.nfe_item_id}"
+        return base
 
 
 # =========================
