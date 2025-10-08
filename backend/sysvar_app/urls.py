@@ -44,6 +44,6 @@ urlpatterns = [
     path('api/auth/logout/', logout_view),
     path('api/', include(router.urls)),
 
-    # importa as rotas do pacote pedido_compra
-    path('api/', include('sysvar_app.pedido_compra.urls')),
+    # rotas do pacote pedido_compra (<<< AJUSTE no módulo)
+    path('api/', include('sysvar_app.pedido_compra.pedido_compra_urls')),
 ]

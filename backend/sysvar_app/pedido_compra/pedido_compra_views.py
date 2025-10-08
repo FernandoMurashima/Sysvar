@@ -1,18 +1,20 @@
 from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
-from django.shortcuts import get_object_or_404
 
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, filters as drf_filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+
+import django_filters as df
+from django_filters.rest_framework import DjangoFilterBackend
 
 from ..models import (
     PedidoCompra,
     PedidoCompraItem,
     PedidoCompraEntrega,
 )
-from .serializers import (
+from .pedido_compra_serializers import (  # <<< AJUSTE: import correto do arquivo do pacote
     PedidoCompraListSerializer,
     PedidoCompraDetailSerializer,
     PedidoCompraItemSerializer,
@@ -20,16 +22,46 @@ from .serializers import (
 )
 
 # Códigos de status sugeridos (2 chars)
-STATUS_ABERTO = "AB"     # rascunho/aberto
-STATUS_APROVADO = "AP"   # aprovado
-STATUS_CANCELADO = "CA"  # cancelado
+STATUS_ABERTO = "AB"
+STATUS_APROVADO = "AP"
+STATUS_CANCELADO = "CA"
 
 # Mapa simples de transições permitidas
 TRANSICOES = {
     STATUS_ABERTO: {STATUS_APROVADO, STATUS_CANCELADO},
-    STATUS_APROVADO: {STATUS_CANCELADO},           # pode cancelar um aprovado
-    STATUS_CANCELADO: {STATUS_ABERTO},             # reabrir um cancelado
+    STATUS_APROVADO: {STATUS_CANCELADO},
+    STATUS_CANCELADO: {STATUS_ABERTO},
 }
+
+
+# --------------------
+# Filtros server-side
+# --------------------
+class PedidoCompraFilter(df.FilterSet):
+    # Datas
+    emissao_de = df.DateFilter(field_name="Datapedido", lookup_expr="gte")
+    emissao_ate = df.DateFilter(field_name="Datapedido", lookup_expr="lte")
+    entrega_de = df.DateFilter(field_name="Dataentrega", lookup_expr="gte")
+    entrega_ate = df.DateFilter(field_name="Dataentrega", lookup_expr="lte")
+
+    # Básicos
+    status = df.CharFilter(field_name="Status", lookup_expr="exact")
+    fornecedor = df.NumberFilter(field_name="Idfornecedor_id", lookup_expr="exact")
+    q_fornecedor = df.CharFilter(field_name="Idfornecedor__Nome_fornecedor", lookup_expr="icontains")
+    loja = df.NumberFilter(field_name="Idloja_id", lookup_expr="exact")
+    doc = df.CharFilter(field_name="Documento", lookup_expr="icontains")
+
+    # Faixa de total
+    total_min = df.NumberFilter(field_name="Valorpedido", lookup_expr="gte")
+    total_max = df.NumberFilter(field_name="Valorpedido", lookup_expr="lte")
+
+    class Meta:
+        model = PedidoCompra
+        fields = [
+            "status", "fornecedor", "q_fornecedor", "loja", "doc",
+            "emissao_de", "emissao_ate", "entrega_de", "entrega_ate",
+            "total_min", "total_max",
+        ]
 
 
 class PedidoCompraViewSet(viewsets.ModelViewSet):
@@ -37,13 +69,28 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     CRUD + ações de fluxo para Pedido de Compra.
     Ações extras (POST):
       - /pedidos-compra/{id}/aprovar/
-      - /pedidos-compra/{id}/cancelar/   (body opcional: {"motivo": "..."} — somente informativo por ora)
+      - /pedidos-compra/{id}/cancelar/
       - /pedidos-compra/{id}/reabrir/
-      - /pedidos-compra/{id}/duplicar/   (cria novo pedido com mesmos itens)
+      - /pedidos-compra/{id}/duplicar/
     """
     permission_classes = [permissions.IsAuthenticated]
     queryset = PedidoCompra.objects.all().select_related("Idfornecedor", "Idloja")
     serializer_class = PedidoCompraDetailSerializer
+
+    # >>> Filtros e Ordenação
+    filter_backends = [DjangoFilterBackend, drf_filters.OrderingFilter]
+    filterset_class = PedidoCompraFilter
+    ordering_fields = [
+        "Datapedido",
+        "Dataentrega",
+        "Documento",
+        "Valorpedido",
+        "Status",
+        "Idfornecedor__Nome_fornecedor",
+        "Idloja__nome_loja",
+        "Idpedidocompra",
+    ]
+    ordering = ["-Datapedido", "Idpedidocompra"]  # padrão: mais recentes primeiro
 
     def get_serializer_class(self):
         if self.action in ("list",):
@@ -75,7 +122,6 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # Regras de cortesia: não aprovar sem item
         tem_itens = PedidoCompraItem.objects.filter(Idpedidocompra=pedido).exists()
         if not tem_itens:
             return Response(
@@ -83,7 +129,6 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Se não houver data do pedido, define hoje
         if not pedido.Datapedido:
             pedido.Datapedido = self._agora_data()
 
@@ -104,9 +149,7 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # Campo "motivo" opcional (mantido para futura auditoria)
         motivo = (request.data or {}).get("motivo")  # noqa: F841
-
         pedido.Status = STATUS_CANCELADO
         pedido.save(update_fields=["Status"])
 
@@ -135,12 +178,10 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     def duplicar(self, request, pk=None):
         """
         Cria um novo pedido com mesmo fornecedor/loja/tolerâncias
-        e clona itens (Qtp_pc, valorunitario, Desconto, etc).
-        Novo pedido sai em ABERTO, Valorpedido e documentos “em branco”.
+        e clona itens. Novo pedido sai em ABERTO.
         """
         pedido: PedidoCompra = self.get_object()
 
-        # 1) cria cabeçalho novo
         novo = PedidoCompra.objects.create(
             Idfornecedor=pedido.Idfornecedor,
             Idloja=pedido.Idloja,
@@ -155,7 +196,6 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
             tolerancia_preco_percent=pedido.tolerancia_preco_percent,
         )
 
-        # 2) clona itens
         itens = PedidoCompraItem.objects.filter(Idpedidocompra=pedido).values(
             "Idproduto_id",
             "Qtp_pc",
@@ -195,7 +235,6 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
         if novos_itens:
             PedidoCompraItem.objects.bulk_create(novos_itens)
 
-        # 3) atualiza total do novo pedido
         if total != novo.Valorpedido:
             PedidoCompra.objects.filter(pk=novo.pk).update(Valorpedido=total)
 
