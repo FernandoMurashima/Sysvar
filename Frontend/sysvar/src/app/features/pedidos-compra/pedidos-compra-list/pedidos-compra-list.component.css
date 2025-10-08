@@ -1,0 +1,19 @@
+.pc-wrap { display: grid; gap: 12px; }
+.pc-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pc-header .actions { display: flex; gap: 8px; }
+
+.filtros .grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 12px;
+}
+.filtros label { display: grid; gap: 4px; font-size: 0.95rem; }
+.filtros .footer { margin-top: 8px; display: flex; gap: 8px; }
+
+.state { padding: 12px; background: #f7f7f7; border-radius: 6px; }
+.state.err { background: #ffe9e9; color: #9b1c1c; }
+
+.table-wrap { overflow: auto; border: 1px solid #eaeaea; border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; }
+th { cursor: pointer; user-select: none; background: #fafafa; }

@@ -51,12 +51,8 @@ export const routes: Routes = [
       { path: 'vendas/tabelas', component: TabelasPrecoComponent },
       { path: 'produtos', component: ProdutosComponent },
       { path: 'config/estoque-lancamento', component: EstoqueLancamentoComponent },
-      { path: 'vendas/pdv', loadComponent: () => import('./features/pdv/pdv.component').then(m => m.PdvComponent)},
-
-      { path: 'compras/nfe/upload',   loadComponent: () =>     import('./features/nfe/upload-nfe/upload-nfe.component')       .then(m => m.UploadNfeComponent) },
-      { path: 'compras/nfe/:id/conciliar',  loadComponent: () =>   import('./features/nfe/conciliar-nfe/conciliar-nfe.component')    .then(m => m.ConciliarNfeComponent) },
-      { path: 'compras/nfe/:id/confirmar',   loadComponent: () =>     import('./features/nfe/confirmar-nfe/confirmar-nfe.component')       .then(m => m.ConfirmarNfeComponent) },
       
+      { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
       { path: '', pathMatch: 'full', redirectTo: 'home' }
     ]
   },
