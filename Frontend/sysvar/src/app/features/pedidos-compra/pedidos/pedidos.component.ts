@@ -35,8 +35,8 @@ export class PedidosComponent implements OnInit {
   rows = signal<PedidoCompraRow[]>([]);
   total = computed(() => this.rows().length);
 
-  // === Filtros (consulta) ===
-  // fornecedor_input e loja_input aceitam ID (numérico) ou NOME (texto)
+  // === Consulta ===
+  // Mantém fornecedor/loja aceitando ID ou Nome. Removidos Total mín/máx.
   filtrosForm = this.fb.nonNullable.group({
     status: [''],
     fornecedor_input: [''], // ID ou Nome
@@ -45,10 +45,9 @@ export class PedidosComponent implements OnInit {
     emissao_ate: [''],
     entrega_de: [''],
     entrega_ate: [''],
-    total_min: [''],
-    total_max: [''],
   });
 
+  // === Dados auxiliares ===
   lojas: Array<{ id: number; nome: string }> = [];
   fornecedorNome = '';
   lojaNome = '';
@@ -64,6 +63,7 @@ export class PedidosComponent implements OnInit {
   });
   get itensFA(): FormArray { return this.novoForm.controls.itens as FormArray; }
 
+  // === EDIÇÃO ===
   editingId: number | null = null;
   editHeaderForm = this.fb.nonNullable.group({
     Dataentrega: this.fb.nonNullable.control<string>(''),
@@ -110,7 +110,7 @@ export class PedidosComponent implements OnInit {
     this.fieldErrors = []; this.awaitKeyAfterSave = false;
   }
 
-  // ====== Monta filtro para a API ======
+  // ===== Consulta =====
   private buildFiltro(): PedidoCompraFiltro {
     const raw = this.filtrosForm.getRawValue();
     const s = (v: string) => (v?.trim() ? v.trim() : undefined);
@@ -123,20 +123,18 @@ export class PedidosComponent implements OnInit {
       ordering: this.ordering(),
       status: s(raw.status),
 
-      // fornecedor: decide entre ID ou nome
+      // fornecedor: ID ou nome
       fornecedor: isNum(fornecedorTxt) ? Number(fornecedorTxt) : undefined,
       q_fornecedor: !isNum(fornecedorTxt) ? fornecedorTxt : undefined,
 
-      // loja: decide entre ID ou nome
+      // loja: ID ou nome (se o backend usa apenas ID, esta chave será ignorada quando nome for usado)
+      // se houver suporte a nome da loja via query, ajuste aqui (ex.: q_loja)
       loja: isNum(lojaTxt) ? Number(lojaTxt) : undefined,
-      q_loja: !isNum(lojaTxt) ? lojaTxt : undefined,
 
       emissao_de: s(raw.emissao_de),
       emissao_ate: s(raw.emissao_ate),
       entrega_de: s(raw.entrega_de),
       entrega_ate: s(raw.entrega_ate),
-      total_min: raw.total_min?.toString().trim() ? Number(raw.total_min) : undefined,
-      total_max: raw.total_max?.toString().trim() ? Number(raw.total_max) : undefined,
     };
     return filtro;
   }
@@ -144,27 +142,11 @@ export class PedidosComponent implements OnInit {
   buscar(): void {
     this.carregando.set(true);
     const filtro = this.buildFiltro();
-
-    const fornecedorTexto = this.filtrosForm.value.fornecedor_input?.trim();
-    const lojaTexto = this.filtrosForm.value.loja_input?.trim();
-    const fornecedorNomeBusca = fornecedorTexto && !/^[0-9]+$/.test(fornecedorTexto) ? fornecedorTexto.toLowerCase() : '';
-    const lojaNomeBusca = lojaTexto && !/^[0-9]+$/.test(lojaTexto) ? lojaTexto.toLowerCase() : '';
-
     this.api.listar(filtro).subscribe({
       next: (res) => {
-        let data = this.sortClient(res, this.ordering());
-
-        // Fallback client-side para nome de fornecedor/loja caso o backend não tenha q_loja/q_fornecedor
-        if (fornecedorNomeBusca) {
-          data = data.filter(r => (r.fornecedor_nome || '').toLowerCase().includes(fornecedorNomeBusca));
-        }
-        if (lojaNomeBusca) {
-          data = data.filter(r => (r.loja_nome || '').toLowerCase().includes(lojaNomeBusca));
-        }
-
-        this.rows.set(data);
+        this.rows.set(this.sortClient(res, this.ordering()));
         this.carregando.set(false);
-        if (!data.length) this.infoMsg = 'Nenhum pedido encontrado com os filtros informados.';
+        if (!res.length) this.infoMsg = 'Nenhum pedido encontrado com os filtros informados.';
       },
       error: (_err: any) => {
         this.errorMsg = 'Falha ao carregar pedidos.';
@@ -179,7 +161,6 @@ export class PedidosComponent implements OnInit {
       fornecedor_input: '',
       loja_input: '',
       emissao_de: '', emissao_ate: '', entrega_de: '', entrega_ate: '',
-      total_min: '', total_max: '',
     });
     this.ordering.set('-Datapedido,Idpedidocompra');
     this.buscar();
