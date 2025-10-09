@@ -24,17 +24,16 @@
     </div>
   </section>
 
-  <!-- NOVO -->
+  <!-- NOVO (mantido) -->
+  <!-- ... (sem alterações fora dos filtros) ... -->
   <section class="card" *ngIf="action === 'novo'">
     <h3>Novo Pedido de Compra</h3>
-
     <form (ngSubmit)="salvarNovo()" class="grid" [formGroup]="novoForm">
       <label> Fornecedor (ID)
         <input type="number" formControlName="Idfornecedor" />
         <small class="muted" *ngIf="novoForm.value.Idfornecedor && !fornecedorValido">Fornecedor inválido</small>
         <small class="muted" *ngIf="fornecedorValido">{{ fornecedorNome }}</small>
       </label>
-
       <label> Loja
         <select formControlName="Idloja">
           <option [ngValue]="null">(selecione)</option>
@@ -42,11 +41,9 @@
         </select>
         <small class="muted" *ngIf="novoForm.value.Idloja && !lojaValida">Loja inválida</small>
       </label>
-
       <label> Data do Pedido
         <input type="date" formControlName="Datapedido" />
       </label>
-
       <label> Data de Entrega
         <input type="date" formControlName="Dataentrega" />
       </label>
@@ -105,18 +102,16 @@
           <option value="CA">CA (Cancelado)</option>
         </select>
       </label>
-      <label>Fornecedor (ID)
-        <input type="number" formControlName="fornecedor" />
+
+      <label>Fornecedor (ID ou Nome)
+        <input type="text" formControlName="fornecedor_input" />
       </label>
-      <label>Fornecedor (contém)
-        <input type="text" formControlName="q_fornecedor" />
+
+      <label>Loja (ID ou Nome)
+        <input type="text" formControlName="loja_input" />
       </label>
-      <label>Loja (ID)
-        <input type="number" formControlName="loja" />
-      </label>
-      <label>Documento (contém)
-        <input type="text" formControlName="doc" />
-      </label>
+
+      <!-- Emissão de/até e Entrega de/até na mesma linha (quatro colunas) -->
       <label>Emissão de
         <input type="date" formControlName="emissao_de" />
       </label>
@@ -129,6 +124,7 @@
       <label>Entrega até
         <input type="date" formControlName="entrega_ate" />
       </label>
+
       <label>Total mín
         <input type="number" step="0.01" formControlName="total_min" />
       </label>
@@ -180,7 +176,8 @@
     </div>
   </section>
 
-  <!-- EDITAR -->
+  <!-- EDITAR (mantido) -->
+  <!-- ... resto igual ao que você já tem ... -->
   <section class="card" *ngIf="action === 'editar'">
     <h3>Edição de Pedido #{{ editingId }}</h3>
 

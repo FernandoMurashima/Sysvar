@@ -1,8 +1,3 @@
-// (mesmo conteúdo que você já tem, com estes ajustes):
-// - Em todos os subscribe handlers: "error: (err: any) => { ... }"
-// - cancelarLinha usa this.api.cancelar(...)
-// - reabrirLinha usa this.api.reabrir(...)
-
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormArray, FormGroup } from '@angular/forms';
@@ -40,12 +35,12 @@ export class PedidosComponent implements OnInit {
   rows = signal<PedidoCompraRow[]>([]);
   total = computed(() => this.rows().length);
 
+  // === Filtros (consulta) ===
+  // fornecedor_input e loja_input aceitam ID (numérico) ou NOME (texto)
   filtrosForm = this.fb.nonNullable.group({
     status: [''],
-    fornecedor: [''],
-    q_fornecedor: [''],
-    loja: [''],
-    doc: [''],
+    fornecedor_input: [''], // ID ou Nome
+    loja_input: [''],        // ID ou Nome
     emissao_de: [''],
     emissao_ate: [''],
     entrega_de: [''],
@@ -59,6 +54,7 @@ export class PedidosComponent implements OnInit {
   lojaNome = '';
   salvando = false;
 
+  // === NOVO ===
   novoForm = this.fb.nonNullable.group({
     Idfornecedor: this.fb.nonNullable.control<number | null>(null, { validators: [Validators.required] }),
     Idloja:       this.fb.nonNullable.control<number | null>(null, { validators: [Validators.required] }),
@@ -114,34 +110,61 @@ export class PedidosComponent implements OnInit {
     this.fieldErrors = []; this.awaitKeyAfterSave = false;
   }
 
+  // ====== Monta filtro para a API ======
   private buildFiltro(): PedidoCompraFiltro {
     const raw = this.filtrosForm.getRawValue();
     const s = (v: string) => (v?.trim() ? v.trim() : undefined);
-    const n = (v: string) => (v?.trim() ? Number(v) : undefined);
-    return {
+    const isNum = (txt?: string) => !!txt && /^[0-9]+$/.test(txt.trim());
+
+    const fornecedorTxt = s(raw.fornecedor_input);
+    const lojaTxt = s(raw.loja_input);
+
+    const filtro: PedidoCompraFiltro = {
       ordering: this.ordering(),
       status: s(raw.status),
-      fornecedor: n(raw.fornecedor),
-      q_fornecedor: s(raw.q_fornecedor),
-      loja: n(raw.loja),
-      doc: s(raw.doc),
+
+      // fornecedor: decide entre ID ou nome
+      fornecedor: isNum(fornecedorTxt) ? Number(fornecedorTxt) : undefined,
+      q_fornecedor: !isNum(fornecedorTxt) ? fornecedorTxt : undefined,
+
+      // loja: decide entre ID ou nome
+      loja: isNum(lojaTxt) ? Number(lojaTxt) : undefined,
+      q_loja: !isNum(lojaTxt) ? lojaTxt : undefined,
+
       emissao_de: s(raw.emissao_de),
       emissao_ate: s(raw.emissao_ate),
       entrega_de: s(raw.entrega_de),
       entrega_ate: s(raw.entrega_ate),
-      total_min: n(raw.total_min),
-      total_max: n(raw.total_max),
+      total_min: raw.total_min?.toString().trim() ? Number(raw.total_min) : undefined,
+      total_max: raw.total_max?.toString().trim() ? Number(raw.total_max) : undefined,
     };
+    return filtro;
   }
 
   buscar(): void {
     this.carregando.set(true);
     const filtro = this.buildFiltro();
+
+    const fornecedorTexto = this.filtrosForm.value.fornecedor_input?.trim();
+    const lojaTexto = this.filtrosForm.value.loja_input?.trim();
+    const fornecedorNomeBusca = fornecedorTexto && !/^[0-9]+$/.test(fornecedorTexto) ? fornecedorTexto.toLowerCase() : '';
+    const lojaNomeBusca = lojaTexto && !/^[0-9]+$/.test(lojaTexto) ? lojaTexto.toLowerCase() : '';
+
     this.api.listar(filtro).subscribe({
       next: (res) => {
-        this.rows.set(this.sortClient(res, this.ordering()));
+        let data = this.sortClient(res, this.ordering());
+
+        // Fallback client-side para nome de fornecedor/loja caso o backend não tenha q_loja/q_fornecedor
+        if (fornecedorNomeBusca) {
+          data = data.filter(r => (r.fornecedor_nome || '').toLowerCase().includes(fornecedorNomeBusca));
+        }
+        if (lojaNomeBusca) {
+          data = data.filter(r => (r.loja_nome || '').toLowerCase().includes(lojaNomeBusca));
+        }
+
+        this.rows.set(data);
         this.carregando.set(false);
-        if (!res.length) this.infoMsg = 'Nenhum pedido encontrado com os filtros informados.';
+        if (!data.length) this.infoMsg = 'Nenhum pedido encontrado com os filtros informados.';
       },
       error: (_err: any) => {
         this.errorMsg = 'Falha ao carregar pedidos.';
@@ -152,7 +175,9 @@ export class PedidosComponent implements OnInit {
 
   limparFiltros(): void {
     this.filtrosForm.reset({
-      status: '', fornecedor: '', q_fornecedor: '', loja: '', doc: '',
+      status: '',
+      fornecedor_input: '',
+      loja_input: '',
       emissao_de: '', emissao_ate: '', entrega_de: '', entrega_ate: '',
       total_min: '', total_max: '',
     });

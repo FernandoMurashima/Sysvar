@@ -17,10 +17,13 @@ export interface PedidoCompraRow {
 export interface PedidoCompraFiltro {
   ordering?: string;
   status?: string;
+  // fornecedor: aceita ID (numérico) OU busca por nome (q_fornecedor)
   fornecedor?: number;
   q_fornecedor?: string;
+  // loja: aceita ID (numérico) OU busca por nome (q_loja)
   loja?: number;
-  doc?: string;
+  q_loja?: string;
+
   emissao_de?: string;
   emissao_ate?: string;
   entrega_de?: string;
@@ -84,10 +87,15 @@ export class PedidosCompraService {
 
     add('ordering', f.ordering);
     add('status', f.status);
+
+    // fornecedor: ID ou nome
     add('fornecedor', f.fornecedor);
     add('q_fornecedor', f.q_fornecedor);
+
+    // loja: ID ou nome (q_loja é opcional no backend; se não existir, faremos fallback no front)
     add('loja', f.loja);
-    add('doc', f.doc);
+    add('q_loja', f.q_loja);
+
     add('emissao_de', f.emissao_de);
     add('emissao_ate', f.emissao_ate);
     add('entrega_de', f.entrega_de);
@@ -126,7 +134,6 @@ export class PedidosCompraService {
         Idprodutodetalhe: it.Idprodutodetalhe ?? null,
       }).toPromise();
     }
-    // devolve o detalhe atualizado
     return await this.getById(created.Idpedidocompra).toPromise() as PedidoCompraDetail;
   }
 

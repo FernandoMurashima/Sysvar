@@ -12,10 +12,15 @@ export interface PedidoCompraRow {
 export interface PedidoCompraFiltro {
   ordering?: string; // ex: "-Datapedido,Idpedidocompra"
   status?: string;
+
+  // único campo de fornecedor no front; aqui modelamos como opções
   fornecedor?: number;
   q_fornecedor?: string;
+
+  // único campo de loja no front; aqui modelamos como opções
   loja?: number;
-  doc?: string;
+  q_loja?: string;
+
   emissao_de?: string;   // YYYY-MM-DD
   emissao_ate?: string;
   entrega_de?: string;
