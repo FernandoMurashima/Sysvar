@@ -225,6 +225,8 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
             "itens",
             "entregas",
         ]
+        # Valorpedido deve ser calculado, não exigido no POST
+        read_only_fields = ["Valorpedido"]
 
     def _recalc_valorpedido(self, pedido: PedidoCompra):
         total = (
@@ -233,6 +235,16 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
         )
         if pedido.Valorpedido != total:
             PedidoCompra.objects.filter(pk=pedido.pk).update(Valorpedido=total)
+
+    @transaction.atomic
+    def create(self, validated_data):
+        # default: total 0 e (opcional) status AB ao criar
+        if validated_data.get("Valorpedido") is None:
+            validated_data["Valorpedido"] = ZERO
+        if not validated_data.get("Status"):
+            validated_data["Status"] = "AB"
+        obj = super().create(validated_data)
+        return obj
 
     @transaction.atomic
     def update(self, instance, validated_data):
