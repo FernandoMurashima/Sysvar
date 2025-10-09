@@ -1,3 +1,8 @@
+// (mesmo conteúdo que você já tem, com estes ajustes):
+// - Em todos os subscribe handlers: "error: (err: any) => { ... }"
+// - cancelarLinha usa this.api.cancelar(...)
+// - reabrirLinha usa this.api.reabrir(...)
+
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormArray, FormGroup } from '@angular/forms';
@@ -30,7 +35,6 @@ export class PedidosComponent implements OnInit {
   fieldErrors: Array<{ field: string; messages: string[] }> = [];
   awaitKeyAfterSave = false;
 
-  // ===== CONSULTAR =====
   carregando = signal(false);
   ordering = signal<string>('-Datapedido,Idpedidocompra');
   rows = signal<PedidoCompraRow[]>([]);
@@ -50,7 +54,6 @@ export class PedidosComponent implements OnInit {
     total_max: [''],
   });
 
-  // ===== NOVO =====
   lojas: Array<{ id: number; nome: string }> = [];
   fornecedorNome = '';
   lojaNome = '';
@@ -63,25 +66,15 @@ export class PedidosComponent implements OnInit {
     Dataentrega:  this.fb.nonNullable.control<string>(''),
     itens: this.fb.array([]) as FormArray,
   });
-
   get itensFA(): FormArray { return this.novoForm.controls.itens as FormArray; }
 
-  // ===== EDITAR (somente AB) =====
   editingId: number | null = null;
-
   editHeaderForm = this.fb.nonNullable.group({
     Dataentrega: this.fb.nonNullable.control<string>(''),
   });
-
-  // FormArray de itens + contêiner para template
   editItensFA = this.fb.array([]) as FormArray;
-  editForm = this.fb.group({
-    itens: this.editItensFA,
-  });
-
-  get editItensControls(): FormGroup[] {
-    return (this.editItensFA.controls as FormGroup[]);
-  }
+  editForm = this.fb.group({ itens: this.editItensFA });
+  get editItensControls(): FormGroup[] { return (this.editItensFA.controls as FormGroup[]); }
 
   ngOnInit(): void {
     this.api.listLojas().subscribe({
@@ -89,7 +82,8 @@ export class PedidosComponent implements OnInit {
         this.lojas = (res || [])
           .map(x => ({ id: x?.Idloja ?? x?.id ?? x?.pk, nome: x?.nome_loja ?? x?.nome ?? '' }))
           .filter(x => x.id && x.nome);
-      }
+      },
+      error: (_err: any) => {}
     });
 
     this.novoForm.controls.Idfornecedor.valueChanges.subscribe(v => {
@@ -97,7 +91,7 @@ export class PedidosComponent implements OnInit {
       if (v !== null && !Number.isNaN(v)) {
         this.api.getFornecedorById(Number(v)).subscribe({
           next: (f: any) => this.fornecedorNome = f?.Nome_fornecedor || f?.nome || '(sem nome)',
-          error: () => this.fornecedorNome = 'Fornecedor não encontrado',
+          error: (_err: any) => this.fornecedorNome = 'Fornecedor não encontrado',
         });
       }
     });
@@ -110,22 +104,16 @@ export class PedidosComponent implements OnInit {
     this.addItem();
   }
 
-  // ===== UI =====
   setAction(a: '' | 'novo' | 'consultar' | 'editar') {
     this.action = a;
     this.resetMessages();
     if (a === 'consultar') this.buscar();
   }
-
   resetMessages() {
-    this.errorMsg = '';
-    this.successMsg = '';
-    this.infoMsg = '';
-    this.fieldErrors = [];
-    this.awaitKeyAfterSave = false;
+    this.errorMsg = ''; this.successMsg = ''; this.infoMsg = '';
+    this.fieldErrors = []; this.awaitKeyAfterSave = false;
   }
 
-  // ===== CONSULTAR =====
   private buildFiltro(): PedidoCompraFiltro {
     const raw = this.filtrosForm.getRawValue();
     const s = (v: string) => (v?.trim() ? v.trim() : undefined);
@@ -155,7 +143,7 @@ export class PedidosComponent implements OnInit {
         this.carregando.set(false);
         if (!res.length) this.infoMsg = 'Nenhum pedido encontrado com os filtros informados.';
       },
-      error: () => {
+      error: (_err: any) => {
         this.errorMsg = 'Falha ao carregar pedidos.';
         this.carregando.set(false);
       }
@@ -186,7 +174,7 @@ export class PedidosComponent implements OnInit {
   private sortClient(data: PedidoCompraRow[], ordering: string): PedidoCompraRow[] {
     const keys = (ordering || '').split(',').filter(Boolean);
     if (!keys.length) return data.slice();
-    const norm = (v: any) => (v === null || v === undefined) ? '': v
+    const norm = (v: any) => (v === null || v === undefined) ? '' : v;
     return data.slice().sort((a, b) => {
       for (const kRaw of keys) {
         const desc = kRaw.startsWith('-');
@@ -201,7 +189,7 @@ export class PedidosComponent implements OnInit {
     });
   }
 
-  // ===== NOVO: ITENS =====
+  // ===== NOVO =====
   private newItemGroup() {
     return this.fb.nonNullable.group({
       Idproduto: [null as number | null, [Validators.required]],
@@ -222,7 +210,7 @@ export class PedidosComponent implements OnInit {
     if (!id) { g.get('produto_nome')?.setValue(''); return; }
     this.api.getProdutoById(id).subscribe({
       next: (p: any) => g.get('produto_nome')?.setValue(p?.Descricao || p?.descricao || '(sem descrição)'),
-      error: () => g.get('produto_nome')?.setValue('Produto não encontrado'),
+      error: (_err: any) => g.get('produto_nome')?.setValue('Produto não encontrado'),
     });
   }
 
@@ -244,7 +232,7 @@ export class PedidosComponent implements OnInit {
     return s;
   }
 
-  // ===== Validações (Item 1) =====
+  // ===== Validações rápidas =====
   get fornecedorValido(): boolean {
     return !!this.novoForm.value.Idfornecedor
       && !!this.fornecedorNome
@@ -256,7 +244,7 @@ export class PedidosComponent implements OnInit {
   }
   private itemProdutoValido(ix: number): boolean {
     const g = this.itensFA.at(ix) as any;
-    const nome = g.get('produto_nome')?.value as string | null | undefined; // <-- fix aqui
+    const nome = g.get('produto_nome')?.value as string | null | undefined;
     const id = g.get('Idproduto')?.value;
     return !!id && !!nome && nome !== 'Produto não encontrado';
   }
@@ -273,10 +261,8 @@ export class PedidosComponent implements OnInit {
     }
   }
 
-  // ===== SALVAR (novo) =====
   async salvarNovo() {
     this.resetMessages();
-
     if (this.novoForm.invalid) { this.errorMsg = 'Preencha Fornecedor e Loja.'; this.novoForm.markAllAsTouched(); return; }
     if (!this.fornecedorValido) { this.errorMsg = 'Fornecedor inválido.'; return; }
     if (!this.lojaValida) { this.errorMsg = 'Loja inválida.'; return; }
@@ -326,7 +312,25 @@ export class PedidosComponent implements OnInit {
     if (!row?.Idpedidocompra) return;
     this.api.aprovar(row.Idpedidocompra).subscribe({
       next: () => { this.successMsg = `Pedido #${row.Idpedidocompra} aprovado.`; this.buscar(); },
-      error: (err) => { console.error(err); this.errorMsg = 'Não foi possível aprovar este pedido.'; }
+      error: (_err: any) => { this.errorMsg = 'Não foi possível aprovar este pedido.'; }
+    });
+  }
+
+  cancelarLinha(row: PedidoCompraRow) {
+    this.resetMessages();
+    if (!row?.Idpedidocompra) return;
+    this.api.cancelar(row.Idpedidocompra).subscribe({
+      next: () => { this.successMsg = `Pedido #${row.Idpedidocompra} cancelado.`; this.buscar(); },
+      error: (_err: any) => { this.errorMsg = 'Não foi possível cancelar este pedido.'; }
+    });
+  }
+
+  reabrirLinha(row: PedidoCompraRow) {
+    this.resetMessages();
+    if (!row?.Idpedidocompra) return;
+    this.api.reabrir(row.Idpedidocompra).subscribe({
+      next: () => { this.successMsg = `Pedido #${row.Idpedidocompra} reaberto.`; this.buscar(); },
+      error: (_err: any) => { this.errorMsg = 'Não foi possível reabrir este pedido.'; }
     });
   }
 
@@ -354,10 +358,7 @@ export class PedidosComponent implements OnInit {
         });
         this.action = 'editar';
       },
-      error: (err) => {
-        console.error(err);
-        this.errorMsg = 'Falha ao carregar itens para edição.';
-      }
+      error: (_err: any) => { this.errorMsg = 'Falha ao carregar itens para edição.'; }
     });
   }
 
@@ -376,10 +377,7 @@ export class PedidosComponent implements OnInit {
 
     for (let i = 0; i < this.editItensFA.length; i++) {
       const g = this.editItensFA.at(i) as FormGroup;
-      if (g.invalid) {
-        this.errorMsg = `Item ${i + 1} com dados inválidos.`;
-        return;
-      }
+      if (g.invalid) { this.errorMsg = `Item ${i + 1} com dados inválidos.`; return; }
     }
 
     const headerDto: any = {};
@@ -404,8 +402,7 @@ export class PedidosComponent implements OnInit {
       this.successMsg = `Pedido #${this.editingId} atualizado.`;
       this.setAction('consultar');
       this.buscar();
-    }).catch(err => {
-      console.error(err);
+    }).catch((_err: any) => {
       this.errorMsg = 'Falha ao salvar alterações.';
     });
   }

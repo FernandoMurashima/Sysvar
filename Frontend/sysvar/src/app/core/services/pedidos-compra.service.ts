@@ -1,15 +1,15 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
+import { Observable } from 'rxjs';
 
-// ===== Listagem =====
+// ---------- Tipos expostos para o componente ----------
 export interface PedidoCompraRow {
   Idpedidocompra: number;
   Documento: string | null;
   Datapedido: string | null;
   Dataentrega: string | null;
-  Status: 'AB' | 'AP' | 'CA' | string;
-  Valorpedido: string;
+  Status: 'AB' | 'AP' | 'CA';
+  Valorpedido: number | string;
   fornecedor_nome: string;
   loja_nome: string;
 }
@@ -29,117 +29,138 @@ export interface PedidoCompraFiltro {
   total_max?: number;
 }
 
-// ===== Criação =====
 export interface PedidoCompraCreateDTO {
   Idfornecedor: number;
   Idloja: number;
-  Datapedido?: string | null;
-  Dataentrega?: string | null;
-}
-
-export interface PedidoCompraCreated {
-  Idpedidocompra: number;
-}
-
-// ===== Detalhe =====
-export interface PedidoItemDetail {
-  Idpedidocompraitem: number;
-  Idproduto: number;
-  produto_desc?: string;
-  Qtp_pc: number;
-  valorunitario: number;
-  Desconto: number | null;
-  Total_item: string | number;
-  Idprodutodetalhe?: number | null;
-}
-export interface PedidoCompraDetail {
-  Idpedidocompra: number;
   Datapedido: string | null;
   Dataentrega: string | null;
-  Status: 'AB' | 'AP' | 'CA' | string;
-  Valorpedido: string | number;
-  fornecedor_nome?: string;
-  loja_nome?: string;
-  itens: PedidoItemDetail[];
 }
 
 export interface PedidoItemDTO {
   Idproduto: number;
   Qtp_pc: number;
   valorunitario: number;
-  Desconto?: number | null;
+  Desconto?: number;
   Idprodutodetalhe?: number | null;
+}
+
+export interface PedidoItemDetail {
+  Idpedidocompraitem: number;
+  Idproduto: number;
+  produto_desc?: string;
+  Qtp_pc: number;
+  valorunitario: number;
+  Desconto: number;
+  Total_item: number;
+}
+
+export interface PedidoCompraDetail {
+  Idpedidocompra: number;
+  Documento: string | null;
+  Datapedido: string | null;
+  Dataentrega: string | null;
+  Status: 'AB' | 'AP' | 'CA';
+  Valorpedido: number | string;
+  Idfornecedor: number;
+  Idloja: number;
+  fornecedor_nome: string;
+  loja_nome: string;
+  itens: PedidoItemDetail[];
 }
 
 @Injectable({ providedIn: 'root' })
 export class PedidosCompraService {
   private http = inject(HttpClient);
-  private baseUrl = `${environment.apiBaseUrl}/pedidos-compra/`;
-  private itensUrl = `${environment.apiBaseUrl}/pedidos-compra-itens/`;
-  private lojasUrl = `${environment.apiBaseUrl}/lojas/`;
-  private fornecedoresUrl = `${environment.apiBaseUrl}/fornecedores/`;
-  private produtosUrl = `${environment.apiBaseUrl}/produtos/`;
+  private base = '/api';
 
-  listar(filtro: PedidoCompraFiltro) {
+  // --------- Lista + filtro ----------
+  listar(f: PedidoCompraFiltro): Observable<PedidoCompraRow[]> {
     let params = new HttpParams();
-    const entries = Object.entries(filtro ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== '');
-    for (const [k, v] of entries) params = params.set(k, String(v));
-    return this.http.get<PedidoCompraRow[]>(this.baseUrl, { params });
+    const add = (k: string, v: any) => {
+      if (v !== undefined && v !== null && String(v).trim() !== '') {
+        params = params.set(k, String(v));
+      }
+    };
+
+    add('ordering', f.ordering);
+    add('status', f.status);
+    add('fornecedor', f.fornecedor);
+    add('q_fornecedor', f.q_fornecedor);
+    add('loja', f.loja);
+    add('doc', f.doc);
+    add('emissao_de', f.emissao_de);
+    add('emissao_ate', f.emissao_ate);
+    add('entrega_de', f.entrega_de);
+    add('entrega_ate', f.entrega_ate);
+    add('total_min', f.total_min);
+    add('total_max', f.total_max);
+
+    return this.http.get<PedidoCompraRow[]>(`${this.base}/pedidos-compra/`, { params });
   }
 
-  // ----- Lookups -----
-  getLojaById(id: number) {
-    return this.http.get<any>(`${this.lojasUrl}${id}/`);
+  // --------- Detalhe ----------
+  getById(id: number): Observable<PedidoCompraDetail> {
+    return this.http.get<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/`);
+  }
+
+  // --------- Criar pedido + itens ----------
+  createHeader(dto: PedidoCompraCreateDTO): Observable<PedidoCompraDetail> {
+    return this.http.post<PedidoCompraDetail>(`${this.base}/pedidos-compra/`, dto);
+  }
+
+  createItem(dto: PedidoItemDTO & { Idpedidocompra: number }): Observable<PedidoItemDetail> {
+    return this.http.post<PedidoItemDetail>(`${this.base}/pedidos-compra-itens/`, dto);
+  }
+
+  async createWithItems(header: PedidoCompraCreateDTO, itens: PedidoItemDTO[]): Promise<PedidoCompraDetail> {
+    const created = await this.createHeader(header).toPromise();
+    if (!created?.Idpedidocompra) return created as PedidoCompraDetail;
+
+    for (const it of itens) {
+      await this.createItem({
+        Idpedidocompra: created.Idpedidocompra,
+        Idproduto: it.Idproduto,
+        Qtp_pc: it.Qtp_pc,
+        valorunitario: it.valorunitario,
+        Desconto: it.Desconto ?? 0,
+        Idprodutodetalhe: it.Idprodutodetalhe ?? null,
+      }).toPromise();
+    }
+    // devolve o detalhe atualizado
+    return await this.getById(created.Idpedidocompra).toPromise() as PedidoCompraDetail;
+  }
+
+  // --------- Atualizações ----------
+  updateHeader(id: number, patch: Partial<PedidoCompraCreateDTO & { Dataentrega: string | null }>) {
+    return this.http.patch<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/`, patch);
+  }
+
+  updateItem(idItem: number, patch: Partial<PedidoItemDTO>) {
+    return this.http.patch<PedidoItemDetail>(`${this.base}/pedidos-compra-itens/${idItem}/`, patch);
+  }
+
+  // --------- Ações de fluxo ----------
+  aprovar(id: number) {
+    return this.http.post(`${this.base}/pedidos-compra/${id}/aprovar/`, {});
+  }
+  cancelar(id: number) {
+    return this.http.post(`${this.base}/pedidos-compra/${id}/cancelar/`, {});
+  }
+  reabrir(id: number) {
+    return this.http.post(`${this.base}/pedidos-compra/${id}/reabrir/`, {});
+  }
+  duplicar(id: number) {
+    return this.http.post<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/duplicar/`, {});
+  }
+
+  // --------- Apoio (lookups) ----------
+  getProdutoById(id: number) {
+    return this.http.get<any>(`${this.base}/produtos/${id}/`);
   }
   getFornecedorById(id: number) {
-    return this.http.get<any>(`${this.fornecedoresUrl}${id}/`);
+    return this.http.get<any>(`${this.base}/fornecedores/${id}/`);
   }
   listLojas() {
-    return this.http.get<any[]>(this.lojasUrl);
-  }
-  getProdutoById(id: number) {
-    return this.http.get<any>(`${this.produtosUrl}${id}/`);
-  }
-
-  // ----- Cabeçalho -----
-  createHeader(dto: PedidoCompraCreateDTO) {
-    return this.http.post<PedidoCompraCreated>(this.baseUrl, dto);
-  }
-  getById(pedidoId: number) {
-    return this.http.get<PedidoCompraDetail>(`${this.baseUrl}${pedidoId}/`);
-  }
-  updateHeader(pedidoId: number, dto: Partial<Pick<PedidoCompraDetail, 'Dataentrega'>>) {
-    return this.http.patch(`${this.baseUrl}${pedidoId}/`, dto);
-  }
-
-  // ----- Itens -----
-  createItem(pedidoId: number, dto: PedidoItemDTO) {
-    const payload = { ...dto, Idpedidocompra: pedidoId };
-    return this.http.post(this.itensUrl, payload);
-  }
-  updateItem(itemId: number, dto: Partial<Pick<PedidoItemDetail, 'Qtp_pc'|'valorunitario'|'Desconto'>>) {
-    return this.http.patch(`${this.itensUrl}${itemId}/`, dto);
-  }
-
-  // ----- Fluxo de criação completo -----
-  createWithItems(header: PedidoCompraCreateDTO, itens: PedidoItemDTO[]) {
-    return new Promise<PedidoCompraCreated>(async (resolve, reject) => {
-      try {
-        const created = await this.createHeader(header).toPromise();
-        const id = created?.Idpedidocompra;
-        if (!id) throw new Error('Cabeçalho criado sem Idpedidocompra');
-        for (const it of itens) {
-          await this.createItem(id, it).toPromise();
-        }
-        resolve(created);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  }
-
-  // ----- Ações -----
-  aprovar(pedidoId: number) {
-    return this.http.post(`${this.baseUrl}${pedidoId}/aprovar/`, {});
+    return this.http.get<any[]>(`${this.base}/lojas/`);
   }
 }

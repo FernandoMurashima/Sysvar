@@ -167,10 +167,12 @@
             <td>{{ p.Status }}</td>
             <td>{{ p.Valorpedido | number:'1.2-2' }}</td>
             <td>{{ p.loja_nome }}</td>
-            <td style="white-space:nowrap; display:flex; gap:6px;">
+            <td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap;">
               <button class="btn btn-primary" *ngIf="p.Status === 'AB'" (click)="aprovarLinha(p)" title="Aprovar">Aprovar</button>
               <button class="btn" *ngIf="p.Status === 'AB'" (click)="editarLinha(p)" title="Editar">Editar</button>
-              <span *ngIf="p.Status !== 'AB'" class="muted">—</span>
+              <button class="btn btn-danger" *ngIf="p.Status === 'AB' || p.Status === 'AP'" (click)="cancelarLinha(p)" title="Cancelar">Cancelar</button>
+              <button class="btn btn-light" *ngIf="p.Status === 'CA'" (click)="reabrirLinha(p)" title="Reabrir">Reabrir</button>
+              <span *ngIf="p.Status !== 'AB' && p.Status !== 'AP' && p.Status !== 'CA'" class="muted">—</span>
             </td>
           </tr>
         </tbody>
@@ -178,7 +180,7 @@
     </div>
   </section>
 
-  <!-- EDITAR (somente AB) -->
+  <!-- EDITAR -->
   <section class="card" *ngIf="action === 'editar'">
     <h3>Edição de Pedido #{{ editingId }}</h3>
 
@@ -188,7 +190,6 @@
       </label>
     </form>
 
-    <!-- Contêiner com [formGroup] + formArrayName="itens" -->
     <form [formGroup]="editForm" style="margin-top:12px;">
       <div class="items">
         <h4>Itens</h4>
