@@ -62,7 +62,6 @@ class PedidoCompraItemSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["Total_item", "data_cadastro"]
 
-    # ---------- validações de campos ----------
     def validate_Qtp_pc(self, v):
         if v is None or v <= 0:
             raise serializers.ValidationError("Quantidade deve ser > 0.")
@@ -85,26 +84,7 @@ class PedidoCompraItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Fator de conversão deve ser > 0.")
         return v
 
-    # ---------- validação de regra de negócio ----------
-    def _pedido_do_contexto(self, attrs):
-        """
-        Resolve o PedidoCompra (cabeçalho) associado ao item, para validações
-        tanto em create quanto em update.
-        """
-        pedido = None
-        if self.instance:
-            pedido = getattr(self.instance, "Idpedidocompra", None)
-        if not pedido:
-            pedido = attrs.get("Idpedidocompra")
-        if not pedido and self.initial_data.get("Idpedidocompra"):
-            try:
-                pedido = PedidoCompra.objects.get(pk=self.initial_data.get("Idpedidocompra"))
-            except PedidoCompra.DoesNotExist:
-                raise serializers.ValidationError({"Idpedidocompra": "Pedido de compra não encontrado."})
-        return pedido
-
     def validate(self, attrs):
-        # Produto válido/ativo
         prod = attrs.get("Idproduto") or getattr(self.instance, "Idproduto", None)
         if not isinstance(prod, Produto):
             if prod is None and self.initial_data.get("Idproduto"):
@@ -117,23 +97,17 @@ class PedidoCompraItemSerializer(serializers.ModelSerializer):
         if prod and hasattr(prod, "Ativo") and prod.Ativo is False:
             raise serializers.ValidationError({"Idproduto": "Produto inativo."})
 
-        # Totais/valores coerentes
         q = attrs.get("Qtp_pc", getattr(self.instance, "Qtp_pc", None))
         pu = _safe_dec(attrs.get("valorunitario", getattr(self.instance, "valorunitario", None)))
         desc = _safe_dec(attrs.get("Desconto", getattr(self.instance, "Desconto", ZERO)))
         bruto = _safe_dec(q) * _safe_dec(pu)
+
         if desc > bruto:
             raise serializers.ValidationError({"Desconto": "Desconto não pode exceder o total bruto do item."})
 
-        # SKU pertence ao produto
         sku = attrs.get("Idprodutodetalhe", getattr(self.instance, "Idprodutodetalhe", None))
         if sku and prod and getattr(sku, "Idproduto_id", None) and sku.Idproduto_id != prod.Idproduto:
             raise serializers.ValidationError({"Idprodutodetalhe": "SKU não pertence ao Produto informado."})
-
-        # ---------- regra: só pode alterar/criar item se pedido estiver AB ----------
-        pedido = self._pedido_do_contexto(attrs)
-        if pedido and getattr(pedido, "Status", None) not in (None, "AB"):
-            raise serializers.ValidationError({"detail": "Itens só podem ser alterados quando o pedido está em AB."})
 
         return attrs
 
@@ -193,7 +167,7 @@ class PedidoCompraEntregaSerializer(serializers.ModelSerializer):
         return v
 
     def validate(self, attrs):
-        from ..models import PedidoCompraItem  # import local para evitar ciclos
+        from ..models import PedidoCompraItem  # evitar ciclos
 
         pedido = attrs.get("pedido") or getattr(self.instance, "pedido", None)
         if not pedido:
@@ -251,14 +225,15 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
             "itens",
             "entregas",
         ]
+        # Não exigir no POST
+        read_only_fields = ["Valorpedido", "Documento"]
 
-    def validate(self, attrs):
-        # Validar Dataentrega >= Datapedido quando ambos existirem
-        datapedido = attrs.get("Datapedido", getattr(self.instance, "Datapedido", None))
-        dataentrega = attrs.get("Dataentrega", getattr(self.instance, "Dataentrega", None))
-        if datapedido and dataentrega and dataentrega < datapedido:
-            raise serializers.ValidationError({"Dataentrega": "Data de entrega não pode ser anterior à data do pedido."})
-        return attrs
+    @transaction.atomic
+    def create(self, validated_data):
+        # Garante NOT NULL no banco
+        if validated_data.get("Valorpedido") is None:
+            validated_data["Valorpedido"] = ZERO
+        return super().create(validated_data)
 
     def _recalc_valorpedido(self, pedido: PedidoCompra):
         total = (
@@ -273,3 +248,4 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
         obj = super().update(instance, validated_data)
         self._recalc_valorpedido(obj)
         return obj
+
