@@ -581,6 +581,11 @@ class PedidoCompra(models.Model):
         RC = 'RC', 'Recebendo'
         CL = 'CL', 'Concluído'
         CA = 'CA', 'Cancelado'
+        AT = 'AT', 'Atendido'
+        PA = 'PA', 'Parcialmente (Aberto)'
+        PE = 'PE', 'Parcialmente (Encerrado)'
+
+        
 
     Idpedidocompra = models.BigAutoField(primary_key=True)
     Idfornecedor = models.ForeignKey(Fornecedor, on_delete=models.CASCADE)

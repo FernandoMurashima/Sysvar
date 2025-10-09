@@ -8,7 +8,8 @@ export interface PedidoCompraRow {
   Documento: string | null;
   Datapedido: string | null;
   Dataentrega: string | null;
-  Status: 'AB' | 'AP' | 'CA';
+  // ⬇️ inclui novos status: AT (Atendido), PA (Parcial Aberto), PE (Parcial Encerrado)
+  Status: 'AB' | 'AP' | 'CA' | 'AT' | 'PA' | 'PE';
   Valorpedido: number | string;
   fornecedor_nome: string;
   loja_nome: string;
@@ -17,13 +18,10 @@ export interface PedidoCompraRow {
 export interface PedidoCompraFiltro {
   ordering?: string;
   status?: string;
-  // fornecedor: aceita ID (numérico) OU busca por nome (q_fornecedor)
   fornecedor?: number;
   q_fornecedor?: string;
-  // loja: aceita ID (numérico) OU busca por nome (q_loja)
   loja?: number;
-  q_loja?: string;
-
+  doc?: string;
   emissao_de?: string;
   emissao_ate?: string;
   entrega_de?: string;
@@ -62,7 +60,8 @@ export interface PedidoCompraDetail {
   Documento: string | null;
   Datapedido: string | null;
   Dataentrega: string | null;
-  Status: 'AB' | 'AP' | 'CA';
+  // ⬇️ mesmos status no detalhe
+  Status: 'AB' | 'AP' | 'CA' | 'AT' | 'PA' | 'PE';
   Valorpedido: number | string;
   Idfornecedor: number;
   Idloja: number;
@@ -87,15 +86,10 @@ export class PedidosCompraService {
 
     add('ordering', f.ordering);
     add('status', f.status);
-
-    // fornecedor: ID ou nome
     add('fornecedor', f.fornecedor);
     add('q_fornecedor', f.q_fornecedor);
-
-    // loja: ID ou nome (q_loja é opcional no backend; se não existir, faremos fallback no front)
     add('loja', f.loja);
-    add('q_loja', f.q_loja);
-
+    add('doc', f.doc);
     add('emissao_de', f.emissao_de);
     add('emissao_ate', f.emissao_ate);
     add('entrega_de', f.entrega_de);

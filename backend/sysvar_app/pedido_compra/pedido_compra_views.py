@@ -25,6 +25,10 @@ from .pedido_compra_serializers import (
 STATUS_ABERTO = "AB"
 STATUS_APROVADO = "AP"
 STATUS_CANCELADO = "CA"
+STATUS_ATENDIDO = "AT"  
+STATUS_PARCIAL_ABERTO = "PA"
+STATUS_PARCIAL_ENCERRADO = "PE"  
+
 
 # Mapa simples de transições permitidas
 TRANSICOES = {
