@@ -8,182 +8,218 @@
   </div>
 
   <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+  <div *ngIf="fieldErrors.length" class="alert error">
+    <div *ngFor="let fe of fieldErrors">
+      <strong>{{ fe.field }}:</strong> {{ fe.messages.join('; ') }}
+    </div>
+  </div>
   <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
   <div *ngIf="infoMsg" class="alert info">{{ infoMsg }}</div>
-  <div *ngIf="awaitKeyAfterSave" class="alert info">Pressione qualquer tecla para continuar.</div>
 
-  <ng-container *ngIf="!awaitKeyAfterSave">
-    <!-- PLACEHOLDER -->
-    <section class="card form-placeholder" *ngIf="action === ''">
-      <div class="placeholder-inner">
-        <p>Para cadastrar um <strong>Pedido de Compra</strong>, clique em <strong>Novo</strong>.</p>
-        <p>Para consultar/filtrar, clique em <strong>Consultar</strong>.</p>
-      </div>
-    </section>
+  <!-- PLACEHOLDER -->
+  <section class="card form-placeholder" *ngIf="action === ''">
+    <div class="placeholder-inner">
+      <p>Para cadastrar um <strong>Pedido de Compra</strong>, clique em <strong>Novo</strong>.</p>
+      <p>Para consultar/filtrar, clique em <strong>Consultar</strong>.</p>
+    </div>
+  </section>
 
-    <!-- NOVO -->
-    <section class="card" *ngIf="action === 'novo'">
-      <h3>Novo Pedido de Compra</h3>
+  <!-- NOVO -->
+  <section class="card" *ngIf="action === 'novo'">
+    <h3>Novo Pedido de Compra</h3>
 
-      <form (ngSubmit)="salvarNovo()" class="grid" [formGroup]="novoForm">
-        <label> Fornecedor (ID)
-          <input type="number" formControlName="Idfornecedor" />
-          <small class="muted" *ngIf="fornecedorNome">{{ fornecedorNome }}</small>
-        </label>
+    <form (ngSubmit)="salvarNovo()" class="grid" [formGroup]="novoForm">
+      <label> Fornecedor (ID)
+        <input type="number" formControlName="Idfornecedor" />
+        <small class="muted" *ngIf="novoForm.value.Idfornecedor && !fornecedorValido">Fornecedor inválido</small>
+        <small class="muted" *ngIf="fornecedorValido">{{ fornecedorNome }}</small>
+      </label>
 
-        <label> Loja
-          <select formControlName="Idloja">
-            <option [ngValue]="null">(selecione)</option>
-            <option *ngFor="let l of lojas" [ngValue]="l.id">{{ l.id }} — {{ l.nome }}</option>
-          </select>
-          <small class="muted" *ngIf="lojaNome">{{ lojaNome }}</small>
-        </label>
+      <label> Loja
+        <select formControlName="Idloja">
+          <option [ngValue]="null">(selecione)</option>
+          <option *ngFor="let l of lojas" [ngValue]="l.id">{{ l.id }} — {{ l.nome }}</option>
+        </select>
+        <small class="muted" *ngIf="novoForm.value.Idloja && !lojaValida">Loja inválida</small>
+      </label>
 
-        <label> Data do Pedido
-          <input type="date" formControlName="Datapedido" />
-        </label>
+      <label> Data do Pedido
+        <input type="date" formControlName="Datapedido" />
+      </label>
 
-        <label> Data de Entrega
-          <input type="date" formControlName="Dataentrega" />
-        </label>
+      <label> Data de Entrega
+        <input type="date" formControlName="Dataentrega" />
+      </label>
 
-        <!-- ITENS -->
-        <div class="items" style="grid-column: 1 / -1;" formArrayName="itens">
-          <h4>Itens</h4>
-          <table>
-            <thead>
-              <tr>
-                <th style="width:120px">Produto (ID)</th>
-                <th>Descrição</th>
-                <th style="width:120px">Qtde</th>
-                <th style="width:140px">Preço</th>
-                <th style="width:140px">Desconto</th>
-                <th style="width:140px">SKU (opcional)</th>
-                <th style="width:140px">Total Item</th>
-                <th style="width:60px"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let _ of itensFA.controls; let i = index" [formGroupName]="i">
-                <td>
-                  <input type="number" formControlName="Idproduto" (blur)="onProdutoBlur(i)" />
-                </td>
-                <td>
-                  <input type="text" formControlName="produto_nome" readonly />
-                </td>
-                <td>
-                  <input type="number" step="0.0001" formControlName="Qtp_pc" (input)="recalcItem(i)" />
-                </td>
-                <td>
-                  <input type="number" step="0.01" formControlName="valorunitario" (input)="recalcItem(i)" />
-                </td>
-                <td>
-                  <input type="number" step="0.01" formControlName="Desconto" (input)="recalcItem(i)" />
-                </td>
-                <td>
-                  <input type="number" formControlName="Idprodutodetalhe" />
-                </td>
-                <td>
-                  <input type="number" formControlName="total_item" readonly />
-                </td>
-                <td>
-                  <button class="btn" type="button" (click)="removeItem(i)">−</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="items-actions">
-            <button class="btn" type="button" (click)="addItem()">+ Adicionar item</button>
-            <div class="total">Total do Pedido: <strong>{{ totalPedido | number:'1.2-2' }}</strong></div>
-          </div>
-        </div>
-
-        <div class="actions">
-          <button class="btn btn-primary" type="submit" [disabled]="salvando">Salvar</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- CONSULTAR (mantida) -->
-    <section class="card" *ngIf="action === 'consultar'">
-      <h3>Consultar</h3>
-
-      <form [formGroup]="filtrosForm" (ngSubmit)="buscar()" class="filters-grid">
-        <label>Status
-          <select formControlName="status">
-            <option value="">(todos)</option>
-            <option value="AB">AB (Aberto)</option>
-            <option value="AP">AP (Aprovado)</option>
-            <option value="CA">CA (Cancelado)</option>
-          </select>
-        </label>
-        <label>Fornecedor (ID)
-          <input type="number" formControlName="fornecedor" />
-        </label>
-        <label>Fornecedor (contém)
-          <input type="text" formControlName="q_fornecedor" />
-        </label>
-        <label>Loja (ID)
-          <input type="number" formControlName="loja" />
-        </label>
-        <label>Documento (contém)
-          <input type="text" formControlName="doc" />
-        </label>
-        <label>Emissão de
-          <input type="date" formControlName="emissao_de" />
-        </label>
-        <label>Emissão até
-          <input type="date" formControlName="emissao_ate" />
-        </label>
-        <label>Entrega de
-          <input type="date" formControlName="entrega_de" />
-        </label>
-        <label>Entrega até
-          <input type="date" formControlName="entrega_ate" />
-        </label>
-        <label>Total mín
-          <input type="number" step="0.01" formControlName="total_min" />
-        </label>
-        <label>Total máx
-          <input type="number" step="0.01" formControlName="total_max" />
-        </label>
-
-        <div class="filters-actions">
-          <button class="btn btn-primary" type="submit">Aplicar</button>
-          <button class="btn" type="button" (click)="limparFiltros()">Limpar</button>
-        </div>
-      </form>
-
-      <div class="state" *ngIf="carregando()">Carregando...</div>
-
-      <div class="table-wrap" *ngIf="!carregando() && rows().length > 0">
+      <!-- ITENS -->
+      <div class="items" style="grid-column: 1 / -1;" formArrayName="itens">
+        <h4>Itens</h4>
         <table>
           <thead>
             <tr>
-              <th (click)="setOrdenacao('Datapedido')">Data do Pedido</th>
-              <th (click)="setOrdenacao('Dataentrega')">Data de Entrega</th>
-              <th (click)="setOrdenacao('Idpedidocompra')">Nº</th>
-              <th (click)="setOrdenacao('Idfornecedor__Nome_fornecedor')">Fornecedor</th>
-              <th (click)="setOrdenacao('Status')">Status</th>
-              <th (click)="setOrdenacao('Valorpedido')">Total</th>
-              <th>Loja</th>
-              <th>Documento</th>
+              <th style="width:120px">Produto (ID)</th>
+              <th>Descrição</th>
+              <th style="width:120px">Qtde</th>
+              <th style="width:140px">Preço</th>
+              <th style="width:140px">Desconto</th>
+              <th style="width:140px">SKU (opcional)</th>
+              <th style="width:140px">Total Item</th>
+              <th style="width:60px"></th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let p of rows()">
-              <td>{{ p.Datapedido | date:'dd/MM/yyyy' }}</td>
-              <td>{{ p.Dataentrega | date:'dd/MM/yyyy' }}</td>
-              <td>{{ p.Idpedidocompra }}</td>
-              <td>{{ p.fornecedor_nome }}</td>
-              <td>{{ p.Status }}</td>
-              <td>{{ p.Valorpedido | number:'1.2-2' }}</td>
-              <td>{{ p.loja_nome }}</td>
-              <td>{{ p.Documento }}</td>
+            <tr *ngFor="let _ of itensFA.controls; let i = index" [formGroupName]="i">
+              <td><input type="number" formControlName="Idproduto" (blur)="onProdutoBlur(i)" /></td>
+              <td><input type="text" formControlName="produto_nome" readonly /></td>
+              <td><input type="number" step="0.0001" formControlName="Qtp_pc" (input)="recalcItem(i)" /></td>
+              <td><input type="number" step="0.01" formControlName="valorunitario" (input)="recalcItem(i)" /></td>
+              <td><input type="number" step="0.01" formControlName="Desconto" (input)="recalcItem(i)" /></td>
+              <td><input type="number" formControlName="Idprodutodetalhe" /></td>
+              <td><input type="number" formControlName="total_item" readonly /></td>
+              <td><button class="btn" type="button" (click)="removeItem(i)">−</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="items-actions">
+          <button class="btn" type="button" (click)="addItem()">+ Adicionar item</button>
+          <div class="total">Total do Pedido: <strong>{{ totalPedido | number:'1.2-2' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" type="submit" [disabled]="salvando || !fornecedorValido || !lojaValida">Salvar</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- CONSULTAR -->
+  <section class="card" *ngIf="action === 'consultar'">
+    <h3>Consultar</h3>
+
+    <form [formGroup]="filtrosForm" (ngSubmit)="buscar()" class="filters-grid">
+      <label>Status
+        <select formControlName="status">
+          <option value="">(todos)</option>
+          <option value="AB">AB (Aberto)</option>
+          <option value="AP">AP (Aprovado)</option>
+          <option value="CA">CA (Cancelado)</option>
+        </select>
+      </label>
+      <label>Fornecedor (ID)
+        <input type="number" formControlName="fornecedor" />
+      </label>
+      <label>Fornecedor (contém)
+        <input type="text" formControlName="q_fornecedor" />
+      </label>
+      <label>Loja (ID)
+        <input type="number" formControlName="loja" />
+      </label>
+      <label>Documento (contém)
+        <input type="text" formControlName="doc" />
+      </label>
+      <label>Emissão de
+        <input type="date" formControlName="emissao_de" />
+      </label>
+      <label>Emissão até
+        <input type="date" formControlName="emissao_ate" />
+      </label>
+      <label>Entrega de
+        <input type="date" formControlName="entrega_de" />
+      </label>
+      <label>Entrega até
+        <input type="date" formControlName="entrega_ate" />
+      </label>
+      <label>Total mín
+        <input type="number" step="0.01" formControlName="total_min" />
+      </label>
+      <label>Total máx
+        <input type="number" step="0.01" formControlName="total_max" />
+      </label>
+
+      <div class="filters-actions">
+        <button class="btn btn-primary" type="submit">Aplicar</button>
+        <button class="btn" type="button" (click)="limparFiltros()">Limpar</button>
+      </div>
+    </form>
+
+    <div class="state" *ngIf="carregando()">Carregando...</div>
+
+    <div class="table-wrap" *ngIf="!carregando() && rows().length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th (click)="setOrdenacao('Datapedido')">Data do Pedido</th>
+            <th (click)="setOrdenacao('Dataentrega')">Data de Entrega</th>
+            <th (click)="setOrdenacao('Idpedidocompra')">Nº</th>
+            <th (click)="setOrdenacao('Idfornecedor__Nome_fornecedor')">Fornecedor</th>
+            <th (click)="setOrdenacao('Status')">Status</th>
+            <th (click)="setOrdenacao('Valorpedido')">Total</th>
+            <th>Loja</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of rows()">
+            <td>{{ p.Datapedido | date:'dd/MM/yyyy' }}</td>
+            <td>{{ p.Dataentrega | date:'dd/MM/yyyy' }}</td>
+            <td>{{ p.Idpedidocompra }}</td>
+            <td>{{ p.fornecedor_nome }}</td>
+            <td>{{ p.Status }}</td>
+            <td>{{ p.Valorpedido | number:'1.2-2' }}</td>
+            <td>{{ p.loja_nome }}</td>
+            <td style="white-space:nowrap; display:flex; gap:6px;">
+              <button class="btn btn-primary" *ngIf="p.Status === 'AB'" (click)="aprovarLinha(p)" title="Aprovar">Aprovar</button>
+              <button class="btn" *ngIf="p.Status === 'AB'" (click)="editarLinha(p)" title="Editar">Editar</button>
+              <span *ngIf="p.Status !== 'AB'" class="muted">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- EDITAR (somente AB) -->
+  <section class="card" *ngIf="action === 'editar'">
+    <h3>Edição de Pedido #{{ editingId }}</h3>
+
+    <form class="grid" [formGroup]="editHeaderForm">
+      <label> Data de Entrega
+        <input type="date" formControlName="Dataentrega" />
+      </label>
+    </form>
+
+    <!-- Contêiner com [formGroup] + formArrayName="itens" -->
+    <form [formGroup]="editForm" style="margin-top:12px;">
+      <div class="items">
+        <h4>Itens</h4>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:120px">Produto (ID)</th>
+              <th>Descrição</th>
+              <th style="width:120px">Qtde</th>
+              <th style="width:140px">Preço</th>
+              <th style="width:140px">Desconto</th>
+              <th style="width:140px">Total Item</th>
+            </tr>
+          </thead>
+          <tbody formArrayName="itens">
+            <tr *ngFor="let g of editItensControls; let i = index" [formGroupName]="i">
+              <td><input type="number" formControlName="Idproduto" readonly /></td>
+              <td><input type="text" formControlName="produto_desc" readonly /></td>
+              <td><input type="number" step="0.0001" formControlName="Qtp_pc" (input)="recalcEdit(i)" /></td>
+              <td><input type="number" step="0.01" formControlName="valorunitario" (input)="recalcEdit(i)" /></td>
+              <td><input type="number" step="0.01" formControlName="Desconto" (input)="recalcEdit(i)" /></td>
+              <td><input type="number" formControlName="Total_item" readonly /></td>
             </tr>
           </tbody>
         </table>
       </div>
-    </section>
-  </ng-container>
+    </form>
+
+    <div class="actions" style="margin-top:10px;">
+      <button class="btn btn-primary" (click)="salvarEdicao()">Salvar alterações</button>
+      <button class="btn" (click)="cancelarEdicao()">Cancelar</button>
+    </div>
+  </section>
 </div>

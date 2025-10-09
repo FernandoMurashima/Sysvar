@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
-// ===== Listagem (já existente) =====
+// ===== Listagem =====
 export interface PedidoCompraRow {
   Idpedidocompra: number;
   Documento: string | null;
@@ -33,14 +33,34 @@ export interface PedidoCompraFiltro {
 export interface PedidoCompraCreateDTO {
   Idfornecedor: number;
   Idloja: number;
-  Datapedido?: string | null;   // YYYY-MM-DD
-  Dataentrega?: string | null;  // YYYY-MM-DD
-  // Documento removido; número do pedido é o Idpedidocompra retornado
+  Datapedido?: string | null;
+  Dataentrega?: string | null;
 }
 
 export interface PedidoCompraCreated {
   Idpedidocompra: number;
-  // demais campos retornados pelo DetailSerializer...
+}
+
+// ===== Detalhe =====
+export interface PedidoItemDetail {
+  Idpedidocompraitem: number;
+  Idproduto: number;
+  produto_desc?: string;
+  Qtp_pc: number;
+  valorunitario: number;
+  Desconto: number | null;
+  Total_item: string | number;
+  Idprodutodetalhe?: number | null;
+}
+export interface PedidoCompraDetail {
+  Idpedidocompra: number;
+  Datapedido: string | null;
+  Dataentrega: string | null;
+  Status: 'AB' | 'AP' | 'CA' | string;
+  Valorpedido: string | number;
+  fornecedor_nome?: string;
+  loja_nome?: string;
+  itens: PedidoItemDetail[];
 }
 
 export interface PedidoItemDTO {
@@ -75,26 +95,33 @@ export class PedidosCompraService {
     return this.http.get<any>(`${this.fornecedoresUrl}${id}/`);
   }
   listLojas() {
-    // caso sua API de lojas não pagine, ok; se paginar, ajuste conforme necessário
     return this.http.get<any[]>(this.lojasUrl);
   }
   getProdutoById(id: number) {
     return this.http.get<any>(`${this.produtosUrl}${id}/`);
   }
 
-  // ----- Criação (cabeçalho) -----
+  // ----- Cabeçalho -----
   createHeader(dto: PedidoCompraCreateDTO) {
     return this.http.post<PedidoCompraCreated>(this.baseUrl, dto);
   }
+  getById(pedidoId: number) {
+    return this.http.get<PedidoCompraDetail>(`${this.baseUrl}${pedidoId}/`);
+  }
+  updateHeader(pedidoId: number, dto: Partial<Pick<PedidoCompraDetail, 'Dataentrega'>>) {
+    return this.http.patch(`${this.baseUrl}${pedidoId}/`, dto);
+  }
 
-  // ----- Criação de itens -----
+  // ----- Itens -----
   createItem(pedidoId: number, dto: PedidoItemDTO) {
-    // API espera Idpedidocompra no corpo
     const payload = { ...dto, Idpedidocompra: pedidoId };
     return this.http.post(this.itensUrl, payload);
   }
+  updateItem(itemId: number, dto: Partial<Pick<PedidoItemDetail, 'Qtp_pc'|'valorunitario'|'Desconto'>>) {
+    return this.http.patch(`${this.itensUrl}${itemId}/`, dto);
+  }
 
-  // Conveniência: cria cabeçalho e, em seguida, os itens
+  // ----- Fluxo de criação completo -----
   createWithItems(header: PedidoCompraCreateDTO, itens: PedidoItemDTO[]) {
     return new Promise<PedidoCompraCreated>(async (resolve, reject) => {
       try {
@@ -109,5 +136,10 @@ export class PedidosCompraService {
         reject(e);
       }
     });
+  }
+
+  // ----- Ações -----
+  aprovar(pedidoId: number) {
+    return this.http.post(`${this.baseUrl}${pedidoId}/aprovar/`, {});
   }
 }

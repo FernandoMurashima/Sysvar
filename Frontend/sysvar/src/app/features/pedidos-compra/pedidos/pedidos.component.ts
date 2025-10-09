@@ -1,7 +1,15 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators, FormArray, AbstractControl } from '@angular/forms';
-import { PedidosCompraService, PedidoCompraFiltro, PedidoCompraRow, PedidoItemDTO, PedidoCompraCreateDTO } from '../../../core/services/pedidos-compra.service';
+import { ReactiveFormsModule, FormBuilder, Validators, FormArray, FormGroup } from '@angular/forms';
+import {
+  PedidosCompraService,
+  PedidoCompraFiltro,
+  PedidoCompraRow,
+  PedidoItemDTO,
+  PedidoCompraCreateDTO,
+  PedidoCompraDetail,
+  PedidoItemDetail
+} from '../../../core/services/pedidos-compra.service';
 
 @Component({
   standalone: true,
@@ -14,7 +22,7 @@ export class PedidosComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(PedidosCompraService);
 
-  action: '' | 'novo' | 'consultar' = '';
+  action: '' | 'novo' | 'consultar' | 'editar' = '';
 
   errorMsg = '';
   successMsg = '';
@@ -53,15 +61,29 @@ export class PedidosComponent implements OnInit {
     Idloja:       this.fb.nonNullable.control<number | null>(null, { validators: [Validators.required] }),
     Datapedido:   this.fb.nonNullable.control<string>(''),
     Dataentrega:  this.fb.nonNullable.control<string>(''),
-    itens: this.fb.array([]) as FormArray, // FormArray de FormGroup(item)
+    itens: this.fb.array([]) as FormArray,
   });
 
-  get itensFA(): FormArray {
-    return this.novoForm.controls.itens as FormArray;
+  get itensFA(): FormArray { return this.novoForm.controls.itens as FormArray; }
+
+  // ===== EDITAR (somente AB) =====
+  editingId: number | null = null;
+
+  editHeaderForm = this.fb.nonNullable.group({
+    Dataentrega: this.fb.nonNullable.control<string>(''),
+  });
+
+  // FormArray de itens + contêiner para template
+  editItensFA = this.fb.array([]) as FormArray;
+  editForm = this.fb.group({
+    itens: this.editItensFA,
+  });
+
+  get editItensControls(): FormGroup[] {
+    return (this.editItensFA.controls as FormGroup[]);
   }
 
   ngOnInit(): void {
-    // Carregar lojas para o combo
     this.api.listLojas().subscribe({
       next: (res: any[]) => {
         this.lojas = (res || [])
@@ -70,7 +92,6 @@ export class PedidosComponent implements OnInit {
       }
     });
 
-    // Fornecedor: ao digitar ID, mostra nome
     this.novoForm.controls.Idfornecedor.valueChanges.subscribe(v => {
       this.fornecedorNome = '';
       if (v !== null && !Number.isNaN(v)) {
@@ -81,18 +102,16 @@ export class PedidosComponent implements OnInit {
       }
     });
 
-    // Loja: setar nome ao escolher no combo (opcional)
     this.novoForm.controls.Idloja.valueChanges.subscribe(v => {
       const found = this.lojas.find(l => l.id === Number(v));
       this.lojaNome = found ? found.nome : '';
     });
 
-    // Inicia com uma linha de item
     this.addItem();
   }
 
   // ===== UI =====
-  setAction(a: '' | 'novo' | 'consultar') {
+  setAction(a: '' | 'novo' | 'consultar' | 'editar') {
     this.action = a;
     this.resetMessages();
     if (a === 'consultar') this.buscar();
@@ -167,7 +186,7 @@ export class PedidosComponent implements OnInit {
   private sortClient(data: PedidoCompraRow[], ordering: string): PedidoCompraRow[] {
     const keys = (ordering || '').split(',').filter(Boolean);
     if (!keys.length) return data.slice();
-    const norm = (v: any) => (v === null || v === undefined) ? '' : v;
+    const norm = (v: any) => (v === null || v === undefined) ? '': v
     return data.slice().sort((a, b) => {
       for (const kRaw of keys) {
         const desc = kRaw.startsWith('-');
@@ -182,7 +201,7 @@ export class PedidosComponent implements OnInit {
     });
   }
 
-  // ===== ITENS (FormArray) =====
+  // ===== NOVO: ITENS =====
   private newItemGroup() {
     return this.fb.nonNullable.group({
       Idproduto: [null as number | null, [Validators.required]],
@@ -191,17 +210,11 @@ export class PedidosComponent implements OnInit {
       valorunitario: [null as number | null, [Validators.required, Validators.min(0)]],
       Desconto: [0 as number | null],
       Idprodutodetalhe: [null as number | null],
-      total_item: [0], // calculado client-side
+      total_item: [0],
     });
   }
-
-  addItem() {
-    this.itensFA.push(this.newItemGroup());
-  }
-
-  removeItem(ix: number) {
-    this.itensFA.removeAt(ix);
-  }
+  addItem() { this.itensFA.push(this.newItemGroup()); }
+  removeItem(ix: number) { this.itensFA.removeAt(ix); }
 
   onProdutoBlur(ix: number) {
     const g = this.itensFA.at(ix) as any;
@@ -231,25 +244,47 @@ export class PedidosComponent implements OnInit {
     return s;
   }
 
-  // ===== SALVAR =====
+  // ===== Validações (Item 1) =====
+  get fornecedorValido(): boolean {
+    return !!this.novoForm.value.Idfornecedor
+      && !!this.fornecedorNome
+      && this.fornecedorNome !== 'Fornecedor não encontrado';
+  }
+  get lojaValida(): boolean {
+    const id = Number(this.novoForm.value.Idloja);
+    return !!id && this.lojas.some(l => l.id === id);
+  }
+  private itemProdutoValido(ix: number): boolean {
+    const g = this.itensFA.at(ix) as any;
+    const nome = g.get('produto_nome')?.value as string | null | undefined; // <-- fix aqui
+    const id = g.get('Idproduto')?.value;
+    return !!id && !!nome && nome !== 'Produto não encontrado';
+  }
+  private mapApiError(e: any) {
+    const body = e?.error ?? e;
+    if (body && typeof body === 'object') {
+      this.fieldErrors = Object.entries(body).map(([field, msgs]: any) => ({
+        field,
+        messages: Array.isArray(msgs) ? msgs : [String(msgs)],
+      }));
+      this.errorMsg = 'Verifique os campos destacados.';
+    } else {
+      this.errorMsg = 'Falha ao salvar pedido.';
+    }
+  }
+
+  // ===== SALVAR (novo) =====
   async salvarNovo() {
     this.resetMessages();
 
-    if (this.novoForm.invalid) {
-      this.errorMsg = 'Preencha Fornecedor e Loja.';
-      this.novoForm.markAllAsTouched();
-      return;
-    }
-    if (this.itensFA.length === 0) {
-      this.errorMsg = 'Inclua ao menos 1 item.';
-      return;
-    }
+    if (this.novoForm.invalid) { this.errorMsg = 'Preencha Fornecedor e Loja.'; this.novoForm.markAllAsTouched(); return; }
+    if (!this.fornecedorValido) { this.errorMsg = 'Fornecedor inválido.'; return; }
+    if (!this.lojaValida) { this.errorMsg = 'Loja inválida.'; return; }
+    if (this.itensFA.length === 0) { this.errorMsg = 'Inclua ao menos 1 item.'; return; }
     for (let i = 0; i < this.itensFA.length; i++) {
       const g = this.itensFA.at(i);
-      if (g.invalid) {
-        this.errorMsg = `Item ${i + 1} possui campos obrigatórios pendentes.`;
-        return;
-      }
+      if (g.invalid) { this.errorMsg = `Item ${i + 1} possui campos obrigatórios pendentes.`; return; }
+      if (!this.itemProdutoValido(i)) { this.errorMsg = `Item ${i + 1}: produto inválido.`; return; }
     }
 
     const r = this.novoForm.getRawValue();
@@ -275,13 +310,109 @@ export class PedidosComponent implements OnInit {
     try {
       await this.api.createWithItems(header, itens);
       this.successMsg = 'Pedido criado com sucesso.';
-      this.awaitKeyAfterSave = true;
-    } catch (e) {
+      this.setAction('consultar');
+      this.buscar();
+    } catch (e: any) {
       console.error(e);
-      this.errorMsg = 'Falha ao salvar pedido.';
+      this.mapApiError(e);
     } finally {
       this.salvando = false;
     }
+  }
+
+  // ===== Ações na lista =====
+  aprovarLinha(row: PedidoCompraRow) {
+    this.resetMessages();
+    if (!row?.Idpedidocompra) return;
+    this.api.aprovar(row.Idpedidocompra).subscribe({
+      next: () => { this.successMsg = `Pedido #${row.Idpedidocompra} aprovado.`; this.buscar(); },
+      error: (err) => { console.error(err); this.errorMsg = 'Não foi possível aprovar este pedido.'; }
+    });
+  }
+
+  editarLinha(row: PedidoCompraRow) {
+    this.resetMessages();
+    if (row.Status !== 'AB') { this.errorMsg = 'Somente pedidos AB podem ser editados.'; return; }
+    this.editingId = row.Idpedidocompra;
+    this.editHeaderForm.reset({ Dataentrega: row.Dataentrega || '' });
+
+    this.api.getById(row.Idpedidocompra).subscribe({
+      next: (det: PedidoCompraDetail) => {
+        while (this.editItensFA.length) this.editItensFA.removeAt(0);
+        (det.itens || []).forEach((it: PedidoItemDetail) => {
+          this.editItensFA.push(
+            this.fb.nonNullable.group({
+              _id: [it.Idpedidocompraitem],
+              Idproduto: [{ value: it.Idproduto, disabled: true }],
+              produto_desc: [{ value: it.produto_desc ?? '', disabled: true }],
+              Qtp_pc: [it.Qtp_pc, [Validators.required, Validators.min(0.0001)]],
+              valorunitario: [it.valorunitario, [Validators.required, Validators.min(0)]],
+              Desconto: [it.Desconto ?? 0],
+              Total_item: [{ value: it.Total_item, disabled: true }],
+            })
+          );
+        });
+        this.action = 'editar';
+      },
+      error: (err) => {
+        console.error(err);
+        this.errorMsg = 'Falha ao carregar itens para edição.';
+      }
+    });
+  }
+
+  recalcEdit(ix: number) {
+    const g = this.editItensFA.at(ix) as any;
+    const q = Number(g.get('Qtp_pc')?.value) || 0;
+    const pu = Number(g.get('valorunitario')?.value) || 0;
+    const d  = Number(g.get('Desconto')?.value) || 0;
+    const t = Math.max(q * pu - d, 0);
+    g.get('Total_item')?.setValue(t);
+  }
+
+  salvarEdicao() {
+    this.resetMessages();
+    if (!this.editingId) { this.errorMsg = 'Nenhum pedido selecionado.'; return; }
+
+    for (let i = 0; i < this.editItensFA.length; i++) {
+      const g = this.editItensFA.at(i) as FormGroup;
+      if (g.invalid) {
+        this.errorMsg = `Item ${i + 1} com dados inválidos.`;
+        return;
+      }
+    }
+
+    const headerDto: any = {};
+    const dataEntrega = this.editHeaderForm.value.Dataentrega?.trim();
+    headerDto.Dataentrega = dataEntrega ? dataEntrega : null;
+
+    const calls: Promise<any>[] = [];
+    calls.push(this.api.updateHeader(this.editingId, headerDto).toPromise());
+
+    for (let i = 0; i < this.editItensFA.length; i++) {
+      const g = this.editItensFA.at(i) as any;
+      const itemId = Number(g.get('_id')?.value);
+      const dto = {
+        Qtp_pc: Number(g.get('Qtp_pc')?.value),
+        valorunitario: Number(g.get('valorunitario')?.value),
+        Desconto: g.get('Desconto')?.value != null ? Number(g.get('Desconto')?.value) : 0,
+      };
+      calls.push(this.api.updateItem(itemId, dto).toPromise());
+    }
+
+    Promise.all(calls).then(() => {
+      this.successMsg = `Pedido #${this.editingId} atualizado.`;
+      this.setAction('consultar');
+      this.buscar();
+    }).catch(err => {
+      console.error(err);
+      this.errorMsg = 'Falha ao salvar alterações.';
+    });
+  }
+
+  cancelarEdicao() {
+    this.editingId = null;
+    this.setAction('consultar');
   }
 
   @HostListener('window:keydown', ['$event'])
