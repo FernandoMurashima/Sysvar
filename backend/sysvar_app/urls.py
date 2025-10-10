@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
+
+
 from sysvar_app.views import (
     UserViewSet, LojaViewSet, ClienteViewSet, ProdutoViewSet, ProdutoDetalheViewSet,
     EstoqueViewSet, FornecedorViewSet, VendedorViewSet, FuncionariosViewSet,
@@ -10,6 +12,9 @@ from sysvar_app.views import (
     NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet,
     health, register, login_view, me, logout_view
 )
+
+
+
 from auditoria.views import AuditoriaLogViewSet
 
 router = DefaultRouter()
@@ -46,4 +51,5 @@ urlpatterns = [
 
     # rotas do pacote pedido_compra (<<< AJUSTE no módulo)
     path('api/', include('sysvar_app.pedido_compra.pedido_compra_urls')),
+    path('api/', include('sysvar_app.forma_pagamentos.forma_pagamentos_urls')),
 ]

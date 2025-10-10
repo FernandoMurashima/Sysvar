@@ -22,6 +22,7 @@ import { GruposComponent } from './features/grupos/grupos.component';
 import { TabelasPrecoComponent } from './features/tabelas-preco/tabelas-preco.component';
 import { ProdutosComponent } from './features/produtos/produtos.component';
 import { EstoqueLancamentoComponent } from './features/estoque-lancamento/estoque-lancamento.component';
+import { FormaPagamentosComponent } from './features/forma-pagamentos/forma-pagamentos.component';
 
 
 export const routes: Routes = [
@@ -51,6 +52,7 @@ export const routes: Routes = [
       { path: 'vendas/tabelas', component: TabelasPrecoComponent },
       { path: 'produtos', component: ProdutosComponent },
       { path: 'config/estoque-lancamento', component: EstoqueLancamentoComponent },
+      { path: 'config/forma_pagamentos', component: FormaPagamentosComponent },
       
       { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
       { path: '', pathMatch: 'full', redirectTo: 'home' }

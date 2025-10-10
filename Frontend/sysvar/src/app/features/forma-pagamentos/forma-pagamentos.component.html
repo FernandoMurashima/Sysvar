@@ -1,0 +1,129 @@
+<!-- src/app/features/forma-pagamentos/forma-pagamentos.component.html -->
+<section class="toolbar card">
+  <div class="left">
+    <input #q class="inp" type="text" placeholder="Buscar por código ou descrição…" [value]="search" (input)="onSearch(q.value)" />
+    <button class="btn" (click)="reload()">Buscar</button>
+    <button class="btn ghost" (click)="clearSearch()">Limpar</button>
+  </div>
+  <div class="right">
+    <label>Ordenar:</label>
+    <select #ord class="inp" [value]="ordering" (change)="changeOrdering(ord.value)">
+      <option value="descricao">Descrição (A→Z)</option>
+      <option value="-descricao">Descrição (Z→A)</option>
+      <option value="codigo">Código (A→Z)</option>
+      <option value="-codigo">Código (Z→A)</option>
+    </select>
+    <button class="btn primary" (click)="startCreate()">Nova forma</button>
+  </div>
+</section>
+
+
+<div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+<div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+<!-- FORM -->
+<section class="card form" *ngIf="formMode !== null || submitted">
+  <h3>{{ formMode === 'edit' ? 'Editar Forma de Pagamento' : 'Nova Forma de Pagamento' }}</h3>
+
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="grid">
+      <div class="col">
+        <label>Código</label>
+        <input class="inp" formControlName="codigo" [attr.aria-invalid]="fieldInvalid('codigo')" />
+        <span class="field-error" *ngIf="fieldInvalid('codigo')">
+          Informe o código (máx. 10).
+        </span>
+      </div>
+      <div class="col grow">
+        <label>Descrição</label>
+        <input class="inp" formControlName="descricao" [attr.aria-invalid]="fieldInvalid('descricao')" />
+        <span class="field-error" *ngIf="fieldInvalid('descricao')">
+          Informe a descrição (máx. 120).
+        </span>
+      </div>
+      <div class="col checkbox">
+        <label><input type="checkbox" formControlName="ativo" /> Ativo</label>
+      </div>
+    </div>
+
+    <h4>Parcelas</h4>
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width: 90px;">Ordem</th>
+          <th style="width: 120px;">Dias</th>
+          <th style="width: 160px;">% (opcional)</th>
+          <th style="width: 160px;">Valor fixo (opcional)</th>
+          <th style="width: 90px;"></th>
+        </tr>
+      </thead>
+      <tbody formArrayName="parcelas">
+        <tr *ngFor="let fg of parcelasFA.controls; let i = index" [formGroupName]="i">
+          <td><input class="inp" type="number" formControlName="ordem" /></td>
+          <td><input class="inp" type="number" formControlName="dias" /></td>
+          <td><input class="inp" type="text" formControlName="percentual" placeholder="ex.: 50" /></td>
+          <td><input class="inp" type="text" formControlName="valor_fixo" placeholder="ex.: 100.00" /></td>
+          <td class="actions">
+            <button type="button" class="btn ghost danger" (click)="removeParcela(i)" title="Remover">Remover</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="parcelas-actions">
+      <button type="button" class="btn" (click)="addParcela()">Adicionar parcela</button>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+        {{ formMode === 'edit' ? 'Salvar alterações' : 'Criar' }}
+      </button>
+      <button class="btn ghost" type="button" (click)="cancelEdit()">Cancelar</button>
+    </div>
+  </form>
+
+  <div class="overlay" *ngIf="submitted && form.invalid" role="alert" aria-live="assertive">
+    <div class="overlay-card">
+      <h4>Existem pendências no formulário</h4>
+      <ul>
+        <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+      </ul>
+      <button class="btn primary" type="button" (click)="submitted = false">OK, vou corrigir</button>
+    </div>
+  </div>
+</section>
+
+<!-- LISTA -->
+<section class="card list">
+  <div class="list-header">
+    <strong>Total:</strong> {{ total }}
+  </div>
+
+  <div class="empty-hint" *ngIf="!loading && rows.length === 0">
+    Nenhuma forma encontrada.
+  </div>
+
+  <table class="table" *ngIf="rows.length > 0">
+    <thead>
+      <tr>
+        <th style="width: 120px;">Código</th>
+        <th>Descrição</th>
+        <th style="width: 120px;"># Parcelas</th>
+        <th style="width: 90px;">Ativo</th>
+        <th style="width: 180px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let f of rows">
+        <td>{{ f.codigo }}</td>
+        <td>{{ f.descricao }}</td>
+        <td>{{ f.num_parcelas }}</td>
+        <td>{{ f.ativo ? 'Sim' : 'Não' }}</td>
+        <td class="actions">
+          <button class="btn" (click)="startEdit(f)">Editar</button>
+          <button class="btn ghost danger" (click)="remove(f)">Excluir</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>

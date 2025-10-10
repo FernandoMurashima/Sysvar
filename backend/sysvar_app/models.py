@@ -585,8 +585,6 @@ class PedidoCompra(models.Model):
         PA = 'PA', 'Parcialmente (Aberto)'
         PE = 'PE', 'Parcialmente (Encerrado)'
 
-        
-
     Idpedidocompra = models.BigAutoField(primary_key=True)
     Idfornecedor = models.ForeignKey(Fornecedor, on_delete=models.CASCADE)
     Idloja = models.ForeignKey(Loja, on_delete=models.CASCADE)
@@ -662,6 +660,32 @@ class PedidoCompraEntrega(models.Model):
 
     def __str__(self):
         return f'{self.pedido_id} -> {self.data_entrega}'
+
+
+# ===== Formas de Pagamento do Pedido de Compra (NOVO) =====
+class PedidoCompraParcela(models.Model):
+    Idpc_parcela = models.BigAutoField(primary_key=True)
+    pedido = models.ForeignKey(PedidoCompra, on_delete=models.CASCADE, related_name='parcelas_rel')
+    parcela = models.IntegerField()
+    prazo_dias = models.IntegerField(null=True, blank=True)
+    vencimento = models.DateField(null=True, blank=True)
+    valor = models.DecimalField(max_digits=18, decimal_places=2)
+    forma = models.CharField(max_length=30, null=True, blank=True)
+    observacao = models.CharField(max_length=200, null=True, blank=True)
+    data_cadastro = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['pedido', 'parcela'], name='uq_pc_parcela_numero'),
+        ]
+        indexes = [
+            models.Index(fields=['pedido', 'vencimento']),
+        ]
+
+    def __str__(self):
+        return f'{self.pedido_id} - parcela {self.parcela}'
+
+
 
 
 # =========================
@@ -1017,3 +1041,38 @@ class EntradaNFeLog(models.Model):
     detalhes = models.TextField(blank=True, null=True)
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     data_cadastro = models.DateTimeField(default=timezone.now)
+
+# =========================
+# Formas de Pagamento
+# =========================
+class FormaPagamento(models.Model):
+    Idformapagamento = models.BigAutoField(primary_key=True)
+    codigo = models.CharField(max_length=10, unique=True)  # ex.: '01', '30/60/90', 'AV'
+    descricao = models.CharField(max_length=120)
+    num_parcelas = models.IntegerField(default=1)          # 1 = à vista
+    ativo = models.BooleanField(default=True)
+    data_cadastro = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.codigo} - {self.descricao}"
+
+
+class FormaPagamentoParcela(models.Model):
+    Idformapagparcela = models.BigAutoField(primary_key=True)
+    forma = models.ForeignKey(FormaPagamento, on_delete=models.CASCADE, related_name='parcelas')
+    ordem = models.IntegerField()                           # 1, 2, 3...
+    dias = models.IntegerField()                            # prazo em dias a partir da emissão
+    percentual = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)   # opcional
+    valor_fixo = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)  # opcional
+    data_cadastro = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['forma', 'ordem'], name='uq_formapag_parcela_ordem')
+        ]
+        indexes = [
+            models.Index(fields=['forma', 'ordem']),
+        ]
+
+    def __str__(self):
+        return f"{self.forma.codigo} - Parcela {self.ordem} ({self.dias} dias)"

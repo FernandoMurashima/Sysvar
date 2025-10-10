@@ -1,3 +1,5 @@
+# sysvar_app/pedido_compra/pedido_compra_serializers.py
+
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import Sum, F
@@ -37,6 +39,10 @@ class PedidoCompraListSerializer(serializers.ModelSerializer):
             "Dataentrega",
             "Status",
             "Valorpedido",
+            # ⬇️ formas de pagamento (lista – read/write conforme modelo)
+            "condicao_pagamento",
+            "condicao_pagamento_detalhe",
+            "parcelas",
             "tipo_pedido",          # <— adicionado
             "tipo_pedido_display",  # <— adicionado
             "fornecedor_nome",
@@ -224,6 +230,10 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
             "Valorpedido",
             "Idfornecedor",
             "Idloja",
+            # ⬇️ formas de pagamento (detalhe – read/write conforme modelo)
+            "condicao_pagamento",
+            "condicao_pagamento_detalhe",
+            "parcelas",
             "tipo_pedido",          # <— adicionado (gravável)
             "tipo_pedido_display",  # <— adicionado (read-only)
             "tolerancia_qtd_percent",
