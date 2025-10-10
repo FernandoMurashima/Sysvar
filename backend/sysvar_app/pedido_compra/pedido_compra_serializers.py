@@ -25,6 +25,8 @@ def _safe_dec(v, default=ZERO):
 class PedidoCompraListSerializer(serializers.ModelSerializer):
     fornecedor_nome = serializers.CharField(source="Idfornecedor.Nome_fornecedor", read_only=True)
     loja_nome = serializers.CharField(source="Idloja.nome_loja", read_only=True)
+    # legenda do choice (somente leitura)
+    tipo_pedido_display = serializers.CharField(source="get_tipo_pedido_display", read_only=True)
 
     class Meta:
         model = PedidoCompra
@@ -35,6 +37,8 @@ class PedidoCompraListSerializer(serializers.ModelSerializer):
             "Dataentrega",
             "Status",
             "Valorpedido",
+            "tipo_pedido",          # <— adicionado
+            "tipo_pedido_display",  # <— adicionado
             "fornecedor_nome",
             "loja_nome",
         ]
@@ -206,6 +210,8 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
     loja_nome = serializers.CharField(source="Idloja.nome_loja", read_only=True)
     itens = PedidoCompraItemSerializer(source="pedidocompraitem_set", many=True, read_only=True)
     entregas = PedidoCompraEntregaSerializer(many=True, read_only=True)
+    # legenda do choice (somente leitura)
+    tipo_pedido_display = serializers.CharField(source="get_tipo_pedido_display", read_only=True)
 
     class Meta:
         model = PedidoCompra
@@ -218,6 +224,8 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
             "Valorpedido",
             "Idfornecedor",
             "Idloja",
+            "tipo_pedido",          # <— adicionado (gravável)
+            "tipo_pedido_display",  # <— adicionado (read-only)
             "tolerancia_qtd_percent",
             "tolerancia_preco_percent",
             "fornecedor_nome",
@@ -248,4 +256,3 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
         obj = super().update(instance, validated_data)
         self._recalc_valorpedido(obj)
         return obj
-

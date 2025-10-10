@@ -15,6 +15,11 @@
 .items-actions { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
 .total { font-size:1rem; }
 
+.filters-grid { display:grid; grid-template-columns:repeat(3, minmax(220px,1fr)); gap:12px; align-items:end; }
+.filters-actions { grid-column:1/-1; display:flex; gap:8px; }
+.filters-dates { grid-column:1/-1; display:flex; gap:24px; align-items:center; flex-wrap:wrap; }
+.filters-dates .sep { margin:0 6px; opacity:.8; }
+
 .table-wrap { overflow:auto; border:1px solid #eaeaea; border-radius:6px; }
 table { width:100%; border-collapse:collapse; }
 th, td { padding:10px 12px; border-bottom:1px solid #eee; text-align:left; }
@@ -23,21 +28,27 @@ th { cursor:pointer; user-select:none; background:#fafafa; }
 .btn { padding:6px 10px; border:1px solid #ddd; border-radius:6px; background:#fff; }
 .btn.btn-light { background:#fff; }
 .btn.btn-primary { background:#0d6efd; border-color:#0d6efd; color:#fff; }
+.btn.btn-danger { background:#dc3545; border-color:#dc3545; color:#fff; }
 .muted { color:#666; font-size:.85rem; }
+.muted.warn { color:#9b1c1c; }
 
-/* ===== Consulta ===== */
-.filters-grid {
-  display:grid;
-  /* 1ª linha com 3 colunas (Status, Fornecedor, Loja) */
-  grid-template-columns: repeat(3, minmax(220px,1fr));
-  gap:12px;
-  align-items:end;
-}
+/* ---------- NOVO: layout com rótulo à esquerda ---------- */
+.form-row { display:grid; gap:10px 12px; margin-bottom:10px; align-items:center; }
+.form-row.two-cols { grid-template-columns: 140px 1fr 140px 1fr; }
+.form-row.four-cols { grid-template-columns: 140px 1fr 140px 1fr; }
 
-/* Linha exclusiva para as 4 datas, garantindo que fiquem lado a lado */
-.dates-row {
-  grid-column: 1 / -1;         /* ocupa toda a largura da grade principal */
-  display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
-  gap: 12px;
+.form-row .label { font-weight:600; }
+.form-row .field { display:block; }
+
+.inline { display:flex; align-items:center; gap:8px; }
+.id-input { width:100px; }
+.name-input { flex:1 1 0; max-width:480px; }
+
+/* Responsivo */
+@media (max-width: 900px) {
+  .filters-grid { grid-template-columns:1fr; }
+  .filters-dates { flex-direction:column; align-items:flex-start; gap:10px; }
+  .form-row.two-cols,
+  .form-row.four-cols { grid-template-columns: 1fr; }
+  .form-row .label { margin-top:8px; }
 }

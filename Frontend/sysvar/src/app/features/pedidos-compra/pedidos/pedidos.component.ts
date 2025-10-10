@@ -1,3 +1,4 @@
+
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormArray, FormGroup } from '@angular/forms';
@@ -36,11 +37,10 @@ export class PedidosComponent implements OnInit {
   total = computed(() => this.rows().length);
 
   // === Consulta ===
-  // Mantém fornecedor/loja aceitando ID ou Nome. Removidos Total mín/máx.
   filtrosForm = this.fb.nonNullable.group({
     status: [''],
-    fornecedor_input: [''], // ID ou Nome
-    loja_input: [''],        // ID ou Nome
+    fornecedor_input: [''],
+    loja_input: [''],
     emissao_de: [''],
     emissao_ate: [''],
     entrega_de: [''],
@@ -59,6 +59,7 @@ export class PedidosComponent implements OnInit {
     Idloja:       this.fb.nonNullable.control<number | null>(null, { validators: [Validators.required] }),
     Datapedido:   this.fb.nonNullable.control<string>(''),
     Dataentrega:  this.fb.nonNullable.control<string>(''),
+    tipo_pedido:  this.fb.nonNullable.control<'revenda' | 'consumo'>('revenda'),
     itens: this.fb.array([]) as FormArray,
   });
   get itensFA(): FormArray { return this.novoForm.controls.itens as FormArray; }
@@ -97,14 +98,53 @@ export class PedidosComponent implements OnInit {
       this.lojaNome = found ? found.nome : '';
     });
 
+    // Inicializa o formulário "Novo" LIMPO na primeira carga
+    this.resetNovoForm();
+  }
+
+  // Rotina centralizada para limpar o formulário "Novo"
+  private resetNovoForm(): void {
+    // limpa cabeçalho
+    this.novoForm.reset({
+      Idfornecedor: null,
+      Idloja: null,
+      Datapedido: '',
+      Dataentrega: '',
+      tipo_pedido: 'revenda'
+    });
+    this.fornecedorNome = '';
+    this.lojaNome = '';
+
+    // limpa itens e cria UMA linha em branco
+    while (this.itensFA.length) this.itensFA.removeAt(0);
     this.addItem();
+
+    // estado visual
+    this.novoForm.markAsPristine();
+    this.novoForm.markAsUntouched();
+    this.fieldErrors = [];
+    this.errorMsg = '';
+    this.successMsg = '';
+    this.infoMsg = '';
   }
 
   setAction(a: '' | 'novo' | 'consultar' | 'editar') {
     this.action = a;
     this.resetMessages();
-    if (a === 'consultar') this.buscar();
+    if (a === 'consultar') {
+      this.buscar();
+    }
+    if (a === 'novo') {
+      this.resetNovoForm();
+    }
   }
+
+  // NOVO: botão Cancelar/Voltar
+  cancelarNovo() {
+    this.resetNovoForm();
+    this.setAction('');
+  }
+
   resetMessages() {
     this.errorMsg = ''; this.successMsg = ''; this.infoMsg = '';
     this.fieldErrors = []; this.awaitKeyAfterSave = false;
@@ -123,12 +163,9 @@ export class PedidosComponent implements OnInit {
       ordering: this.ordering(),
       status: s(raw.status),
 
-      // fornecedor: ID ou nome
       fornecedor: isNum(fornecedorTxt) ? Number(fornecedorTxt) : undefined,
       q_fornecedor: !isNum(fornecedorTxt) ? fornecedorTxt : undefined,
 
-      // loja: ID ou nome (se o backend usa apenas ID, esta chave será ignorada quando nome for usado)
-      // se houver suporte a nome da loja via query, ajuste aqui (ex.: q_loja)
       loja: isNum(lojaTxt) ? Number(lojaTxt) : undefined,
 
       emissao_de: s(raw.emissao_de),
@@ -279,12 +316,13 @@ export class PedidosComponent implements OnInit {
       if (!this.itemProdutoValido(i)) { this.errorMsg = `Item ${i + 1}: produto inválido.`; return; }
     }
 
-    const r = this.novoForm.getRawValue();
-    const header: PedidoCompraCreateDTO = {
+    const r = this.novoForm.getRawValue() as any;
+    const header: PedidoCompraCreateDTO & { tipo_pedido: 'revenda' | 'consumo' } = {
       Idfornecedor: Number(r.Idfornecedor),
       Idloja: Number(r.Idloja),
       Datapedido: r.Datapedido?.trim() ? r.Datapedido : null,
       Dataentrega: r.Dataentrega?.trim() ? r.Dataentrega : null,
+      tipo_pedido: r.tipo_pedido || 'revenda',
     };
     const itens: PedidoItemDTO[] = [];
     for (let i = 0; i < this.itensFA.length; i++) {
@@ -359,7 +397,7 @@ export class PedidosComponent implements OnInit {
               valorunitario: [it.valorunitario, [Validators.required, Validators.min(0)]],
               Desconto: [it.Desconto ?? 0],
               Total_item: [{ value: it.Total_item, disabled: true }],
-            })
+            }) as any
           );
         });
         this.action = 'editar';

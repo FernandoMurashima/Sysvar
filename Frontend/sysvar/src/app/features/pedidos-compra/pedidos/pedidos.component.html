@@ -28,31 +28,56 @@
   <section class="card" *ngIf="action === 'novo'">
     <h3>Novo Pedido de Compra</h3>
 
-    <form (ngSubmit)="salvarNovo()" class="grid" [formGroup]="novoForm">
-      <label> Fornecedor (ID)
-        <input type="number" formControlName="Idfornecedor" />
-        <small class="muted" *ngIf="novoForm.value.Idfornecedor && !fornecedorValido">Fornecedor inválido</small>
-        <small class="muted" *ngIf="fornecedorValido">{{ fornecedorNome }}</small>
-      </label>
+    <form (ngSubmit)="salvarNovo()" [formGroup]="novoForm">
+      <!-- Linha: Fornecedor | Loja -->
+      <div class="form-row four-cols">
+        <div class="label">Fornecedor</div>
+        <div class="field">
+          <div class="inline">
+            <input class="id-input" type="number" formControlName="Idfornecedor" placeholder="ID" />
+            <input class="name-input" type="text" [value]="fornecedorNome" placeholder="Nome do fornecedor" readonly />
+          </div>
+          <small class="muted warn" *ngIf="novoForm.value.Idfornecedor && !fornecedorValido">
+            Fornecedor inválido
+          </small>
+        </div>
 
-      <label> Loja
-        <select formControlName="Idloja">
-          <option [ngValue]="null">(selecione)</option>
-          <option *ngFor="let l of lojas" [ngValue]="l.id">{{ l.id }} — {{ l.nome }}</option>
-        </select>
-        <small class="muted" *ngIf="novoForm.value.Idloja && !lojaValida">Loja inválida</small>
-      </label>
+        <div class="label">Loja</div>
+        <div class="field">
+          <select formControlName="Idloja">
+            <option [ngValue]="null">(selecione)</option>
+            <option *ngFor="let l of lojas" [ngValue]="l.id">{{ l.id }} — {{ l.nome }}</option>
+          </select>
+          <small class="muted warn" *ngIf="novoForm.value.Idloja && !lojaValida">Loja inválida</small>
+        </div>
+      </div>
 
-      <label> Data do Pedido
-        <input type="date" formControlName="Datapedido" />
-      </label>
+      <!-- Linha: Data do Pedido | Data de Entrega -->
+      <div class="form-row two-cols">
+        <div class="label">Data do Pedido</div>
+        <div class="field">
+          <input type="date" formControlName="Datapedido" />
+        </div>
 
-      <label> Data de Entrega
-        <input type="date" formControlName="Dataentrega" />
-      </label>
+        <div class="label">Data de Entrega</div>
+        <div class="field">
+          <input type="date" formControlName="Dataentrega" />
+        </div>
+      </div>
+
+      <!-- Linha: Tipo de Pedido (em linha separada, sem mexer layout) -->
+      <div class="form-row two-cols">
+        <div class="label">Tipo de Pedido</div>
+        <div class="field">
+          <select formControlName="tipo_pedido">
+            <option value="revenda">Revenda</option>
+            <option value="consumo">Uso/Consumo</option>
+          </select>
+        </div>
+      </div>
 
       <!-- ITENS -->
-      <div class="items" style="grid-column: 1 / -1;" formArrayName="itens">
+      <div class="items" style="margin-top:12px;" formArrayName="itens">
         <h4>Itens</h4>
         <table>
           <thead>
@@ -87,7 +112,11 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-primary" type="submit" [disabled]="salvando || !fornecedorValido || !lojaValida">Salvar</button>
+        <button class="btn btn-primary" type="submit" [disabled]="salvando || !fornecedorValido || !lojaValida">
+          Salvar
+        </button>
+        <!-- NOVO: botão Voltar/Cancelar (lado do Salvar) -->
+        <button class="btn" type="button" (click)="cancelarNovo()">Cancelar</button>
       </div>
     </form>
   </section>
@@ -97,7 +126,6 @@
     <h3>Consultar</h3>
 
     <form [formGroup]="filtrosForm" (ngSubmit)="buscar()" class="filters-grid">
-      <!-- 1ª linha: três campos -->
       <label>Status
         <select formControlName="status">
           <option value="">(todos)</option>
@@ -109,29 +137,27 @@
           <option value="PE">PE (Parcial encerrado)</option>
         </select>
       </label>
-
       <label>Fornecedor (ID ou Nome)
-        <input type="text" formControlName="fornecedor_input" />
+        <input type="text" formControlName="q_fornecedor" placeholder="ex.: 1 ou 'Fornecedor 01'"/>
       </label>
-
       <label>Loja (ID ou Nome)
-        <input type="text" formControlName="loja_input" />
+        <input type="text" formControlName="loja" placeholder="ex.: 1 ou 'Centro'"/>
       </label>
 
-      <!-- 2ª linha: as quatro datas na MESMA LINHA -->
-      <div class="dates-row">
-        <label>Emissão de
+      <!-- Linha única das datas -->
+      <div class="filters-dates">
+        <div>
+          <span>Emissão:</span>
           <input type="date" formControlName="emissao_de" />
-        </label>
-        <label>Emissão até
+          <span class="sep">até</span>
           <input type="date" formControlName="emissao_ate" />
-        </label>
-        <label>Entrega de
+        </div>
+        <div>
+          <span>Entrega:</span>
           <input type="date" formControlName="entrega_de" />
-        </label>
-        <label>Entrega até
+          <span class="sep">até</span>
           <input type="date" formControlName="entrega_ate" />
-        </label>
+        </div>
       </div>
 
       <div class="filters-actions">

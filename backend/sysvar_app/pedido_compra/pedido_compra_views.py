@@ -42,6 +42,7 @@ class PedidoCompraFilter(django_filters.FilterSet):
     """
     Filtros amigáveis:
       - status=AB|AP|CA
+      - tipo_pedido=revenda|consumo
       - emissao_de=YYYY-MM-DD
       - emissao_ate=YYYY-MM-DD
       - entrega_de=YYYY-MM-DD
@@ -53,6 +54,8 @@ class PedidoCompraFilter(django_filters.FilterSet):
       - ordering= -Datapedido,Idpedidocompra  (qualquer campo de listagem/detalhe)
     """
     status = django_filters.CharFilter(field_name="Status", lookup_expr="exact")
+    # <— adicionado: filtro por enum do modelo
+    tipo_pedido = django_filters.CharFilter(field_name="tipo_pedido", lookup_expr="exact")
 
     emissao_de = django_filters.DateFilter(field_name="Datapedido", lookup_expr="gte")
     emissao_ate = django_filters.DateFilter(field_name="Datapedido", lookup_expr="lte")
@@ -77,7 +80,7 @@ class PedidoCompraFilter(django_filters.FilterSet):
 
     class Meta:
         model = PedidoCompra
-        fields = []
+        fields = []  # mantido conforme seu arquivo original
 
     def filter_q_fornecedor(self, queryset, name, value):
         if not value:

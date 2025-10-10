@@ -35,6 +35,8 @@ export interface PedidoCompraCreateDTO {
   Idloja: number;
   Datapedido: string | null;
   Dataentrega: string | null;
+  // ⬇️ ADICIONADO
+  tipo_pedido: 'revenda' | 'consumo';
 }
 
 export interface PedidoItemDTO {
