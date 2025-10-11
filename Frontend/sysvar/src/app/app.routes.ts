@@ -55,6 +55,10 @@ export const routes: Routes = [
       { path: 'config/forma_pagamentos', component: FormaPagamentosComponent },
       
       { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
+
+
+
+
       { path: '', pathMatch: 'full', redirectTo: 'home' }
     ]
   },

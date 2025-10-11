@@ -1,7 +1,6 @@
-
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators, FormArray, FormGroup } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, FormArray, FormGroup, FormControl } from '@angular/forms';
 import {
   PedidosCompraService,
   PedidoCompraFiltro,
@@ -11,6 +10,10 @@ import {
   PedidoCompraDetail,
   PedidoItemDetail
 } from '../../../core/services/pedidos-compra.service';
+import {
+  FormaPagamentosService,
+  FormaPagamentoRow
+} from '../../../core/services/forma-pagamentos.service';
 
 @Component({
   standalone: true,
@@ -22,6 +25,7 @@ import {
 export class PedidosComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(PedidosCompraService);
+  private fpApi = inject(FormaPagamentosService);
 
   action: '' | 'novo' | 'consultar' | 'editar' = '';
 
@@ -39,8 +43,8 @@ export class PedidosComponent implements OnInit {
   // === Consulta ===
   filtrosForm = this.fb.nonNullable.group({
     status: [''],
-    fornecedor_input: [''],
-    loja_input: [''],
+    q_fornecedor: [''],
+    loja: [''],
     emissao_de: [''],
     emissao_ate: [''],
     entrega_de: [''],
@@ -49,6 +53,7 @@ export class PedidosComponent implements OnInit {
 
   // === Dados auxiliares ===
   lojas: Array<{ id: number; nome: string }> = [];
+  formas: FormaPagamentoRow[] = [];
   fornecedorNome = '';
   lojaNome = '';
   salvando = false;
@@ -60,6 +65,9 @@ export class PedidosComponent implements OnInit {
     Datapedido:   this.fb.nonNullable.control<string>(''),
     Dataentrega:  this.fb.nonNullable.control<string>(''),
     tipo_pedido:  this.fb.nonNullable.control<'revenda' | 'consumo'>('revenda'),
+    // Forma de pagamento (um dos dois campos pode ser usado)
+    forma_codigo: this.fb.nonNullable.control<string>(''),
+    forma_id:     this.fb.nonNullable.control<number | null>(null),
     itens: this.fb.array([]) as FormArray,
   });
   get itensFA(): FormArray { return this.novoForm.controls.itens as FormArray; }
@@ -73,7 +81,19 @@ export class PedidosComponent implements OnInit {
   editForm = this.fb.group({ itens: this.editItensFA });
   get editItensControls(): FormGroup[] { return (this.editItensFA.controls as FormGroup[]); }
 
+  // ---- Forma de Pagamento (edição) ----
+  fpCodigoCtrl = new FormControl<string>('', { nonNullable: true });
+  fpSelectCtrl = new FormControl<number | null>(null); // substitui ngModel
+  fpDetalhe = '';
+  fpParcelas: Array<{
+    parcela: number;
+    prazo_dias: number | null;
+    vencimento: string | null;
+    valor: number | string;
+  }> = [];
+
   ngOnInit(): void {
+    // Lojas
     this.api.listLojas().subscribe({
       next: (res: any[]) => {
         this.lojas = (res || [])
@@ -83,6 +103,13 @@ export class PedidosComponent implements OnInit {
       error: (_err: any) => {}
     });
 
+    // Formas de pagamento (para dropdown)
+    this.fpApi.listar({ ordering: 'descricao' }).subscribe({
+      next: (rows) => this.formas = rows || [],
+      error: (_e) => { /* silencioso */ }
+    });
+
+    // Reagir ao fornecedor digitado
     this.novoForm.controls.Idfornecedor.valueChanges.subscribe(v => {
       this.fornecedorNome = '';
       if (v !== null && !Number.isNaN(v)) {
@@ -93,24 +120,26 @@ export class PedidosComponent implements OnInit {
       }
     });
 
+    // Nome da loja
     this.novoForm.controls.Idloja.valueChanges.subscribe(v => {
       const found = this.lojas.find(l => l.id === Number(v));
       this.lojaNome = found ? found.nome : '';
     });
 
-    // Inicializa o formulário "Novo" LIMPO na primeira carga
+    // Inicializa o formulário "Novo" LIMPO
     this.resetNovoForm();
   }
 
   // Rotina centralizada para limpar o formulário "Novo"
   private resetNovoForm(): void {
-    // limpa cabeçalho
     this.novoForm.reset({
       Idfornecedor: null,
       Idloja: null,
       Datapedido: '',
       Dataentrega: '',
-      tipo_pedido: 'revenda'
+      tipo_pedido: 'revenda',
+      forma_codigo: '',
+      forma_id: null
     });
     this.fornecedorNome = '';
     this.lojaNome = '';
@@ -139,7 +168,6 @@ export class PedidosComponent implements OnInit {
     }
   }
 
-  // NOVO: botão Cancelar/Voltar
   cancelarNovo() {
     this.resetNovoForm();
     this.setAction('');
@@ -156,8 +184,8 @@ export class PedidosComponent implements OnInit {
     const s = (v: string) => (v?.trim() ? v.trim() : undefined);
     const isNum = (txt?: string) => !!txt && /^[0-9]+$/.test(txt.trim());
 
-    const fornecedorTxt = s(raw.fornecedor_input);
-    const lojaTxt = s(raw.loja_input);
+    const fornecedorTxt = s(raw.q_fornecedor);
+    const lojaTxt = s(raw.loja);
 
     const filtro: PedidoCompraFiltro = {
       ordering: this.ordering(),
@@ -195,8 +223,8 @@ export class PedidosComponent implements OnInit {
   limparFiltros(): void {
     this.filtrosForm.reset({
       status: '',
-      fornecedor_input: '',
-      loja_input: '',
+      q_fornecedor: '',
+      loja: '',
       emissao_de: '', emissao_ate: '', entrega_de: '', entrega_ate: '',
     });
     this.ordering.set('-Datapedido,Idpedidocompra');
@@ -338,7 +366,20 @@ export class PedidosComponent implements OnInit {
 
     this.salvando = true;
     try {
-      await this.api.createWithItems(header, itens);
+      const created = await this.api.createWithItems(header, itens);
+
+      // ——— APLICA FORMA DE PAGAMENTO (se informado no formulário)
+      const codigo = (r.forma_codigo || '').trim();
+      const formaId = r.forma_id != null ? Number(r.forma_id) : null;
+
+      if (created?.Idpedidocompra && (codigo || formaId)) {
+        const payload: any = {};
+        if (codigo) payload.codigo = codigo;
+        if (!codigo && formaId) payload.Idformapagamento = formaId;
+
+        await this.api.setFormaPagamento(created.Idpedidocompra, payload).toPromise();
+      }
+
       this.successMsg = 'Pedido criado com sucesso.';
       this.setAction('consultar');
       this.buscar();
@@ -386,6 +427,7 @@ export class PedidosComponent implements OnInit {
 
     this.api.getById(row.Idpedidocompra).subscribe({
       next: (det: PedidoCompraDetail) => {
+        // Itens
         while (this.editItensFA.length) this.editItensFA.removeAt(0);
         (det.itens || []).forEach((it: PedidoItemDetail) => {
           this.editItensFA.push(
@@ -400,6 +442,17 @@ export class PedidosComponent implements OnInit {
             }) as any
           );
         });
+
+        // Forma de pagamento (estado visual)
+        this.fpCodigoCtrl.setValue(det.condicao_pagamento || '');
+        this.fpDetalhe = det.condicao_pagamento_detalhe || '';
+        this.fpParcelas = (det.parcelas || []).map(p => ({
+          parcela: p.parcela,
+          prazo_dias: p.prazo_dias,
+          vencimento: p.vencimento,
+          valor: p.valor
+        }));
+
         this.action = 'editar';
       },
       error: (_err: any) => { this.errorMsg = 'Falha ao carregar itens para edição.'; }
@@ -413,6 +466,35 @@ export class PedidosComponent implements OnInit {
     const d  = Number(g.get('Desconto')?.value) || 0;
     const t = Math.max(q * pu - d, 0);
     g.get('Total_item')?.setValue(t);
+  }
+
+  // Aplica forma de pagamento durante a edição e atualiza parcelas na tela
+  aplicarFormaPagamentoEditar() {
+    if (!this.editingId) return;
+    const codigo = (this.fpCodigoCtrl.value || '').trim();
+    const selId = this.fpSelectCtrl.value != null ? Number(this.fpSelectCtrl.value) : null;
+
+    const payload: any = {};
+    if (codigo) payload.codigo = codigo;
+    else if (selId) payload.Idformapagamento = selId;
+    else { this.errorMsg = 'Informe o código ou selecione uma forma.'; return; }
+
+    this.api.setFormaPagamento(this.editingId, payload).subscribe({
+      next: (det: PedidoCompraDetail) => {
+        this.successMsg = 'Forma de pagamento aplicada.';
+        this.fpCodigoCtrl.setValue(det.condicao_pagamento || '');
+        this.fpDetalhe = det.condicao_pagamento_detalhe || '';
+        this.fpParcelas = (det.parcelas || []).map(p => ({
+          parcela: p.parcela,
+          prazo_dias: p.prazo_dias,
+          vencimento: p.vencimento,
+          valor: p.valor
+        }));
+      },
+      error: (_e) => {
+        this.errorMsg = 'Não foi possível aplicar a forma de pagamento.';
+      }
+    });
   }
 
   salvarEdicao() {

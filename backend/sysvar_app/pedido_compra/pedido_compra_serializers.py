@@ -10,6 +10,7 @@ from ..models import (
     PedidoCompraItem,
     PedidoCompraEntrega,
     Produto,
+    PedidoCompraParcela,
 )
 
 ZERO = Decimal("0")
@@ -211,11 +212,31 @@ class PedidoCompraEntregaSerializer(serializers.ModelSerializer):
         return attrs
 
 
+# --- NOVO: Serializer para as parcelas do pedido ---
+class PedidoCompraParcelaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PedidoCompraParcela
+        fields = [
+            "Idpc_parcela",
+            "pedido",
+            "parcela",
+            "prazo_dias",
+            "vencimento",
+            "valor",
+            "forma",
+            "observacao",
+            "data_cadastro",
+        ]
+        read_only_fields = ["Idpc_parcela", "pedido", "data_cadastro"]
+
+
 class PedidoCompraDetailSerializer(serializers.ModelSerializer):
     fornecedor_nome = serializers.CharField(source="Idfornecedor.Nome_fornecedor", read_only=True)
     loja_nome = serializers.CharField(source="Idloja.nome_loja", read_only=True)
     itens = PedidoCompraItemSerializer(source="pedidocompraitem_set", many=True, read_only=True)
     entregas = PedidoCompraEntregaSerializer(many=True, read_only=True)
+    # NOVO: expõe as parcelas geradas para este pedido
+    parcelas = PedidoCompraParcelaSerializer(source="parcelas_rel", many=True, read_only=True)
     # legenda do choice (somente leitura)
     tipo_pedido_display = serializers.CharField(source="get_tipo_pedido_display", read_only=True)
 
@@ -233,9 +254,9 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
             # ⬇️ formas de pagamento (detalhe – read/write conforme modelo)
             "condicao_pagamento",
             "condicao_pagamento_detalhe",
-            "parcelas",
-            "tipo_pedido",          # <— adicionado (gravável)
-            "tipo_pedido_display",  # <— adicionado (read-only)
+            "parcelas",                  # ⬅️ NOVO (lista detalhada)
+            "tipo_pedido",               # <— gravável
+            "tipo_pedido_display",       # <— read-only
             "tolerancia_qtd_percent",
             "tolerancia_preco_percent",
             "fornecedor_nome",

@@ -65,7 +65,7 @@
         </div>
       </div>
 
-      <!-- Linha: Tipo de Pedido (em linha separada, sem mexer layout) -->
+      <!-- Linha: Tipo de Pedido -->
       <div class="form-row two-cols">
         <div class="label">Tipo de Pedido</div>
         <div class="field">
@@ -73,6 +73,28 @@
             <option value="revenda">Revenda</option>
             <option value="consumo">Uso/Consumo</option>
           </select>
+        </div>
+      </div>
+
+      <!-- Linha: Forma de Pagamento (N O V O) -->
+      <div class="card" style="margin:8px 0; padding:10px;">
+        <h4>Forma de Pagamento</h4>
+        <div class="form-row two-cols">
+          <div class="label">Código</div>
+          <div class="field">
+            <input type="text" formControlName="forma_codigo" placeholder="Ex.: 01 ou 02" />
+            <small class="muted">Se preencher código, ele será priorizado.</small>
+          </div>
+
+          <div class="label">Selecionar</div>
+          <div class="field">
+            <select formControlName="forma_id">
+              <option [ngValue]="null">(não selecionar)</option>
+              <option *ngFor="let f of formas" [ngValue]="f.Idformapagamento">
+                {{ f.codigo }} — {{ f.descricao }} ({{ f.num_parcelas }}x)
+              </option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -115,7 +137,6 @@
         <button class="btn btn-primary" type="submit" [disabled]="salvando || !fornecedorValido || !lojaValida">
           Salvar
         </button>
-        <!-- NOVO: botão Voltar/Cancelar (lado do Salvar) -->
         <button class="btn" type="button" (click)="cancelarNovo()">Cancelar</button>
       </div>
     </form>
@@ -140,11 +161,10 @@
       <label>Fornecedor (ID ou Nome)
         <input type="text" formControlName="q_fornecedor" placeholder="ex.: 1 ou 'Fornecedor 01'"/>
       </label>
-      <label>Loja (ID ou Nome)
-        <input type="text" formControlName="loja" placeholder="ex.: 1 ou 'Centro'"/>
+      <label>Loja (ID)
+        <input type="text" formControlName="loja" placeholder="ex.: 1"/>
       </label>
 
-      <!-- Linha única das datas -->
       <div class="filters-dates">
         <div>
           <span>Emissão:</span>
@@ -213,6 +233,55 @@
         <input type="date" formControlName="Dataentrega" />
       </label>
     </form>
+
+    <!-- BLOCO: Forma de Pagamento na Edição -->
+    <div class="card" style="margin:10px 0; padding:10px;">
+      <h4>Forma de Pagamento</h4>
+
+      <div class="form-row two-cols">
+        <div class="label">Código</div>
+        <div class="field">
+          <input type="text" [formControl]="fpCodigoCtrl" placeholder="Ex.: 01" />
+          <small class="muted">Atual: <strong>{{ fpCodigoCtrl.value || '—' }}</strong> — {{ fpDetalhe || 'sem detalhe' }}</small>
+        </div>
+
+        <div class="label">Selecionar</div>
+        <div class="field">
+          <select [formControl]="fpSelectCtrl">
+            <option [ngValue]="null">(não selecionar)</option>
+            <option *ngFor="let f of formas" [ngValue]="f.Idformapagamento">
+              {{ f.codigo }} — {{ f.descricao }} ({{ f.num_parcelas }}x)
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions" style="margin-top:8px;">
+        <button class="btn btn-primary" type="button" (click)="aplicarFormaPagamentoEditar()">Aplicar / Recalcular parcelas</button>
+      </div>
+
+      <div *ngIf="fpParcelas?.length" style="margin-top:10px;">
+        <h5>Parcelas</h5>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Prazo (dias)</th>
+              <th>Vencimento</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of fpParcelas">
+              <td>{{ p.parcela }}</td>
+              <td>{{ p.prazo_dias ?? '—' }}</td>
+              <td>{{ p.vencimento | date:'dd/MM/yyyy' }}</td>
+              <td>{{ p.valor | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
     <form [formGroup]="editForm" style="margin-top:12px;">
       <div class="items">

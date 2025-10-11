@@ -1,3 +1,4 @@
+// src/app/core/services/pedidos-compra.service.ts
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -13,6 +14,8 @@ export interface PedidoCompraRow {
   Valorpedido: number | string;
   fornecedor_nome: string;
   loja_nome: string;
+  // (opcional) se o backend expõe na lista:
+  condicao_pagamento?: string | null;
 }
 
 export interface PedidoCompraFiltro {
@@ -21,7 +24,6 @@ export interface PedidoCompraFiltro {
   fornecedor?: number;
   q_fornecedor?: string;
   loja?: number;
-  doc?: string;
   emissao_de?: string;
   emissao_ate?: string;
   entrega_de?: string;
@@ -57,6 +59,18 @@ export interface PedidoItemDetail {
   Total_item: number;
 }
 
+export interface PedidoParcela {
+  Idpc_parcela: number;
+  pedido: number;
+  parcela: number;
+  prazo_dias: number | null;
+  vencimento: string | null;   // ISO date
+  valor: number | string;
+  forma: string | null;
+  observacao: string | null;
+  data_cadastro: string;
+}
+
 export interface PedidoCompraDetail {
   Idpedidocompra: number;
   Documento: string | null;
@@ -69,8 +83,19 @@ export interface PedidoCompraDetail {
   Idloja: number;
   fornecedor_nome: string;
   loja_nome: string;
+
+  condicao_pagamento?: string | null;           // ex.: "01"
+  condicao_pagamento_detalhe?: string | null;   // ex.: "30 dias"
+  parcelas?: PedidoParcela[];
+
   itens: PedidoItemDetail[];
 }
+
+// payload aceito pela ação set-forma-pagamento
+export type SetFormaPagamentoPayload = {
+  codigo?: string;              // ex.: "01"
+  Idformapagamento?: number;    // ex.: 15
+};
 
 @Injectable({ providedIn: 'root' })
 export class PedidosCompraService {
@@ -91,7 +116,6 @@ export class PedidosCompraService {
     add('fornecedor', f.fornecedor);
     add('q_fornecedor', f.q_fornecedor);
     add('loja', f.loja);
-    add('doc', f.doc);
     add('emissao_de', f.emissao_de);
     add('emissao_ate', f.emissao_ate);
     add('entrega_de', f.entrega_de);
@@ -156,6 +180,19 @@ export class PedidosCompraService {
     return this.http.post<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/duplicar/`, {});
   }
 
+  // --------- Forma de Pagamento no Pedido (CORRIGIDO) ----------
+  /**
+   * Aplica forma de pagamento no cabeçalho do pedido.
+   * Envie:
+   *   { codigo: '01' }  OU  { Idformapagamento: 15 }
+   */
+  setFormaPagamento(pedidoId: number, payload: SetFormaPagamentoPayload) {
+    return this.http.post<PedidoCompraDetail>(
+      `${this.base}/pedidos-compra/${pedidoId}/set-forma-pagamento/`,
+      payload
+    );
+  }
+
   // --------- Apoio (lookups) ----------
   getProdutoById(id: number) {
     return this.http.get<any>(`${this.base}/produtos/${id}/`);
@@ -167,3 +204,4 @@ export class PedidosCompraService {
     return this.http.get<any[]>(`${this.base}/lojas/`);
   }
 }
+

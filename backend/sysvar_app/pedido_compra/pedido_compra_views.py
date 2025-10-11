@@ -1,4 +1,6 @@
-from decimal import Decimal
+from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.db import transaction
 from django.utils import timezone
 from django.db.models import Q
@@ -11,7 +13,11 @@ from ..models import (
     PedidoCompra,
     PedidoCompraItem,
     PedidoCompraEntrega,
+    PedidoCompraParcela,  # ⬅️ NOVO
 )
+
+# Importa formas de pagamento para aplicar na action
+from sysvar_app.models import FormaPagamento, FormaPagamentoParcela
 
 # NOTE: mantemos o nome do módulo conforme seu projeto
 from .pedido_compra_serializers import (
@@ -25,9 +31,9 @@ from .pedido_compra_serializers import (
 STATUS_ABERTO = "AB"
 STATUS_APROVADO = "AP"
 STATUS_CANCELADO = "CA"
-STATUS_ATENDIDO = "AT"  
+STATUS_ATENDIDO = "AT"
 STATUS_PARCIAL_ABERTO = "PA"
-STATUS_PARCIAL_ENCERRADO = "PE"  
+STATUS_PARCIAL_ENCERRADO = "PE"
 
 
 # Mapa simples de transições permitidas
@@ -101,6 +107,7 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
       - /pedidos-compra/{id}/cancelar/   (body opcional: {"motivo": "..."} — somente informativo por ora)
       - /pedidos-compra/{id}/reabrir/
       - /pedidos-compra/{id}/duplicar/   (cria novo pedido com mesmos itens)
+      - /pedidos-compra/{id}/set-forma-pagamento/  (aplica forma por código ou Id e gera parcelas)
     """
     permission_classes = [permissions.IsAuthenticated]
     queryset = PedidoCompra.objects.all().select_related("Idfornecedor", "Idloja")
@@ -123,9 +130,14 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     def _agora_data(self):
         return timezone.localdate()
 
+    def _quantize(self, v: Decimal) -> Decimal:
+        return (v or Decimal("0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     @transaction.atomic
     @action(detail=True, methods=["post"])
     def aprovar(self, request, pk=None):
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer  # evitar confusão de import circular
+
         pedido: PedidoCompra = self.get_object()
 
         if not self._pode_mudar(pedido.Status, STATUS_APROVADO):
@@ -153,6 +165,8 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     @action(detail=True, methods=["post"])
     def cancelar(self, request, pk=None):
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer
+
         pedido: PedidoCompra = self.get_object()
 
         if not self._pode_mudar(pedido.Status, STATUS_CANCELADO):
@@ -172,6 +186,8 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     @action(detail=True, methods=["post"])
     def reabrir(self, request, pk=None):
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer
+
         pedido: PedidoCompra = self.get_object()
 
         if not self._pode_mudar(pedido.Status, STATUS_ABERTO):
@@ -189,6 +205,8 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     @action(detail=True, methods=["post"])
     def duplicar(self, request, pk=None):
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer
+
         pedido: PedidoCompra = self.get_object()
 
         novo = PedidoCompra.objects.create(
@@ -249,6 +267,116 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
 
         ser = PedidoCompraDetailSerializer(novo, context={"request": request})
         return Response(ser.data, status=status.HTTP_201_CREATED)
+
+    # ------------------------------
+    # Helpers de forma de pagamento
+    # ------------------------------
+    def _aplicar_forma_pagamento(self, pedido: PedidoCompra, forma: FormaPagamento):
+        """
+        Sincroniza cabeçalho e gera PedidoCompraParcela a partir da FormaPagamentoParcela.
+        """
+        # Atualiza cabeçalho
+        pedido.condicao_pagamento = forma.codigo
+        pedido.condicao_pagamento_detalhe = forma.descricao
+        pedido.parcelas = forma.num_parcelas
+        pedido.save(update_fields=["condicao_pagamento", "condicao_pagamento_detalhe", "parcelas"])
+
+        # Limpa parcelas antigas
+        PedidoCompraParcela.objects.filter(pedido=pedido).delete()
+
+        # Base para cálculo
+        total = pedido.Valorpedido or Decimal("0")
+        base_dt = pedido.Datapedido or self._agora_data()
+
+        linhas = []
+
+        defs = list(
+            FormaPagamentoParcela.objects
+            .filter(forma=forma)
+            .order_by("ordem")
+            .values("ordem", "dias", "percentual", "valor_fixo")
+        )
+
+        # Se não existir definição de parcelas, cria 1 parcela à vista
+        if not defs:
+            defs = [{"ordem": 1, "dias": 0, "percentual": Decimal("100"), "valor_fixo": Decimal("0")}]
+
+        # primeiro passa: calcula valores por percentual/fixo
+        valores = []
+        for d in defs:
+            perc = Decimal(str(d.get("percentual") or "0"))
+            fixo = Decimal(str(d.get("valor_fixo") or "0"))
+            if perc > 0:
+                val = self._quantize(total * (perc / Decimal("100")))
+            elif fixo > 0:
+                val = self._quantize(fixo)
+            else:
+                val = Decimal("0.00")
+            valores.append(val)
+
+        # Ajuste da última parcela para fechar com total (se total > 0)
+        if total > 0 and valores:
+            diff = self._quantize(total - sum(valores))
+            valores[-1] = self._quantize(valores[-1] + diff)
+
+        # monta linhas
+        for i, d in enumerate(defs):
+            prazo = int(d.get("dias") or 0)
+            venc = base_dt + timedelta(days=prazo)
+            linhas.append(PedidoCompraParcela(
+                pedido=pedido,
+                parcela=int(d.get("ordem") or (i + 1)),
+                prazo_dias=prazo,
+                vencimento=venc,
+                valor=valores[i],
+                forma=forma.codigo,
+                observacao=None,
+            ))
+
+        if linhas:
+            PedidoCompraParcela.objects.bulk_create(linhas)
+
+    # ------------------------------
+    # Action: aplicar forma por código ou id
+    # ------------------------------
+    @transaction.atomic
+    @action(detail=True, methods=["post"], url_path="set-forma-pagamento")
+    def set_forma_pagamento(self, request, pk=None):
+        """
+        Body aceito:
+          {"codigo": "99"}  ou  {"Idformapagamento": 15}
+        Aplica forma no pedido, atualiza cabeçalho e gera parcelas.
+        """
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer  # local para evitar ciclos
+
+        pedido: PedidoCompra = self.get_object()
+        data = request.data or {}
+
+        forma = None
+        codigo = data.get("codigo")
+        forma_id = data.get("Idformapagamento")
+
+        if codigo:
+            try:
+                forma = FormaPagamento.objects.get(codigo=codigo)
+            except FormaPagamento.DoesNotExist:
+                return Response({"detail": f"Forma com código '{codigo}' não encontrada."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        elif forma_id:
+            try:
+                forma = FormaPagamento.objects.get(pk=forma_id)
+            except FormaPagamento.DoesNotExist:
+                return Response({"detail": f"Forma com ID {forma_id} não encontrada."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"detail": "Informe 'codigo' ou 'Idformapagamento'."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        self._aplicar_forma_pagamento(pedido, forma)
+
+        # retorna detalhe completo (com parcelas)
+        ser = PedidoCompraDetailSerializer(pedido, context={"request": request})
+        return Response(ser.data, status=status.HTTP_200_OK)
 
 
 class PedidoCompraItemViewSet(viewsets.ModelViewSet):
