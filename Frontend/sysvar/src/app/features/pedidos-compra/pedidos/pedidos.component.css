@@ -52,3 +52,62 @@ th { cursor:pointer; user-select:none; background:#fafafa; }
   .form-row.four-cols { grid-template-columns: 1fr; }
   .form-row .label { margin-top:8px; }
 }
+
+/* ====== Overrides sutis: bordas mais visíveis (somente nesta página) ====== */
+.pc-page .card {
+  border-width: 2px;          /* antes era 1px */
+  border-color: #d1d1d1;      /* um tom um pouco mais forte */
+}
+
+.pc-page .table-wrap {
+  border-width: 2px;          /* moldura do bloco de tabela */
+  border-color: #d1d1d1;
+}
+
+/* Linhas internas das TABELAS de listagem */
+.pc-page .table-wrap table th,
+.pc-page .table-wrap table td {
+  border-bottom-width: 2px;   /* antes 1px */
+  border-bottom-color: #e0e0e0;
+}
+
+/* Linhas internas da tabela de ITENS (novo/editar) */
+.pc-page .items table th,
+.pc-page .items table td {
+  border-bottom-width: 2px;   /* antes 1px */
+  border-bottom-color: #dddddd;
+}
+
+/* (opcional) cabeçalho da tabela um pouco mais marcado */
+.pc-page thead th {
+  border-bottom-width: 2px;
+  border-bottom-color: #cfcfcf;
+}
+
+/* ===== Consulta: afastar "Entrega" mais para a direita ===== */
+.pc-page .filters-dates {
+  display: flex;              /* garante flex (já estava) */
+  align-items: center;
+  gap: 24px;                  /* mantém o espaçamento padrão */
+}
+
+.pc-page .filters-dates > div:last-child {
+  margin-left: 190px;          /* empurra o bloco "Entrega" para o lado direito */
+}
+
+/* Em telas pequenas, volta ao layout empilhado sem “empurrar” */
+@media (max-width: 900px) {
+  .pc-page .filters-dates > div:last-child {
+    margin-left: 0;
+  }
+}
+
+/* Afasta os botões da moldura/tabela abaixo */
+.pc-page .filters-actions {
+  margin-bottom: 16px;  /* ajuste: 12–24px conforme seu gosto */
+}
+
+/* Afasta o bloco dos botões Salvar/Cancelar do “+ Adicionar item” */
+.pc-page .items-actions {
+  margin-bottom: 16px;  /* ajuste 12–24px conforme preferir */
+}
