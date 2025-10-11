@@ -4,6 +4,7 @@
     <div class="actions-right">
       <button class="btn btn-light" (click)="setAction('novo')">Novo</button>
       <button class="btn btn-light" (click)="setAction('consultar')">Consultar</button>
+      <button class="btn btn-light" [routerLink]="['/home']">Home</button>
     </div>
   </div>
 
@@ -254,6 +255,9 @@
         <div class="col" style="display:flex; gap:8px;">
           <button class="btn btn-primary" type="button" (click)="buscarProduto(refProcura.value)">Buscar</button>
           <button class="btn" type="button" (click)="limparBusca(refProcura)">Limpar</button>
+          <!-- forma mais simples -->
+          <button  class="btn" [routerLink]="['/home']">Home</button>
+
         </div>
       </div>
 

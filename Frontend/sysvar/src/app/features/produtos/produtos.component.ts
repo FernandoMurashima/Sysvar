@@ -18,6 +18,7 @@ import { LojasSelectorComponent } from '../../shared/lojas-selector/lojas-select
 // + NOVOS imports (lookup + model básico)
 import { ProdutoLookupComponent } from './produto-lookup/produto-lookup.component';
 import { ProdutoBasic } from '../../core/models/produto-basic.model';
+import { Router, RouterLink } from '@angular/router';
 
 import { GrupoModel } from '../../core/models/grupo';
 import { SubgrupoModel } from '../../core/models/subgrupo';
@@ -35,7 +36,7 @@ type Ncm = { ncm: string; descricao?: string };
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, LojasSelectorComponent, ProdutoLookupComponent],
+  imports: [CommonModule, FormsModule, LojasSelectorComponent, ProdutoLookupComponent, RouterLink], 
   templateUrl: './produtos.component.html',
   styleUrls: ['./produtos.component.css']
 })

@@ -1,34 +1,45 @@
-/* base (mesmo visual dos outros cadastros) */
-.clientes-page { display: flex; flex-direction: column; gap: 12px; }
+/* Reaproveita o visual do cadastro de clientes */
 
+/* página */
+.clientes-page { display: flex; flex-direction: column; gap: 12px; border-style: solid; margin-left: 5px; padding-bottom: 5px; padding-top: 5px; margin-right: 5px ; }
+
+/* toolbar */
 .toolbar {
   display: flex; align-items: center; justify-content: space-between;
   padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;
 }
-.toolbar h2 { margin: 0; }
-.toolbar-actions { display: flex; gap: 8px; align-items: center; }
+.toolbar h2 { margin: 5px; }
+.toolbar-actions { display: flex; gap: 8px; align-items: center; margin-right: 5px;}
 .toolbar-actions input {
-  min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #e5e7eb;
+  min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #0a0a0a;
 }
 
+
+/* conteúdo vertical */
 .content { display: flex; flex-direction: column; gap: 16px; }
 
+/* alerts */
 .alert { padding: 10px 12px; border-radius: 8px; }
 .alert.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
 .alert.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
 
-.card { background:#fff; border:1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+/* cards */
+.card { background:#98bbd3; border:1px solid #0a0a0a; border-radius: 10px; padding: 12px; margin-left: 5px; margin-right: 5px; }
 
+/* lista */
 .table { width: 100%; border-collapse: collapse; }
 .table thead th {
-  background:#f8fafc; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
+  background:#a2c4e7; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
   padding: 10px 12px;
 }
-.table td { border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle; }
+.table td {
+  border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle;
+}
 .table .email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 .actions { display:flex; gap:6px; }
 .loading, .empty-hint { text-align:center; color:#64748b; padding: 12px; }
 
+/* formulário */
 .form h3 { margin: 0 0 10px 0; }
 .grid-10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
 label { display: grid; gap: 6px; font-size: 14px; }
@@ -42,6 +53,7 @@ input, select {
 
 .actions-form { margin-top: 12px; display: flex; gap: 8px; }
 
+/* botões */
 .btn { padding: 8px 12px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; cursor: pointer; }
 .btn:hover { background: #f8fafc; }
 .btn.primary { background: #111827; color: #fff; border-color: #111827; }
@@ -51,27 +63,43 @@ input, select {
 .btn.danger { border-color: #fecaca; color: #991b1b; }
 .btn.danger:hover { background: #fef2f2; }
 
-/* grid positions */
-#nome-box        { grid-column: 1 / span 6; }
-#apelido-box     { grid-column: 7 / span 2; }
-#cpf-box         { grid-column: 1 / span 3; }
+/* posicionamento 10 colunas (semelhante ao de clientes) */
+#nome-box           { grid-column: 1 / span 6; }
+#apelido-box        { grid-column: 7 / span 2; }
+#cnpj-box           { grid-column: 1 / span 3; }
+#email-box          { grid-column: 4 / span 4; }
 
-#categoria-box   { grid-column: 4 / span 2; }
-#meta-box        { grid-column: 6 / span 2; }
-#loja-box        { grid-column: 8 / span 3; }
+#tipo-box           { grid-column: 1 / span 1; }
+#endereco-box       { grid-column: 2 / span 7; }
+#numero-box         { grid-column: 9 / span 2; }
 
-#inicio-box      { grid-column: 1 / span 3; }
-#fim-box         { grid-column: 4 / span 3; }
+#complemento-box    { grid-column: 1 / span 10; }
+
+#cep-box            { grid-column: 1 / span 2; }
+#bairro-box         { grid-column: 3 / span 3; }
+#cidade-box         { grid-column: 6 / span 3; }
+#telefone1-box      { grid-column: 9 / span 2; }
+
+#telefone2-box      { grid-column: 1 / span 2; }
+#conta-contabil-box { grid-column: 3 / span 3; }
+#abertura-box       { grid-column: 6 / span 2; }
+#encerramento-box   { grid-column: 8 / span 3; }
+
+#estoque-neg-box    { grid-column: 1 / span 2; }
+#rede-box           { grid-column: 3 / span 2; }
+#matriz-box         { grid-column: 5 / span 2; }
 
 /* responsivo */
 @media (max-width: 600px) {
   .grid-10 { grid-template-columns: 1fr; }
-  #nome-box, #apelido-box, #cpf-box,
-  #categoria-box, #meta-box, #loja-box,
-  #inicio-box, #fim-box { grid-column: 1 / -1; }
+  #nome-box, #apelido-box, #cnpj-box, #email-box,
+  #tipo-box, #endereco-box, #numero-box, #complemento-box,
+  #cep-box, #bairro-box, #cidade-box, #telefone1-box, #telefone2-box,
+  #conta-contabil-box, #abertura-box, #encerramento-box,
+  #estoque-neg-box, #rede-box, #matriz-box { grid-column: 1 / -1; }
 }
 
-/* overlay & placeholder */
+/* overlay (mesmo padrão do clientes) */
 .overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.25);
   display: flex; align-items: center; justify-content: center; z-index: 60;
@@ -84,5 +112,6 @@ input, select {
 .overlay-card ul { margin: 8px 0 0 18px; }
 .overlay-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 
+/* placeholder */
 .form-placeholder { display:flex; align-items:center; justify-content:center; min-height: 120px; }
 .placeholder-inner { color:#64748b; text-align:center; }

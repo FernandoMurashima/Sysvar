@@ -1,18 +1,19 @@
 /* Reaproveita o visual do cadastro de clientes */
 
 /* página */
-.clientes-page { display: flex; flex-direction: column; gap: 12px; }
+.clientes-page { display: flex; flex-direction: column; gap: 12px; border-style: solid; margin-left: 5px; padding-bottom: 5px; padding-top: 5px; margin-right: 5px ; }
 
 /* toolbar */
 .toolbar {
   display: flex; align-items: center; justify-content: space-between;
   padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;
 }
-.toolbar h2 { margin: 0; }
-.toolbar-actions { display: flex; gap: 8px; align-items: center; }
+.toolbar h2 { margin: 5px; }
+.toolbar-actions { display: flex; gap: 8px; align-items: center; margin-right: 5px;}
 .toolbar-actions input {
-  min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #e5e7eb;
+  min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #0a0a0a;
 }
+
 
 /* conteúdo vertical */
 .content { display: flex; flex-direction: column; gap: 16px; }
@@ -23,12 +24,12 @@
 .alert.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
 
 /* cards */
-.card { background:#fff; border:1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+.card { background:#98bbd3; border:1px solid #0a0a0a; border-radius: 10px; padding: 12px; margin-left: 5px; margin-right: 5px; }
 
 /* lista */
 .table { width: 100%; border-collapse: collapse; }
 .table thead th {
-  background:#f8fafc; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
+  background:#a2c4e7; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
   padding: 10px 12px;
 }
 .table td {

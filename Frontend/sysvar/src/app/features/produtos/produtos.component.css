@@ -1,6 +1,8 @@
 /* ===== PRODUTO – layout amplo ===== */
 
 /* Header centralizado */
+
+.prod-page {background-color: #6b7280; border: 2px solid; margin-left: 5px; border-radius: 8px; }
 .prod-page .page-header {
   display: flex;
   align-items: center;
@@ -10,7 +12,8 @@
   margin: 12px 0 16px;
   margin-bottom: 10px;
 }
-.prod-page .page-header h2 { margin: 0; text-align: center; }
+.prod-page .page-header { background-color: #6b7280;}
+.prod-page .page-header h2 { margin: 0; text-align: center;  }
 .prod-page .actions-right { display: flex; gap: 8px; }
 
 /* Alertas */
@@ -30,11 +33,14 @@
 .prod-page .card,
 .prod-page section.card,
 .prod-page .card.form-placeholder {
-  background:#fff;
+  background:#c9d7e2;
   border:1px solid #e5e7eb;
   border-radius:8px;
   padding:16px;
   width: 96%;
+  margin-left: 15px;
+  margin-right: 10px;
+  margin-bottom: 15px;
 }
 
 /* Grid base */
