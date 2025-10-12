@@ -9,8 +9,8 @@ from sysvar_app.views import (
     EstoqueViewSet, FornecedorViewSet, VendedorViewSet, FuncionariosViewSet,
     GradeViewSet, TamanhoViewSet, CorViewSet, ColecaoViewSet, FamiliaViewSet,
     UnidadeViewSet, GrupoViewSet, SubgrupoViewSet, CodigosViewSet, TabelaprecoViewSet,
-    NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet,
-    health, register, login_view, me, logout_view
+    NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet, 
+    health, register, login_view, me, logout_view, NatLancamentoViewSet
 )
 
 
@@ -40,6 +40,8 @@ router.register(r'tabelaprecos', TabelaprecoViewSet, basename='tabelaprecos')
 router.register(r'tabelaprecoitem', TabelaPrecoItemViewSet, basename='tabelaprecoitem')
 router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet, basename='fornecedor-sku-map')
 router.register(r'auditoria-logs', AuditoriaLogViewSet, basename='auditoria-logs')
+router.register(r'nat-lancamentos', NatLancamentoViewSet, basename='nat-lancamentos')
+
 
 urlpatterns = [
     path('api/health/', health),

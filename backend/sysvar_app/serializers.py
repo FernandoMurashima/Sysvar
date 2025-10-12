@@ -10,8 +10,7 @@ from .models import (
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
     Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco, Ncm,
     TabelaPrecoItem,
-    NFeEntrada, NFeItem, FornecedorSkuMap
-)
+    NFeEntrada, NFeItem, FornecedorSkuMap, Nat_Lancamento)
 
 # =============================
 # USER (para /api/users/)
@@ -154,6 +153,12 @@ class UnidadeSerializer(serializers.ModelSerializer):
         model = Unidade
         fields = '__all__'
         read_only_fields = ['Idunidade', 'data_cadastro']
+
+class NatLancamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Nat_Lancamento
+        fields = '__all__'
+        read_only_fields = ['idnatureza']
 
 
 class CodigosSerializer(serializers.ModelSerializer):

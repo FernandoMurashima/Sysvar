@@ -22,7 +22,7 @@ from .models import (
     Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm,
     TabelaPrecoItem,
     # modelos fiscais / compras
-    NFeEntrada, NFeItem, FornecedorSkuMap, MovimentacaoProdutos, 
+    NFeEntrada, NFeItem, FornecedorSkuMap, MovimentacaoProdutos, Nat_Lancamento
 )
 from .serializers import (
     UserSerializer,
@@ -30,7 +30,7 @@ from .serializers import (
     FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer,
     CorSerializer, ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer,
     SubgrupoSerializer, CodigosSerializer, TabelaprecoSerializer, NcmSerializer,
-    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer, TabelaPrecoItemSerializer
+    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer, TabelaPrecoItemSerializer,NatLancamentoSerializer
 )
 
 # -------------------------
@@ -920,6 +920,16 @@ class UnidadeViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'Codigo']
     ordering_fields = ['data_cadastro', 'Descricao', 'Codigo']
+
+class NatLancamentoViewSet(viewsets.ModelViewSet):
+    queryset = Nat_Lancamento.objects.all().order_by('codigo')
+    serializer_class = NatLancamentoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    # filtros/ordenacoes coerentes com os campos do modelo
+    search_fields = ['codigo', 'descricao', 'categoria_principal', 'subcategoria', 'tipo', 'status', 'tipo_natureza']
+    ordering_fields = ['codigo', 'descricao', 'categoria_principal', 'subcategoria', 'tipo', 'status', 'tipo_natureza']
+    filterset_fields = ['tipo', 'status', 'tipo_natureza']
 
 
 class CodigosViewSet(viewsets.ModelViewSet):

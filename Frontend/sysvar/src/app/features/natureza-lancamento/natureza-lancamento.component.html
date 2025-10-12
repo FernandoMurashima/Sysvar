@@ -1,0 +1,189 @@
+<!-- app/core/features/natureza-lancamento/natureza-lancamento.component.html -->
+<div class="clientes-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Natureza de Lançamento</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por código, descrição, categoria..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn primary" (click)="doSearch()">Buscar</button>
+      <button class="btn primary" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Novo</button>
+      <!-- <button class="btn primary" [routerLink]="['/home']">Home</button> -->
+    </div>
+  </header>
+
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <div class="content">
+    <!-- Placeholder quando o form estiver fechado -->
+    <section class="card form-placeholder" *ngIf="!showForm">
+      <div class="placeholder-inner">
+        <p>Para cadastrar uma natureza, clique em <strong>Novo</strong>.</p>
+        <p>Para editar, localize na lista e clique em <strong>Editar</strong>.</p>
+      </div>
+    </section>
+
+    <!-- FORM -->
+    <section class="card form" *ngIf="showForm">
+      <h3>{{ editingId ? 'Editar Natureza' : 'Nova Natureza' }}</h3>
+
+      <div *ngIf="(submitted || form.touched) && form.invalid" class="alert error">
+        Existem {{ getFormErrors().length }} campo(s) com problema.
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+          <!-- Linha 1 -->
+          <label id="codigo-box" class="input-item" [class.invalid]="form.get('codigo')?.invalid && (form.get('codigo')?.touched || submitted)">
+            Código*
+            <input type="text" formControlName="codigo"
+                   [attr.aria-invalid]="form.get('codigo')?.invalid && (form.get('codigo')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('codigo')?.touched || submitted">
+              <ng-container *ngIf="form.get('codigo')?.errors?.['required']">Informe o código.</ng-container>
+              <ng-container *ngIf="form.get('codigo')?.errors?.['maxlength']">Máx. 10 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('codigo')?.errors?.['server']">{{ form.get('codigo')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="categoria-box" class="input-item" [class.invalid]="form.get('categoria_principal')?.invalid && (form.get('categoria_principal')?.touched || submitted)">
+            Categoria Principal*
+            <input type="text" formControlName="categoria_principal"
+                   [attr.aria-invalid]="form.get('categoria_principal')?.invalid && (form.get('categoria_principal')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('categoria_principal')?.touched || submitted">
+              <ng-container *ngIf="form.get('categoria_principal')?.errors?.['required']">Informe a categoria.</ng-container>
+              <ng-container *ngIf="form.get('categoria_principal')?.errors?.['maxlength']">Máx. 50 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('categoria_principal')?.errors?.['server']">{{ form.get('categoria_principal')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="subcategoria-box" class="input-item" [class.invalid]="form.get('subcategoria')?.invalid && (form.get('subcategoria')?.touched || submitted)">
+            Subcategoria*
+            <input type="text" formControlName="subcategoria"
+                   [attr.aria-invalid]="form.get('subcategoria')?.invalid && (form.get('subcategoria')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('subcategoria')?.touched || submitted">
+              <ng-container *ngIf="form.get('subcategoria')?.errors?.['required']">Informe a subcategoria.</ng-container>
+              <ng-container *ngIf="form.get('subcategoria')?.errors?.['maxlength']">Máx. 50 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('subcategoria')?.errors?.['server']">{{ form.get('subcategoria')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- Linha 2 -->
+          <label id="descricao-box" class="input-item col-2" [class.invalid]="form.get('descricao')?.invalid && (form.get('descricao')?.touched || submitted)">
+            Descrição*
+            <input type="text" formControlName="descricao"
+                   [attr.aria-invalid]="form.get('descricao')?.invalid && (form.get('descricao')?.touched || submitted) ? 'true' : null" />
+            <span class="field-error" *ngIf="form.get('descricao')?.touched || submitted">
+              <ng-container *ngIf="form.get('descricao')?.errors?.['required']">Informe a descrição.</ng-container>
+              <ng-container *ngIf="form.get('descricao')?.errors?.['maxlength']">Máx. 255 caracteres.</ng-container>
+              <ng-container *ngIf="form.get('descricao')?.errors?.['server']">{{ form.get('descricao')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <!-- Linha 3 -->
+          <label id="tipo-box" class="input-item" [class.invalid]="form.get('tipo')?.invalid && (form.get('tipo')?.touched || submitted)">
+            Tipo*
+            <select formControlName="tipo"
+                    [attr.aria-invalid]="form.get('tipo')?.invalid && (form.get('tipo')?.touched || submitted) ? 'true' : null">
+              <option value="" disabled>Selecione</option>
+              <option *ngFor="let op of tipoOptions" [value]="op">{{ op }}</option>
+            </select>
+            <span class="field-error" *ngIf="form.get('tipo')?.touched || submitted">
+              <ng-container *ngIf="form.get('tipo')?.errors?.['required']">Selecione o tipo.</ng-container>
+              <ng-container *ngIf="form.get('tipo')?.errors?.['server']">{{ form.get('tipo')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="status-box" class="input-item" [class.invalid]="form.get('status')?.invalid && (form.get('status')?.touched || submitted)">
+            Status*
+            <select formControlName="status"
+                    [attr.aria-invalid]="form.get('status')?.invalid && (form.get('status')?.touched || submitted) ? 'true' : null">
+              <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+            </select>
+            <span class="field-error" *ngIf="form.get('status')?.touched || submitted">
+              <ng-container *ngIf="form.get('status')?.errors?.['required']">Selecione o status.</ng-container>
+              <ng-container *ngIf="form.get('status')?.errors?.['server']">{{ form.get('status')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+
+          <label id="natureza-box" class="input-item" [class.invalid]="form.get('tipo_natureza')?.invalid && (form.get('tipo_natureza')?.touched || submitted)">
+            Natureza*
+            <select formControlName="tipo_natureza"
+                    [attr.aria-invalid]="form.get('tipo_natureza')?.invalid && (form.get('tipo_natureza')?.touched || submitted) ? 'true' : null">
+              <option *ngFor="let n of naturezaOptions" [value]="n">{{ n }}</option>
+            </select>
+            <span class="field-error" *ngIf="form.get('tipo_natureza')?.touched || submitted">
+              <ng-container *ngIf="form.get('tipo_natureza')?.errors?.['required']">Selecione a natureza.</ng-container>
+              <ng-container *ngIf="form.get('tipo_natureza')?.errors?.['server']">{{ form.get('tipo_natureza')?.errors?.['server'] }}</ng-container>
+            </span>
+          </label>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+            {{ editingId ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="empty-hint" *ngIf="!loading && natlances.length === 0">
+        Nenhuma natureza encontrada.
+      </div>
+
+      <table class="table" *ngIf="natlances.length > 0">
+        <thead>
+          <tr>
+            <th style="width:110px;">Código</th>
+            <th>Categoria</th>
+            <th>Subcategoria</th>
+            <th>Descrição</th>
+            <th style="width:150px;">Tipo</th>
+            <th style="width:110px;">Status</th>
+            <th style="width:120px;">Natureza</th>
+            <th style="width:140px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let n of natlances">
+            <td>{{ n.codigo }}</td>
+            <td>{{ n.categoria_principal }}</td>
+            <td>{{ n.subcategoria }}</td>
+            <td>{{ n.descricao }}</td>
+            <td>{{ n.tipo }}</td>
+            <td>{{ n.status }}</td>
+            <td>{{ n.tipo_natureza }}</td>
+            <td class="actions">
+              <button class="btn sm" (click)="editar(n)">Editar</button>
+              <button class="btn sm danger" (click)="excluir(n)">Excluir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="loading" *ngIf="loading">Carregando...</div>
+    </section>
+  </div>
+
+  <!-- OVERLAY ERROS -->
+  <div class="overlay" *ngIf="errorOverlayOpen" role="alertdialog" aria-modal="true">
+    <div class="overlay-card">
+      <h4>Ops! Revise as informações</h4>
+      <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
+      <ul>
+        <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+      </ul>
+      <div class="overlay-actions">
+        <button class="btn primary" type="button" (click)="closeErrorOverlay()">OK, vou corrigir</button>
+      </div>
+    </div>
+  </div>
+</div>
+

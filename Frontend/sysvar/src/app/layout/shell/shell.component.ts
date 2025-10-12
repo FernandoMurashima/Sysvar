@@ -106,13 +106,14 @@ export class ShellComponent {
     {
       label: 'Configurações', icon: 'bi bi-gear', roles: ['Regular'],
       children: [
-        { label: 'Usuários',            link: '/config/usuarios',           icon: 'bi bi-person-gear',  roles: ['Regular'] },
-        { label: 'Perfis/Acessos',      link: '/config/perfis',             icon: 'bi bi-shield-lock',  roles: ['Regular'] },
-        { label: 'Parâmetros',          link: '/config/parametros',         icon: 'bi bi-sliders',      roles: ['Regular'] },
-        { label: 'Tabela de Preços',    link: '/config/precos',             icon: 'bi bi-table',        roles: ['Regular'] },
-        { label: 'Impostos / NCM',      link: '/config/impostos',           icon: 'bi bi-percent',      roles: ['Regular'] },
-        { label: 'Estoque Lançamento',  link: '/config/estoque-lancamento', icon: 'bi bi-percent',      roles: ['Regular'] },
-        { label: 'Formas de Pagamento', link: '/config/forma_pagamentos',   icon: 'bi bi-percent',      roles: ['Regular'] },
+        { label: 'Usuários',               link: '/config/usuarios',           icon: 'bi bi-person-gear',  roles: ['Regular'] },
+        { label: 'Perfis/Acessos',         link: '/config/perfis',             icon: 'bi bi-shield-lock',  roles: ['Regular'] },
+        { label: 'Modelo de Documentos',   link: '/config/modelos',            icon: 'bi bi-sliders',      roles: ['Regular'] },
+        { label: 'Natureza de Lançamento', link: '/config/contas',             icon: 'bi bi-sliders',      roles: ['Regular'] },
+        { label: 'Tabela de Preços',       link: '/config/precos',             icon: 'bi bi-table',        roles: ['Regular'] },
+        { label: 'Impostos / NCM',         link: '/config/impostos',           icon: 'bi bi-percent',      roles: ['Regular'] },
+        { label: 'Estoque Lançamento',     link: '/config/estoque-lancamento', icon: 'bi bi-percent',      roles: ['Regular'] },
+        { label: 'Formas de Pagamento',    link: '/config/forma_pagamentos',   icon: 'bi bi-percent',      roles: ['Regular'] },
         
       ]
     },

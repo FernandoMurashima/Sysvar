@@ -23,7 +23,7 @@ import { TabelasPrecoComponent } from './features/tabelas-preco/tabelas-preco.co
 import { ProdutosComponent } from './features/produtos/produtos.component';
 import { EstoqueLancamentoComponent } from './features/estoque-lancamento/estoque-lancamento.component';
 import { FormaPagamentosComponent } from './features/forma-pagamentos/forma-pagamentos.component';
-
+import { NaturezaLancamentoComponent } from './features/natureza-lancamento/natureza-lancamento.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -53,6 +53,8 @@ export const routes: Routes = [
       { path: 'produtos', component: ProdutosComponent },
       { path: 'config/estoque-lancamento', component: EstoqueLancamentoComponent },
       { path: 'config/forma_pagamentos', component: FormaPagamentosComponent },
+      { path: 'config/contas',  component: NaturezaLancamentoComponent},
+
       
       { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
 
