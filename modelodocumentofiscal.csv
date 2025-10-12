@@ -1,0 +1,35 @@
+1;Nota Fiscal;01/01/2009;
+2;Nota Fiscal de Venda a Consumidor;01/01/2009;
+4;Nota Fiscal de Produtor;01/01/2009;
+6;Nota Fiscal/Conta de Energia Elétrica;01/01/2009
+7;Nota Fiscal de Serviço de Transporte;01/01/2009
+8;Conhecimento de Transporte Rodoviário de Cargas;01/01/2009
+9;Conhecimento de Transporte Aquaviário de Cargas;01/01/2009
+10;Conhecimento Aéreo;01/01/2009
+11;Conhecimento de Transporte Ferroviário de Cargas;01/01/2009
+13;Bilhete de Passagem Rodoviário;01/01/2009
+14;Bilhete de Passagem Aquaviário;01/01/2009
+15;Bilhete de Passagem e Nota de Bagagem;01/01/2009;
+16;Bilhete de Passagem Ferroviário;01/01/2009
+17;Despacho de Transporte;01/01/2009;"
+18;Resumo de Movimento Diário;01/01/2009
+20;Ordem de Coleta de Cargas;01/01/2009;
+21;Nota Fiscal de Serviço de Comunicação;01/01/20
+22;Nota Fiscal de Serviço de Telecomunicação;01/01/20
+23;GNRE;01/01/2009;
+24;Autorização de Carregamento e Transporte;01/01/200
+25;Manifesto de Carga;01/01/2009;
+26;Conhecimento de Transporte Multimodal de Cargas;01/01/2009;
+27;Nota Fiscal de Transporte Ferroviário de Cargas;01/01/2009
+28;Nota Fiscal/Conta de Fornecimento de Gás Canalizado;01/01/2009
+29;Nota Fiscal/Conta de Fornecimento de água Canalizada;01/01/2009
+30;Bilhete/Recibo do Passageiro;01/01/2009;
+55;Nota Fiscal Eletrônica;01/01/2009
+57;Conhecimento de Transporte Eletrônico - CT-e;01/01/2009
+59;Cupom Fiscal Eletrônico - CF-e;01/06/2011
+60;Cupom Fiscal Eletrônico CF-e-ECF;01/01/2013
+65;Nota Fiscal Eletrônica ao Consumidor Final - NFC-e;01/10/2013
+1B;Nota Fiscal Avulsa;01/01/2009;
+2D;Cupom Fiscal emitido por ECF;01/01/2009;
+2E;Bilhete de Passagem emitido por ECF;01/01/2009;
+8B;Conhecimento de Transporte de Cargas Avulso;01/01/2009;

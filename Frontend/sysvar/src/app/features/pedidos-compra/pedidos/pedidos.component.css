@@ -1,113 +1,298 @@
-.pc-page .page-header { display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; margin:12px 0 16px; }
-.pc-page .actions-right { display:flex; gap:8px; }
-.alert { padding:8px 10px; border-radius:6px; margin:6px 0; }
-.alert.error { background:#ffe9e9; color:#9b1c1c; }
-.alert.success { background:#e9ffef; color:#1b7b34; }
-.alert.info { background:#eef5ff; color:#103d79; }
-.card { border:1px solid #eaeaea; border-radius:8px; padding:12px; margin-bottom:12px; }
-.form-placeholder { display:grid; place-items:center; min-height:160px; }
-.placeholder-inner { text-align:center; opacity:.85; }
+/* Reaproveita o visual do cadastro de clientes */
 
-.grid { display:grid; grid-template-columns:repeat(2, minmax(220px,1fr)); gap:12px; }
+/* página */
+.clientes-page { display: flex; flex-direction: column; gap: 12px; border-style: solid; margin-left: 5px; padding-bottom: 5px; padding-top: 5px; margin-right: 5px ; }
 
-.items table { width:100%; border-collapse:collapse; }
-.items th, .items td { padding:8px 10px; border-bottom:1px solid #eee; }
-.items-actions { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
-.total { font-size:1rem; }
-
-.filters-grid { display:grid; grid-template-columns:repeat(3, minmax(220px,1fr)); gap:12px; align-items:end; }
-.filters-actions { grid-column:1/-1; display:flex; gap:8px; }
-.filters-dates { grid-column:1/-1; display:flex; gap:24px; align-items:center; flex-wrap:wrap; }
-.filters-dates .sep { margin:0 6px; opacity:.8; }
-
-.table-wrap { overflow:auto; border:1px solid #eaeaea; border-radius:6px; }
-table { width:100%; border-collapse:collapse; }
-th, td { padding:10px 12px; border-bottom:1px solid #eee; text-align:left; }
-th { cursor:pointer; user-select:none; background:#fafafa; }
-
-.btn { padding:6px 10px; border:1px solid #ddd; border-radius:6px; background:#fff; }
-.btn.btn-light { background:#fff; }
-.btn.btn-primary { background:#0d6efd; border-color:#0d6efd; color:#fff; }
-.btn.btn-danger { background:#dc3545; border-color:#dc3545; color:#fff; }
-.muted { color:#666; font-size:.85rem; }
-.muted.warn { color:#9b1c1c; }
-
-/* ---------- NOVO: layout com rótulo à esquerda ---------- */
-.form-row { display:grid; gap:10px 12px; margin-bottom:10px; align-items:center; }
-.form-row.two-cols { grid-template-columns: 140px 1fr 140px 1fr; }
-.form-row.four-cols { grid-template-columns: 140px 1fr 140px 1fr; }
-
-.form-row .label { font-weight:600; }
-.form-row .field { display:block; }
-
-.inline { display:flex; align-items:center; gap:8px; }
-.id-input { width:100px; }
-.name-input { flex:1 1 0; max-width:480px; }
-
-/* Responsivo */
-@media (max-width: 900px) {
-  .filters-grid { grid-template-columns:1fr; }
-  .filters-dates { flex-direction:column; align-items:flex-start; gap:10px; }
-  .form-row.two-cols,
-  .form-row.four-cols { grid-template-columns: 1fr; }
-  .form-row .label { margin-top:8px; }
+/* toolbar */
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;
+}
+.toolbar h2 { margin: 5px; }
+.toolbar-actions { display: flex; gap: 8px; align-items: center; margin-right: 5px;}
+.toolbar-actions input {
+  min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #0a0a0a;
 }
 
-/* ====== Overrides sutis: bordas mais visíveis (somente nesta página) ====== */
-.pc-page .card {
-  border-width: 2px;          /* antes era 1px */
-  border-color: #d1d1d1;      /* um tom um pouco mais forte */
+
+/* conteúdo vertical */
+.content { display: flex; flex-direction: column; gap: 16px; }
+
+/* alerts */
+.alert { padding: 10px 12px; border-radius: 8px; }
+.alert.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+.alert.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+
+/* cards */
+.card { background:#98bbd3; border:1px solid #0a0a0a; border-radius: 10px; padding: 12px; margin-left: 5px; margin-right: 5px; margin-top: 5px; }
+
+/* lista */
+.table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.table thead th {
+  background:#a2c4e7; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
+  padding: 10px 12px;
+}
+.table td {
+  border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle;
+}
+.table .email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.actions { display:flex; gap:6px; }
+.loading, .empty-hint { text-align:center; color:#64748b; padding: 12px; }
+
+/* formulário */
+.form h3 { margin: 0 0 10px 0; }
+.grid-10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+label { display: grid; gap: 6px; font-size: 14px; }
+input, select {
+  padding: 8px 10px; border-radius: 8px; border: 1px solid #e5e7eb; outline: none;
+}
+.input-item.invalid input, .input-item.invalid select, input[aria-invalid="true"] {
+  border-color: #ef4444; background: #fef2f2;
+}
+.field-error { color:#b91c1c; font-size: 12px; min-height: 16px; }
+
+.actions-form { margin-top: 12px; display: flex; gap: 8px; }
+
+/* botões */
+.btn { padding: 8px 12px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; cursor: pointer; }
+.btn:hover { background: #f8fafc; }
+.btn.primary { background: #111827; color: #fff; border-color: #111827; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 6px 10px; font-size: 13px; }
+.btn.danger { border-color: #fecaca; color: #991b1b; }
+.btn.danger:hover { background: #fef2f2; }
+
+/* posicionamento 10 colunas (semelhante ao de clientes) */
+#nome-box           { grid-column: 1 / span 6; }
+#apelido-box        { grid-column: 7 / span 2; }
+#cnpj-box           { grid-column: 1 / span 3; }
+#email-box          { grid-column: 4 / span 4; }
+
+#tipo-box           { grid-column: 1 / span 1; }
+#endereco-box       { grid-column: 2 / span 7; }
+#numero-box         { grid-column: 9 / span 2; }
+
+#complemento-box    { grid-column: 1 / span 10; }
+
+#cep-box            { grid-column: 1 / span 2; }
+#bairro-box         { grid-column: 3 / span 3; }
+#cidade-box         { grid-column: 6 / span 3; }
+#telefone1-box      { grid-column: 9 / span 2; }
+
+#telefone2-box      { grid-column: 1 / span 2; }
+#conta-contabil-box { grid-column: 3 / span 3; }
+#abertura-box       { grid-column: 6 / span 2; }
+#encerramento-box   { grid-column: 8 / span 3; }
+
+#estoque-neg-box    { grid-column: 1 / span 2; }
+#rede-box           { grid-column: 3 / span 2; }
+#matriz-box         { grid-column: 5 / span 2; }
+
+/* responsivo */
+@media (max-width: 600px) {
+  .grid-10 { grid-template-columns: 1fr; }
+  #nome-box, #apelido-box, #cnpj-box, #email-box,
+  #tipo-box, #endereco-box, #numero-box, #complemento-box,
+  #cep-box, #bairro-box, #cidade-box, #telefone1-box, #telefone2-box,
+  #conta-contabil-box, #abertura-box, #encerramento-box,
+  #estoque-neg-box, #rede-box, #matriz-box { grid-column: 1 / -1; }
 }
 
-.pc-page .table-wrap {
-  border-width: 2px;          /* moldura do bloco de tabela */
-  border-color: #d1d1d1;
+/* overlay (mesmo padrão do clientes) */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.25);
+  display: flex; align-items: center; justify-content: center; z-index: 60;
+}
+.overlay-card {
+  background: #fff; border-radius: 12px; padding: 16px; width: 520px; max-width: calc(100% - 24px);
+  border: 1px solid #e5e7eb; box-shadow: 0 10px 30px rgba(0,0,0,.15);
+}
+.overlay-card h4 { margin: 0 0 8px; }
+.overlay-card ul { margin: 8px 0 0 18px; }
+.overlay-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+/* placeholder */
+.form-placeholder { display:flex; align-items:center; justify-content:center; min-height: 120px; }
+.placeholder-inner { color:#64748b; text-align:center; }
+
+/* === Utilitários de grid para o NOVO === */
+.form-row { display: grid; gap: 10px 12px; align-items: end; }
+.form-row.row-3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-row.row-2 { grid-template-columns: 1fr 1fr; }
+
+.field-block .label { margin-bottom: 4px; font-weight: 500; }
+.inline-pair { display: grid; grid-template-columns: 120px 1fr; gap: 8px; }
+
+/* Botão "Adicionar item" embaixo e total em linha própria */
+.items-actions.stacked {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+.total-line {
+  text-align: right;
+  margin-top: 6px;
+  font-size: 15px;
+}
+.total-line strong { font-weight: 700; }
+
+/* Respiro entre itens e botões Salvar/Cancelar */
+.spaced-top { margin-top: 12px; }
+
+/* (duplicatas preservadas do arquivo original para não quebrar nada) */
+.form-row { display: grid; gap: 10px 12px; align-items: end; }
+.form-row.row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+@media (max-width: 720px) {
+  .form-row.row-3 { grid-template-columns: 1fr; }
 }
 
-/* Linhas internas das TABELAS de listagem */
-.pc-page .table-wrap table th,
-.pc-page .table-wrap table td {
-  border-bottom-width: 2px;   /* antes 1px */
-  border-bottom-color: #e0e0e0;
-}
+/* utilitários já usados no bloco de cima */
+.form-row { display: grid; gap: 10px 12px; align-items: center; }
+.form-row.row-2 { grid-template-columns: 1fr 1fr; }
 
-/* Linhas internas da tabela de ITENS (novo/editar) */
-.pc-page .items table th,
-.pc-page .items table td {
-  border-bottom-width: 2px;   /* antes 1px */
-  border-bottom-color: #dddddd;
-}
-
-/* (opcional) cabeçalho da tabela um pouco mais marcado */
-.pc-page thead th {
-  border-bottom-width: 2px;
-  border-bottom-color: #cfcfcf;
-}
-
-/* ===== Consulta: afastar "Entrega" mais para a direita ===== */
-.pc-page .filters-dates {
-  display: flex;              /* garante flex (já estava) */
+/* linha com rótulo e dois inputs na mesma linha */
+.range-line {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr; /* label | de | "até" | até */
+  gap: 8px;
   align-items: center;
-  gap: 24px;                  /* mantém o espaçamento padrão */
+}
+.range-line .inline { margin: 0; white-space: nowrap; }
+.range-line .sep { opacity: .8; }
+
+/* responsivo: empilha as duas colunas */
+@media (max-width: 720px) {
+  .form-row.row-2 { grid-template-columns: 1fr; }
 }
 
-.pc-page .filters-dates > div:last-child {
-  margin-left: 190px;          /* empurra o bloco "Entrega" para o lado direito */
+/* Linha de datas com mais espaço lateral entre os blocos Emissão/Entrega */
+.form-row.row-2 { grid-template-columns: 1fr 1fr; column-gap: 18px; }
+
+/* Afastamento vertical dessa linha em relação às demais */
+.form-row.row-2.dates-row {
+  margin-top: 14px;
+  margin-bottom: 14px;
+  row-gap: 12px; /* caso empilhe no mobile */
 }
 
-/* Em telas pequenas, volta ao layout empilhado sem “empurrar” */
-@media (max-width: 900px) {
-  .pc-page .filters-dates > div:last-child {
-    margin-left: 0;
+/* Label, inputs e "até" na MESMA linha com respiros maiores */
+.range-line {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto minmax(180px, 1fr); /* label | de | 'até' | até */
+  column-gap: 14px;  /* espaço entre as “caixinhas” */
+  align-items: center;
+}
+
+/* Respiro extra após o texto "Emissão:" / "Entrega:" */
+.range-line .inline {
+  margin: 0;
+  white-space: nowrap;
+  padding-right: 12px; /* dá o “: ” mais espaçado antes do 1º input */
+}
+
+/* "até" com espaço dos dois lados */
+.range-line .sep {
+  margin: 0 12px;
+  opacity: .85;
+}
+
+/* inputs com leve respiro interno consistente */
+.range-line input[type="date"] {
+  padding: 8px 10px;
+}
+
+/* Responsivo: empilha os dois blocos mantendo respiros */
+@media (max-width: 720px) {
+  .form-row.row-2 { grid-template-columns: 1fr; }
+  .range-line {
+    grid-template-columns: auto 1fr auto 1fr;
+    column-gap: 10px;
   }
+  .form-row.row-2.dates-row { margin-top: 12px; margin-bottom: 12px; }
 }
 
-/* Afasta os botões da moldura/tabela abaixo */
-.pc-page .filters-actions {
-  margin-bottom: 16px;  /* ajuste: 12–24px conforme seu gosto */
+/* Linha com label e campo lado a lado (igual ao padrão da 2ª linha) */
+.pair-line {
+  display: grid;
+  grid-template-columns: auto 1fr; /* label | campo */
+  gap: 12px;
+  align-items: center;
+}
+.pair-line .inline {
+  margin: 0;
+  white-space: nowrap;
+  padding-right: 12px; /* respiro após o rótulo */
 }
 
-/* Afasta o bloco dos botões Salvar/Cancelar do “+ Adicionar item” */
-.pc-page .items-actions {
-  margin-bottom: 16px;  /* ajuste 12–24px conforme preferir */
+/* Responsivo: empilha mantendo respiro */
+@media (max-width: 720px) {
+  .pair-line { grid-template-columns: auto 1fr; gap: 10px; }
 }
+
+/* === EDITAR: linha inline (Data de Entrega + FP) === */
+.edit-inline-row{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: end;
+  margin: 8px 5px 12px 5px; /* respiro com blocos acima/abaixo */
+}
+.edit-inline-row .pair{
+  display: grid;
+  grid-template-columns: auto 1fr; /* label | campo */
+  gap: 10px;
+  align-items: center;
+}
+.edit-inline-row .pair.apply{
+  grid-template-columns: 1fr; /* só o botão */
+}
+.edit-inline-row label.inline{
+  margin:0;
+  white-space: nowrap;
+  padding-right:10px;
+}
+
+/* larguras mínimas para manter proporção visual da linha */
+.edit-inline-row input[type="date"]{ min-width: 180px; }
+.edit-inline-row input[type="text"]{ min-width: 120px; }
+.edit-inline-row select{ min-width: 220px; }
+.desc-readonly{
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:8px;
+  padding:8px 10px;
+  min-width: 260px;
+}
+
+/* responsivo da linha de edição */
+@media (max-width: 1024px){
+  .edit-inline-row{ gap: 10px 12px; }
+}
+@media (max-width: 720px){
+  .edit-inline-row{ align-items: stretch; }
+  .edit-inline-row .pair{ grid-template-columns: auto 1fr; }
+  .edit-inline-row select{ min-width: 0; width: 100%; }
+  .desc-readonly{ min-width: 0; width: 100%; }
+}
+
+/* Tabela ocupar 100% da largura do card (da seção CONSULTAR) */
+.table-full { width: 100%; table-layout: fixed; }
+
+/* Colunas com larguras amigáveis */
+.table-full th, .table-full td { padding: 10px 12px; }
+.table-full .col-date   { width: 120px; }
+.table-full .col-id     { width: 140px; white-space: nowrap; }
+.table-full .col-money  { width: 140px; text-align: right; }
+.table-full .col-status { width: 110px; white-space: nowrap; }
+.table-full .col-text   { overflow: hidden; text-overflow: ellipsis; }
+
+/* Ações: ocupar bem o espaço e quebrar quando precisar */
+.table-full .col-actions { width: 320px; }
+.actions-wrap {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start;
+}
+
+/* Responsivo: permite scroll horizontal suave se necessário */
+.table-wrap { overflow-x: auto; }

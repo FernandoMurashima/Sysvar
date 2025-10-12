@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-
+import {Router} from '@angular/router';
 import { GruposService } from '../../core/services/grupos.service';
 import { SubgruposService } from '../../core/services/subgrupos.service';
 import { GrupoModel } from '../../core/models/grupo';
@@ -11,7 +11,7 @@ import { SubgrupoModel } from '../../core/models/subgrupo';
 @Component({
   selector: 'app-grupos',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ],
   templateUrl: './grupos.component.html',
   styleUrls: ['./grupos.component.css']
 })
@@ -19,6 +19,11 @@ export class GruposComponent implements OnInit {
   private fb = inject(FormBuilder);
   private gruposApi = inject(GruposService);
   private subgruposApi = inject(SubgruposService);
+  constructor(private router: Router) {}
+
+  goHome() {
+    this.router.navigate(['/home']);
+  }
 
   loading = false;
   saving = false;

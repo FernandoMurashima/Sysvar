@@ -7,10 +7,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { UnidadesService } from '../../core/services/unidades.service';
 import { Unidade } from '../../core/models/unidade';
 
+import { RouterLink } from '@angular/router';
+
 @Component({
   selector: 'app-unidades',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './unidades.component.html',
   styleUrls: ['./unidades.component.css']
 })
@@ -55,7 +57,9 @@ export class UnidadesComponent implements OnInit {
   }
 
   onSearchKeyup(ev: KeyboardEvent) { if (ev.key === 'Enter') this.load(); }
+  
   doSearch() { this.load(); }
+  
   clearSearch() { this.search = ''; this.load(); }
 
   // ===== CRUD =====

@@ -2,14 +2,14 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
-
+import { Router, RouterLink } from '@angular/router';
 import { LojasService } from '../../core/services/lojas.service';
 import { Loja } from '../../core/models/loja';
 
 @Component({
   selector: 'app-lojas',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './lojas.component.html',
   styleUrls: ['./lojas.component.css']
 })

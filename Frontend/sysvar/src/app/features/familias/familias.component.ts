@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import {Router, RouterLink} from '@angular/router';
 
 import { FamiliasService } from '../../core/services/familias.service';
 import { Familia } from '../../core/models/familia';
@@ -10,13 +11,18 @@ import { Familia } from '../../core/models/familia';
 @Component({
   selector: 'app-familias',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, ],
   templateUrl: './familias.component.html',
   styleUrls: ['./familias.component.css']
 })
 export class FamiliasComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(FamiliasService);
+
+  constructor(private router: Router) {}
+
+ 
+
 
   loading = false;
   saving = false;
@@ -155,6 +161,10 @@ export class FamiliasComponent implements OnInit {
   fieldInvalid(name: string) {
     const c = this.form.get(name);
     return (c?.touched || this.submitted) && c?.invalid;
+  }
+ 
+  irParaHome() {
+    this.router.navigate(['/home']);
   }
 
   getFormErrors(): string[] {

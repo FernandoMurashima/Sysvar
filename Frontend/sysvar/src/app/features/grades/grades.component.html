@@ -1,7 +1,7 @@
 <div class="grades-page">
   <!-- TOOLBAR -->
   <header class="toolbar">
-    <h2>Grades</h2>
+    <h2>Grade</h2>
     <div class="toolbar-actions">
       <input
         type="text"
@@ -9,9 +9,10 @@
         [(ngModel)]="search"
         (keyup)="onSearchKeyup($event)"
       />
-      <button class="btn" (click)="doSearch()">Buscar</button>
-      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
-      <button class="btn primary" (click)="novaGrade()">Nova Grade</button>
+      <button class="btn primary" (click)="doSearch()">Buscar</button>
+      <button class="btn primary" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novaGrade()">Nova</button>
+      <button class="btn primary" [routerLink]="['/home']">Home</button>
     </div>
   </header>
 

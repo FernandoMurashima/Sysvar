@@ -11,10 +11,12 @@ import {
   FormaPagamentoFiltro
 } from '../../core/services/forma-pagamentos.service';
 
+import { RouterLink } from '@angular/router';
+
 @Component({
   selector: 'app-forma-pagamentos',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './forma-pagamentos.component.html',
   styleUrls: ['./forma-pagamentos.component.css']
 })

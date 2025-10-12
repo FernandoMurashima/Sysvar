@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { FornecedoresService } from '../../core/services/fornecedores.service';
 import { Fornecedor } from '../../core/models/fornecedor';
@@ -9,7 +10,7 @@ import { Fornecedor } from '../../core/models/fornecedor';
 @Component({
   selector: 'app-fornecedores',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './fornecedores.component.html',
   styleUrls: ['./fornecedores.component.css']
 })

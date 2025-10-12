@@ -15,10 +15,13 @@ import {
   FormaPagamentoRow
 } from '../../../core/services/forma-pagamentos.service';
 
+import { RouterLink } from '@angular/router';
+
+
 @Component({
   standalone: true,
   selector: 'app-pedidos',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './pedidos.component.html',
   styleUrls: ['./pedidos.component.css']
 })

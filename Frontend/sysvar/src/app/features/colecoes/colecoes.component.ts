@@ -6,10 +6,12 @@ import { FormsModule } from '@angular/forms';
 import { ColecoesService } from '../../core/services/colecoes.service';
 import { Colecao } from '../../core/models/colecoes';
 
+import { RouterLink } from '@angular/router';
+
 @Component({
   selector: 'app-colecoes',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink], 
   templateUrl: './colecoes.component.html',
   styleUrls: ['./colecoes.component.css']
 })

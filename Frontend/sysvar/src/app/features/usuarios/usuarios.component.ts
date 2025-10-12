@@ -9,6 +9,8 @@ import { User } from '../../core/models/user';
 // NOVO: trazer as lojas para um <select>
 import { LojasService } from '../../core/services/lojas.service';
 
+import {Router} from "@angular/router";
+
 type Loja = {
   Idloja: number;
   nome_loja?: string;
@@ -18,7 +20,7 @@ type Loja = {
 @Component({
   selector: 'app-usuarios',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule,],
   templateUrl: './usuarios.component.html',
   styleUrls: ['./usuarios.component.css']
 })
@@ -26,6 +28,11 @@ export class UsuariosComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(UsersService);
   private lojasApi = inject(LojasService); // NOVO
+  constructor(private router: Router) {}
+
+  goHome() {
+    this.router.navigate(['/home']);
+  }
 
   loading = false;
   saving = false;

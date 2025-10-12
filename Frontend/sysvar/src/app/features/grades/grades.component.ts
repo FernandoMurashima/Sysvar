@@ -9,10 +9,12 @@ import { TamanhosService } from '../../core/services/tamanhos.service';
 import { Grade } from '../../core/models/grade';
 import { TamanhoModel } from '../../core/models/tamanho';
 
+import { RouterLink } from '@angular/router';
+
 @Component({
   selector: 'app-grades',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './grades.component.html',
   styleUrls: ['./grades.component.css']
 })

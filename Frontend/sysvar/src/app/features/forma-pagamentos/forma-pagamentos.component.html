@@ -1,22 +1,32 @@
 <!-- src/app/features/forma-pagamentos/forma-pagamentos.component.html -->
-<section class="toolbar card">
-  <div class="left">
-    <input #q class="inp" type="text" placeholder="Buscar por código ou descrição…" [value]="search" (input)="onSearch(q.value)" />
-    <button class="btn" (click)="reload()">Buscar</button>
-    <button class="btn ghost" (click)="clearSearch()">Limpar</button>
-  </div>
-  <div class="right">
-    <label>Ordenar:</label>
-    <select #ord class="inp" [value]="ordering" (change)="changeOrdering(ord.value)">
-      <option value="descricao">Descrição (A→Z)</option>
-      <option value="-descricao">Descrição (Z→A)</option>
-      <option value="codigo">Código (A→Z)</option>
-      <option value="-codigo">Código (Z→A)</option>
-    </select>
-    <button class="btn primary" (click)="startCreate()">Nova forma</button>
-  </div>
-</section>
+  <header class="toolbar">
+    <h2>Formas de Pagamento</h2>
+    
+    <div class="toolbar-actions">
+      <input #q class="inp" type="text" placeholder="Buscar por código ou descrição…" [value]="search" (input)="onSearch(q.value)" />
+      <button class="btn primary" (click)="reload()">Buscar</button>
+      <button class="btn primary" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="startCreate()">Nova forma</button>
 
+      <select #ord class="inp" [value]="ordering" (change)="changeOrdering(ord.value)">
+          <option value="descricao">Descrição (A→Z)</option>
+          <option value="-descricao">Descrição (Z→A)</option>
+          <option value="codigo">Código (A→Z)</option>
+          <option value="-codigo">Código (Z→A)</option>
+      </select>
+
+
+
+      <button class="btn primary" [routerLink]="['/home']">Home</button>
+    </div>
+  </header>
+
+  <section class="card form-placeholder" *ngIf="formMode === null && !submitted">
+        <div class="placeholder-inner">
+          <p>Para cadastrar uma <strong>Forma de Pagamento</strong>, clique em <strong>Nova Forma</strong>.</p>
+          <p>Para editar, localize uma <strong>Forma de Pagamento</strong> na lista e clique em <strong>Editar</strong>.</p>
+        </div>
+  </section>
 
 <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
 <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>

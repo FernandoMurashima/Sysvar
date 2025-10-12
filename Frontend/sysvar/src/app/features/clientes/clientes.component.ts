@@ -4,11 +4,12 @@ import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, Validati
 import { FormsModule } from '@angular/forms';
 import { ClientesService } from '../../core/services/clientes.service';
 import { Cliente } from '../../core/models/clientes';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-clientes',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink] ,
   templateUrl: './clientes.component.html',
   styleUrls: ['./clientes.component.css']
 })

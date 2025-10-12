@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
-
+import { RouterLink } from '@angular/router';
 import { FuncionariosService } from '../../core/services/funcionarios.service';
 import { Funcionario } from '../../core/models/funcionario';
 
@@ -12,7 +12,7 @@ import { Loja } from '../../core/models/loja';
 @Component({
   selector: 'app-funcionarios',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './funcionarios.component.html',
   styleUrls: ['./funcionarios.component.css']
 })

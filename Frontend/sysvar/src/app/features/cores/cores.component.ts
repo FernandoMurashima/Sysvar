@@ -6,11 +6,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 
 import { CoresService } from '../../core/services/cores.service';
 import { CorModel } from '../../core/models/cor';
+import { RouterLink } from '@angular/router';
+
+
 
 @Component({
   selector: 'app-cores',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './cores.component.html',
   styleUrls: ['./cores.component.css']
 })

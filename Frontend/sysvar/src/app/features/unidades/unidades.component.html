@@ -9,9 +9,10 @@
         [(ngModel)]="search"
         (keyup)="onSearchKeyup($event)"
       />
-      <button class="btn" (click)="doSearch()">Buscar</button>
-      <button class="btn ghost" (click)="clearSearch()">Limpar</button>
-      <button class="btn primary" (click)="novo()">Novo</button>
+      <button class="btn primary" (click)="doSearch()">Buscar</button>
+      <button class="btn primary" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Nova</button>
+      <button class="btn primary" [routerLink]="['/home']">Home</button>
     </div>
   </header>
 
