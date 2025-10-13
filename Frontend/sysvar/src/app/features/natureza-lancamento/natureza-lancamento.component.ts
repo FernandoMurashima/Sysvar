@@ -5,6 +5,8 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormGroup } 
 import { NaturezaLancamentoService } from '../../core/services/natureza-lancamento.service';
 import { NaturezaLancamento, Page } from '../../core/models/natureza-lancamento';
 
+import {Router} from '@angular/router';
+
 @Component({
   selector: 'app-natureza-lancamento',
   standalone: true,
@@ -15,8 +17,9 @@ import { NaturezaLancamento, Page } from '../../core/models/natureza-lancamento'
 export class NaturezaLancamentoComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(NaturezaLancamentoService);
+  constructor(private router: Router) {}
 
-  // Estado UI seguindo o padrão de Lojas
+  // Estado UI
   search = '';
   loading = false;
   saving = false;
@@ -24,16 +27,23 @@ export class NaturezaLancamentoComponent implements OnInit {
   successMsg = '';
   errorOverlayOpen = false;
 
-  showForm = false;           // alterna placeholder/lista vs formulário
+  showForm = false;
   editingId: number | null = null;
 
-  // Lista
+  // Lista (todos os itens carregados) + “página atual” para exibição
+  natlancesAll: NaturezaLancamento[] = [];
   natlances: NaturezaLancamento[] = [];
 
-  // Form
+  // Paginação (client-side)
+  page = 1;
+  pageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
+  total = 0;
+
+  // Formulário
   form!: FormGroup;
 
-  // Opções (conforme seu domínio)
+  // Opções
   tipoOptions = [
     'Ativo', 'Passivo', 'Patrimônio Líquido', 'Receita', 'Despesa', 'Transferência', 'Investimento', 'Outro'
   ];
@@ -61,22 +71,92 @@ export class NaturezaLancamentoComponent implements OnInit {
   onSearchKeyup(ev: KeyboardEvent): void {
     if (ev.key === 'Enter') this.doSearch();
   }
-  doSearch(): void { this.fetch(); }
-  clearSearch(): void { this.search = ''; this.fetch(); }
+  doSearch(): void {
+    this.page = 1;
+    this.fetch();
+  }
+  clearSearch(): void {
+    this.search = '';
+    this.page = 1;
+    this.fetch();
+  }
+
+    goHome() {
+    this.router.navigate(['/home']);
+  }
 
   fetch(): void {
     this.loading = true;
-    this.service.list({ search: this.search, page_size: 200 })
+    this.service.list({ search: this.search, page_size: 2000 }) // traz “bastante”; paginamos no front
       .subscribe({
         next: (res: Page<NaturezaLancamento>) => {
-          this.natlances = res.results ?? [];
+          this.natlancesAll = res.results ?? [];
+          this.total = res.count ?? this.natlancesAll.length;
           this.loading = false;
+          this.applyPage();
         },
-        error: () => {
+        error: (err) => {
           this.loading = false;
-          // Mantemos padrão de UX enxuto (sem toast global aqui)
+          this.natlancesAll = [];
+          this.natlances = [];
+          this.total = 0;
+          console.error('Falha ao carregar Naturezas de Lançamento:', err);
+          this.successMsg = '';
         }
       });
+  }
+
+  // ==== PAGINAÇÃO (client-side) ====
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
+
+  get pageStart(): number {
+  if (this.total === 0) return 0;
+  return (this.page - 1) * this.pageSize + 1;
+}
+
+get pageEnd(): number {
+  return Math.min(this.page * this.pageSize, this.total);
+}
+
+
+  applyPage(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.natlances = this.natlancesAll.slice(start, end);
+  }
+
+  onPageSizeChange(sizeStr: string): void {
+    const size = Number(sizeStr) || 10;
+    this.pageSize = size;
+    this.page = 1;
+    this.applyPage();
+  }
+
+  firstPage(): void {
+    if (this.page !== 1) {
+      this.page = 1;
+      this.applyPage();
+    }
+  }
+  prevPage(): void {
+    if (this.page > 1) {
+      this.page--;
+      this.applyPage();
+    }
+  }
+  nextPage(): void {
+    if (this.page < this.totalPages) {
+      this.page++;
+      this.applyPage();
+    }
+  }
+  lastPage(): void {
+    if (this.page !== this.totalPages) {
+      this.page = this.totalPages;
+      this.applyPage();
+    }
   }
 
   // ==== AÇÕES ====
@@ -121,6 +201,9 @@ export class NaturezaLancamentoComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.successMsg = 'Registro excluído com sucesso.';
+        // Recarrega e volta para a página 1 se a atual esvaziar
+        const eraUltimoDaPagina = this.natlances.length === 1 && this.page > 1;
+        if (eraUltimoDaPagina) this.page--;
         this.fetch();
       },
       error: (err) => {
@@ -152,22 +235,25 @@ export class NaturezaLancamentoComponent implements OnInit {
       : this.service.create(payload);
 
     req$.subscribe({
-      next: (saved) => {
+      next: () => {
         this.saving = false;
         this.successMsg = this.editingId
           ? 'Alterações salvas com sucesso.'
           : 'Registro criado com sucesso.';
         this.cancelarEdicao();
+        this.page = 1;   // volta para o início após criar/alterar
         this.fetch();
       },
       error: (err) => {
         this.saving = false;
-        // Tenta mapear mensagens de validação do backend para o form
         if (err?.error && typeof err.error === 'object') {
           Object.keys(err.error).forEach(field => {
             const ctrl = this.form.get(field);
             if (ctrl) {
-              ctrl.setErrors({ ...(ctrl.errors || {}), server: Array.isArray(err.error[field]) ? err.error[field].join(' ') : String(err.error[field]) });
+              ctrl.setErrors({
+                ...(ctrl.errors || {}),
+                server: Array.isArray(err.error[field]) ? err.error[field].join(' ') : String(err.error[field])
+              });
             }
           });
         }
@@ -176,7 +262,7 @@ export class NaturezaLancamentoComponent implements OnInit {
     });
   }
 
-  // ==== OVERLAY DE ERROS (mesmo padrão do Lojas) ====
+  // ==== OVERLAY DE ERROS ====
   getFormErrors(): string[] {
     const msgs: string[] = [];
     const f = this.form;
@@ -199,7 +285,6 @@ export class NaturezaLancamentoComponent implements OnInit {
     pushIf(f.get('status')?.hasError('required') || false, 'Status é obrigatório.');
     pushIf(f.get('tipo_natureza')?.hasError('required') || false, 'Natureza é obrigatória.');
 
-    // Mensagens vindas do backend (server)
     ['codigo','categoria_principal','subcategoria','descricao','tipo','status','tipo_natureza'].forEach(field => {
       const err = f.get(field)?.errors?.['server'];
       if (err) msgs.push(`${field}: ${err}`);
@@ -214,7 +299,6 @@ export class NaturezaLancamentoComponent implements OnInit {
   }
 
   openErrorOverlayFromServer(_err: any): void {
-    // Apenas apresenta o overlay com mensagens atuais do form (server já mapeado em salvar())
     this.openErrorOverlayIfNeeded();
   }
 

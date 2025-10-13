@@ -13,6 +13,7 @@
       <button class="btn primary" (click)="doSearch()">Buscar</button>
       <button class="btn primary" (click)="clearSearch()">Limpar</button>
       <button class="btn primary" (click)="novo()">Novo</button>
+      <button class="btn primary" (click)=" goHome()">Home</button>
       <!-- <button class="btn primary" [routerLink]="['/home']">Home</button> -->
     </div>
   </header>
@@ -20,7 +21,7 @@
   <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
 
   <div class="content">
-    <!-- Placeholder quando o form estiver fechado -->
+    <!-- Placeholder -->
     <section class="card form-placeholder" *ngIf="!showForm">
       <div class="placeholder-inner">
         <p>Para cadastrar uma natureza, clique em <strong>Novo</strong>.</p>
@@ -134,41 +135,72 @@
 
     <!-- LISTA -->
     <section class="card list">
-      <div class="empty-hint" *ngIf="!loading && natlances.length === 0">
-        Nenhuma natureza encontrada.
+      <div class="list-header">
+        <div class="list-info">
+          <span>Total: {{ total }}</span>
+        </div>
+        <div class="list-controls">
+          <label for="pageSize">Itens por página</label>
+          <select id="pageSize" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
       </div>
 
-      <table class="table" *ngIf="natlances.length > 0">
-        <thead>
-          <tr>
-            <th style="width:110px;">Código</th>
-            <th>Categoria</th>
-            <th>Subcategoria</th>
-            <th>Descrição</th>
-            <th style="width:150px;">Tipo</th>
-            <th style="width:110px;">Status</th>
-            <th style="width:120px;">Natureza</th>
-            <th style="width:140px;">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let n of natlances">
-            <td>{{ n.codigo }}</td>
-            <td>{{ n.categoria_principal }}</td>
-            <td>{{ n.subcategoria }}</td>
-            <td>{{ n.descricao }}</td>
-            <td>{{ n.tipo }}</td>
-            <td>{{ n.status }}</td>
-            <td>{{ n.tipo_natureza }}</td>
-            <td class="actions">
-              <button class="btn sm" (click)="editar(n)">Editar</button>
-              <button class="btn sm danger" (click)="excluir(n)">Excluir</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table class="table" *ngIf="natlances.length > 0; else emptyTpl">
+          <thead>
+            <tr>
+              <th style="width:110px;">Código</th>
+              <th>Categoria</th>
+              <th>Subcategoria</th>
+              <th>Descrição</th>
+              <th style="width:150px;">Tipo</th>
+              <th style="width:110px;">Status</th>
+              <th style="width:120px;">Natureza</th>
+              <th style="width:140px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let n of natlances">
+              <td>{{ n.codigo }}</td>
+              <td>{{ n.categoria_principal }}</td>
+              <td>{{ n.subcategoria }}</td>
+              <td>{{ n.descricao }}</td>
+              <td>{{ n.tipo }}</td>
+              <td>{{ n.status }}</td>
+              <td>{{ n.tipo_natureza }}</td>
+              <td class="actions">
+                <button class="btn sm" (click)="editar(n)">Editar</button>
+                <button class="btn sm danger" (click)="excluir(n)">Excluir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #emptyTpl>
+          <div class="empty-hint" *ngIf="!loading">Nenhuma natureza encontrada.</div>
+          <div class="loading" *ngIf="loading">Carregando...</div>
+        </ng-template>
+      </div>
 
-      <div class="loading" *ngIf="loading">Carregando...</div>
+      <!-- Pager -->
+      <div class="pager" *ngIf="total > 0">
+        <div class="left">
+          <button class="btn" (click)="firstPage()" [disabled]="page === 1">« Primeira</button>
+          <button class="btn" (click)="prevPage()"  [disabled]="page === 1">‹ Anterior</button>
+        </div>
+        <div class="center">
+          Página {{ page }} de {{ totalPages }}
+          <span class="range">
+            — Mostrando {{ pageStart }} – {{ pageEnd }} de {{ total }}
+          </span>
+
+        </div>
+        <div class="right">
+          <button class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Próxima ›</button>
+          <button class="btn" (click)="lastPage()" [disabled]="page >= totalPages">Última »</button>
+        </div>
+      </div>
     </section>
   </div>
 
