@@ -1,14 +1,26 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  Validators,
+  FormGroup
+} from '@angular/forms';
 import { FormsModule } from '@angular/forms';
-import { HttpErrorResponse } from '@angular/common/http';
-
-import { CoresService } from '../../core/services/cores.service';
-import { CorModel } from '../../core/models/cor';
 import { RouterLink } from '@angular/router';
 
+// Ajuste os paths conforme a sua estrutura
+import { CoresService } from '../../core/services/cores.service';
 
+export interface CorItem {
+  Idcor?: number;          // ajuste se seu PK tiver outro nome
+  Descricao: string;
+  Codigo?: string | null;
+  Cor: string;
+  Status?: string | null;
+}
+
+type FormMode = 'new' | 'edit' | null;
 
 @Component({
   selector: 'app-cores',
@@ -21,97 +33,179 @@ export class CoresComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(CoresService);
 
+  // ===== UI =====
   loading = false;
   saving = false;
-  errorMsg = '';
-  successMsg = '';
   submitted = false;
-
-  cores: CorModel[] = [];
-  search = '';
+  formMode: FormMode = null;   // usado no seu HTML
   editingId: number | null = null;
 
-  /** novo: controla visibilidade/título do form */
-  formMode: 'new' | 'edit' | null = null;
+  search = '';
+  successMsg = '';
+  errorMsg = '';
 
-  statusOptions = ['', 'Ativo', 'Inativo'];
-
-  form = this.fb.group({
+  // ===== Form =====
+  form: FormGroup = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
     Codigo: ['', [Validators.maxLength(12)]],
     Cor: ['', [Validators.required, Validators.maxLength(30)]],
-    Status: [''],
+    Status: ['']
   });
 
-  ngOnInit(): void { this.load(); }
+  statusOptions: string[] = ['', 'Ativa', 'Inativa'];
 
-  // ===== Listagem =====
-  load() {
+  // ===== Lista + ListView =====
+  coresAll: CorItem[] = [];
+  cores: CorItem[] = [];
+
+  page = 1;
+  pageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
+  total = 0;
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
+  get pageStart(): number {
+    if (this.total === 0) return 0;
+    return (this.page - 1) * this.pageSize + 1;
+  }
+  get pageEnd(): number {
+    return Math.min(this.page * this.pageSize, this.total);
+  }
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  // ===== Helpers de validação usados no template =====
+  fieldInvalid(field: string): 'true' | null {
+    const ctrl = this.form.get(field);
+    if (!ctrl) return null;
+    return (ctrl.invalid && (ctrl.touched || this.submitted)) ? 'true' : null;
+  }
+
+  getFormErrors(): string[] {
+    const f = this.form;
+    const msgs: string[] = [];
+
+    const req = (name: string, msg: string) => {
+      if (f.get(name)?.hasError('required') && (f.get(name)?.touched || this.submitted)) msgs.push(msg);
+    };
+    const max = (name: string, len: number, label: string) => {
+      if (f.get(name)?.hasError('maxlength') && (f.get(name)?.touched || this.submitted)) msgs.push(`${label}: máx. ${len} caracteres.`);
+    };
+    const server = (name: string, label?: string) => {
+      const err = f.get(name)?.errors?.['server'];
+      if (err) msgs.push(`${label ?? name}: ${err}`);
+    };
+
+    req('Descricao', 'Descrição é obrigatória.');
+    max('Descricao', 100, 'Descrição');
+    max('Codigo', 12, 'Código');
+    req('Cor', 'Cor é obrigatória.');
+    max('Cor', 30, 'Cor');
+
+    // mensagens de servidor (se o backend retornar por campo)
+    ['Descricao','Codigo','Cor','Status'].forEach(field => server(field));
+
+    return msgs;
+  }
+
+  // ===== Fluxo =====
+  load(): void {
     this.loading = true;
-    this.errorMsg = '';
-    this.api.list({ search: this.search, ordering: '-data_cadastro' }).subscribe({
-      next: (data) => {
-        this.cores = Array.isArray(data) ? data : (data as any).results ?? [];
+    this.api.list({ search: this.search, page_size: 2000 }).subscribe({
+      next: (res: any) => {
+        const arr: CorItem[] = Array.isArray(res) ? res : (res?.results ?? []);
+        this.coresAll = arr;
+        this.total = (res && typeof res === 'object' && typeof res.count === 'number') ? res.count : arr.length;
+        this.applyPage();
+        this.loading = false;
+        this.errorMsg = '';
       },
       error: (err) => {
-        console.error(err);
+        console.error('Falha ao carregar cores', err);
+        this.coresAll = [];
+        this.cores = [];
+        this.total = 0;
+        this.loading = false;
         this.errorMsg = 'Falha ao carregar cores.';
-      },
-      complete: () => (this.loading = false),
+      }
     });
   }
 
-  onSearchKeyup(ev: KeyboardEvent) { if (ev.key === 'Enter') this.load(); }
-  doSearch() { this.load(); }
-  clearSearch() { this.search = ''; this.load(); }
+  applyPage(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.cores = this.coresAll.slice(start, end);
+  }
+
+  onPageSizeChange(sizeStr: string): void {
+    const size = Number(sizeStr) || 10;
+    this.pageSize = size;
+    this.page = 1;
+    this.applyPage();
+  }
+  firstPage(): void { if (this.page !== 1) { this.page = 1; this.applyPage(); } }
+  prevPage(): void  { if (this.page > 1) { this.page--; this.applyPage(); } }
+  nextPage(): void  { if (this.page < this.totalPages) { this.page++; this.applyPage(); } }
+  lastPage(): void  { if (this.page !== this.totalPages) { this.page = this.totalPages; this.applyPage(); } }
+
+  onSearchKeyup(ev: KeyboardEvent): void {
+    if (ev.key === 'Enter') this.doSearch();
+  }
+  doSearch(): void {
+    this.page = 1;
+    this.load();
+  }
+  clearSearch(): void {
+    this.search = '';
+    this.page = 1;
+    this.load();
+  }
 
   // ===== CRUD =====
-  novo() {
-    this.editingId = null;
+  novo(): void {
     this.formMode = 'new';
+    this.editingId = null;
     this.submitted = false;
+    this.successMsg = '';
+
     this.form.reset({
       Descricao: '',
       Codigo: '',
       Cor: '',
-      Status: '',
+      Status: ''
     });
-    this.successMsg = '';
-    this.errorMsg = '';
   }
 
-  editar(item: CorModel) {
-    this.editingId = item.Idcor ?? null;
+  editar(row: CorItem): void {
     this.formMode = 'edit';
+    this.editingId = (row as any).Idcor ?? null;
     this.submitted = false;
-    this.form.reset({
-      Descricao: item.Descricao ?? '',
-      Codigo: item.Codigo ?? '',
-      Cor: item.Cor ?? '',
-      Status: item.Status ?? '',
-    });
     this.successMsg = '';
-    this.errorMsg = '';
+
+    this.form.reset({
+      Descricao: (row as any).Descricao ?? '',
+      Codigo:    (row as any).Codigo ?? '',
+      Cor:       (row as any).Cor ?? '',
+      Status:    (row as any).Status ?? ''
+    });
   }
 
-  salvar() {
+  cancelarEdicao(): void {
+    this.formMode = null;
+    this.editingId = null;
+    this.submitted = false;
+  }
+
+  salvar(): void {
     this.submitted = true;
-    if (this.form.invalid) {
-      this.errorMsg = 'Revise os campos destacados e tente novamente.';
-      return;
-    }
+    if (this.form.invalid) return;
 
+    const payload = this.form.value as any;
     this.saving = true;
-    this.errorMsg = '';
-    this.successMsg = '';
-
-    const raw = this.form.getRawValue();
-    const payload: CorModel = {
-      Descricao: String(raw.Descricao ?? '').trim(),
-      Codigo: (raw.Codigo ?? '').toString().trim() || undefined,
-      Cor: String(raw.Cor ?? '').trim(),
-      Status: (raw.Status ?? '').toString().trim() || undefined,
-    };
 
     const req$ = this.editingId
       ? this.api.update(this.editingId, payload)
@@ -119,60 +213,44 @@ export class CoresComponent implements OnInit {
 
     req$.subscribe({
       next: () => {
-        this.successMsg = this.editingId ? 'Cor atualizada com sucesso.' : 'Cor criada com sucesso.';
+        this.saving = false;
+        this.successMsg = this.editingId ? 'Alterações salvas com sucesso.' : 'Cor criada com sucesso.';
+        this.cancelarEdicao();
+        this.page = 1;
         this.load();
-        this.cancelarEdicao(); // fecha o form
-      },
-      error: (err: HttpErrorResponse) => {
-        console.error(err);
-        const detail = (err?.error?.detail || err?.error?.error || err?.error) ?? '';
-        this.errorMsg = (typeof detail === 'string' && detail) ? detail : 'Falha ao salvar a cor.';
-      },
-      complete: () => (this.saving = false),
-    });
-  }
-
-  excluir(item: CorModel) {
-    if (!item.Idcor) return;
-    const ok = confirm(`Excluir a cor "${item.Descricao}"?`);
-    if (!ok) return;
-
-    this.api.remove(item.Idcor).subscribe({
-      next: () => {
-        this.successMsg = 'Cor excluída.';
-        this.load();
-        if (this.editingId === item.Idcor) this.novo();
       },
       error: (err) => {
-        console.error(err);
-        this.errorMsg = 'Falha ao excluir.';
+        this.saving = false;
+        // Mapear mensagens do backend para campos
+        if (err?.error && typeof err.error === 'object') {
+          Object.keys(err.error).forEach(field => {
+            const ctrl = this.form.get(field);
+            if (ctrl) {
+              ctrl.setErrors({
+                ...(ctrl.errors || {}),
+                server: Array.isArray(err.error[field]) ? err.error[field].join(' ') : String(err.error[field])
+              });
+            }
+          });
+        }
+      }
+    });
+  }
+
+  excluir(item: CorItem): void {
+    const id = (item as any).Idcor;
+    if (!id) return;
+    if (!confirm(`Excluir a cor "${(item as any).Descricao}"?`)) return;
+
+    this.api.remove(id).subscribe({
+      next: () => {
+        this.successMsg = 'Cor excluída.';
+        const eraUltimo = this.cores.length === 1 && this.page > 1;
+        if (eraUltimo) this.page--;
+        this.load();
+        if (this.editingId === id) this.cancelarEdicao();
       },
+      error: (err) => console.error('Falha ao excluir cor', err)
     });
-  }
-
-  cancelarEdicao() {
-    this.editingId = null;
-    this.formMode = null; // <- esconde o form
-    this.submitted = false;
-    this.form.reset({
-      Descricao: '',
-      Codigo: '',
-      Cor: '',
-      Status: '',
-    });
-  }
-
-  // ===== Validação/UX =====
-  fieldInvalid(name: string) {
-    const c = this.form.get(name);
-    return (c?.touched || this.submitted) && c?.invalid;
-  }
-
-  getFormErrors(): string[] {
-    const msgs: string[] = [];
-    if (this.fieldInvalid('Descricao')) msgs.push('Informe a Descrição (máx. 100).');
-    if (this.fieldInvalid('Cor')) msgs.push('Informe o nome da Cor (máx. 30).');
-    if (this.form.get('Codigo')?.errors?.['maxlength']) msgs.push('Código deve ter no máximo 12 caracteres.');
-    return msgs;
   }
 }

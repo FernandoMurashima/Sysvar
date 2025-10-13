@@ -1,17 +1,34 @@
-// src/app/features/colecoes/colecoes.component.ts
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  Validators,
+  FormGroup,
+  AbstractControl,
+  ValidationErrors
+} from '@angular/forms';
 import { FormsModule } from '@angular/forms';
-import { ColecoesService } from '../../core/services/colecoes.service';
-import { Colecao } from '../../core/models/colecoes';
-
 import { RouterLink } from '@angular/router';
+
+// Ajuste os paths conforme sua estrutura
+import { ColecoesService } from '../../core/services/colecoes.service';
+
+export interface Colecao {
+  Idcolecao?: number;   // ajuste se a PK tiver outro nome
+  Descricao: string;
+  Codigo: string;
+  Estacao: string;
+  Status?: string | null;
+  Contador?: number | null;
+}
+
+type FormMode = 'new' | 'edit' | null;
 
 @Component({
   selector: 'app-colecoes',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink], 
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './colecoes.component.html',
   styleUrls: ['./colecoes.component.css']
 })
@@ -19,107 +36,184 @@ export class ColecoesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(ColecoesService);
 
+  // UI
   loading = false;
   saving = false;
-  errorMsg = '';
-  successMsg = '';
   submitted = false;
-
-  colecoes: Colecao[] = [];
-  search = '';
+  formMode: FormMode = null;
   editingId: number | null = null;
 
-  /** novo: estado explícito do formulário */
-  formMode: 'new' | 'edit' | null = null;
+  search = '';
+  successMsg = '';
+  errorMsg = '';
 
-  estacoes = [
-    { value: '01', label: 'Verão (01)' },
-    { value: '02', label: 'Outono (02)' },
-    { value: '03', label: 'Inverno (03)' },
-    { value: '04', label: 'Primavera (04)' },
-  ];
-
-  form = this.fb.group({
+  // Form
+  form: FormGroup = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
-    Codigo: ['', [Validators.required, Validators.pattern(/^\d{2}$/)]],  // 2 dígitos
+    Codigo: ['', [Validators.required, this.codigoDoisDigitos]],
     Estacao: ['', [Validators.required]],
     Status: [''],
-    // Control usado no template, somente leitura (vem do backend)
-    Contador: [{ value: 0, disabled: true }],
+    Contador: [{ value: null, disabled: true }]
   });
 
-  ngOnInit(): void { this.load(); }
+  estacoes = [
+    { value: 'VERAO', label: 'Verão' },
+    { value: 'INVERNO', label: 'Inverno' },
+    { value: 'OUTONO', label: 'Outono' },
+    { value: 'PRIMAVERA', label: 'Primavera' }
+  ];
 
-  // ===== LISTAGEM =====
-  load() {
+  // Lista + ListView
+  colecoesAll: Colecao[] = [];
+  colecoes: Colecao[] = [];
+
+  page = 1;
+  pageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
+  total = 0;
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
+  get pageStart(): number {
+    if (this.total === 0) return 0;
+    return (this.page - 1) * this.pageSize + 1;
+  }
+  get pageEnd(): number {
+    return Math.min(this.page * this.pageSize, this.total);
+  }
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  // ===== Validadores =====
+  codigoDoisDigitos(ctrl: AbstractControl): ValidationErrors | null {
+    const v = (ctrl.value || '').toString().trim();
+    if (!v) return { required: true };
+    return /^\d{2}$/.test(v) ? null : { codigoInvalido: true };
+    // Se quiser manter EXACTO 2 dígitos numéricos
+  }
+
+  // ===== Helpers de template =====
+  fieldInvalid(field: string): 'true' | null {
+    const c = this.form.get(field);
+    return c && c.invalid && (c.touched || this.submitted) ? 'true' : null;
+  }
+
+  getFormErrors(): string[] {
+    const f = this.form;
+    const out: string[] = [];
+    const P = (cond: boolean, msg: string) => { if (cond) out.push(msg); };
+
+    P(f.get('Descricao')?.hasError('required') || false, 'Descrição é obrigatória.');
+    P(f.get('Descricao')?.hasError('maxlength') || false, 'Descrição: máx. 100 caracteres.');
+
+    P(f.get('Codigo')?.hasError('required') || false, 'Código é obrigatório.');
+    P(f.get('Codigo')?.hasError('codigoInvalido') || false, 'Código deve conter exatamente 2 dígitos numéricos.');
+
+    P(f.get('Estacao')?.hasError('required') || false, 'Estação é obrigatória.');
+
+    ['Descricao','Codigo','Estacao','Status'].forEach(field => {
+      const err = f.get(field)?.errors?.['server'];
+      if (err) out.push(`${field}: ${err}`);
+    });
+
+    return out;
+  }
+
+  // ===== Fluxo =====
+  load(): void {
     this.loading = true;
-    this.errorMsg = '';
-    this.api.list({ search: this.search, ordering: '-data_cadastro' }).subscribe({
-      next: (data) => { this.colecoes = Array.isArray(data) ? data : (data?.results ?? []); },
-      error: (err) => { console.error(err); this.errorMsg = 'Falha ao carregar coleções.'; },
-      complete: () => this.loading = false
+    this.api.list({ search: this.search, page_size: 2000 }).subscribe({
+      next: (res: any) => {
+        const arr: Colecao[] = Array.isArray(res) ? res : (res?.results ?? []);
+        this.colecoesAll = arr;
+        this.total = (res && typeof res === 'object' && typeof res.count === 'number') ? res.count : arr.length;
+        this.page = 1;
+        this.applyPage();
+        this.loading = false;
+        this.errorMsg = '';
+      },
+      error: (err) => {
+        console.error('Falha ao carregar coleções', err);
+        this.colecoesAll = [];
+        this.colecoes = [];
+        this.total = 0;
+        this.loading = false;
+        this.errorMsg = 'Falha ao carregar coleções.';
+      }
     });
   }
 
-  onSearchKeyup(ev: KeyboardEvent) { if (ev.key === 'Enter') this.load(); }
-  doSearch() { this.load(); }
-  clearSearch() { this.search = ''; this.load(); }
+  applyPage(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.colecoes = this.colecoesAll.slice(start, end);
+  }
 
-  // ===== FORM =====
-  novo() {
+  onPageSizeChange(sizeStr: string): void {
+    const size = Number(sizeStr) || 10;
+    this.pageSize = size;
+    this.page = 1;
+    this.applyPage();
+  }
+  firstPage(): void { if (this.page !== 1) { this.page = 1; this.applyPage(); } }
+  prevPage(): void  { if (this.page > 1) { this.page--; this.applyPage(); } }
+  nextPage(): void  { if (this.page < this.totalPages) { this.page++; this.applyPage(); } }
+  lastPage(): void  { if (this.page !== this.totalPages) { this.page = this.totalPages; this.applyPage(); } }
+
+  onSearchKeyup(ev: KeyboardEvent): void {
+    if (ev.key === 'Enter') this.doSearch();
+  }
+  doSearch(): void { this.page = 1; this.load(); }
+  clearSearch(): void { this.search = ''; this.page = 1; this.load(); }
+
+  // ===== CRUD =====
+  novo(): void {
+    this.formMode = 'new';
     this.editingId = null;
-    this.formMode = 'new';     // <- abre o form
     this.submitted = false;
+    this.successMsg = '';
+
     this.form.reset({
       Descricao: '',
       Codigo: '',
       Estacao: '',
       Status: '',
+      Contador: null
     });
-    // garantir valor do control desabilitado
-    this.form.get('Contador')?.setValue(0);
-    this.successMsg = '';
-    this.errorMsg = '';
   }
 
-  editar(item: Colecao) {
-    this.editingId = item.Idcolecao ?? null;
-    this.formMode = 'edit';    // <- abre o form
+  editar(row: Colecao): void {
+    this.formMode = 'edit';
+    this.editingId = (row as any).Idcolecao ?? null;
     this.submitted = false;
-
-    this.form.patchValue({
-      Descricao: item.Descricao ?? '',
-      Codigo: item.Codigo ?? '',
-      Estacao: item.Estacao ?? '',
-      Status: item.Status ?? '',
-    });
-    this.form.get('Contador')?.setValue(item.Contador ?? 0);
-
     this.successMsg = '';
-    this.errorMsg = '';
+
+    this.form.reset({
+      Descricao: (row as any).Descricao ?? '',
+      Codigo:    (row as any).Codigo ?? '',
+      Estacao:   (row as any).Estacao ?? '',
+      Status:    (row as any).Status ?? '',
+      Contador:  (row as any).Contador ?? null
+    });
   }
 
-  cancelarEdicao() {
+  cancelarEdicao(): void {
+    this.formMode = null;
     this.editingId = null;
-    this.formMode = null;      // <- esconde o form
     this.submitted = false;
-    this.form.reset();
-    this.form.get('Contador')?.setValue(0);
   }
 
-  salvar() {
+  salvar(): void {
     this.submitted = true;
-    this.successMsg = '';
-    this.errorMsg = '';
+    if (this.form.invalid) return;
 
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      this.openErrorOverlay();
-      return;
-    }
-
-    // Contador é desabilitado e não entra no .value (ok)
-    const payload: Colecao = { ...(this.form.value as any) };
+    // Habilita temporariamente o campo somente leitura para enviar se necessário
+    const payload = {
+      ...this.form.getRawValue()
+    };
 
     this.saving = true;
     const req$ = this.editingId
@@ -128,71 +222,43 @@ export class ColecoesComponent implements OnInit {
 
     req$.subscribe({
       next: () => {
-        this.successMsg = this.editingId ? 'Coleção atualizada com sucesso.' : 'Coleção criada com sucesso.';
+        this.saving = false;
+        this.successMsg = this.editingId ? 'Alterações salvas com sucesso.' : 'Coleção criada com sucesso.';
+        this.cancelarEdicao();
+        this.page = 1;
         this.load();
-        this.cancelarEdicao(); // volta ao estado inicial
       },
       error: (err) => {
-        console.error(err);
-        const detail = err?.error?.detail || err?.error?.error || '';
-        this.errorMsg = detail ? String(detail) : 'Falha ao salvar coleção.';
-
-        const errors = err?.error;
-        if (errors && typeof errors === 'object') {
-          for (const k of Object.keys(errors)) {
-            const ctrl = this.form.get(k);
-            if (ctrl) ctrl.setErrors({ server: Array.isArray(errors[k]) ? errors[k].join(' ') : String(errors[k]) });
-          }
+        this.saving = false;
+        if (err?.error && typeof err.error === 'object') {
+          Object.keys(err.error).forEach(field => {
+            const ctrl = this.form.get(field);
+            if (ctrl) {
+              ctrl.setErrors({
+                ...(ctrl.errors || {}),
+                server: Array.isArray(err.error[field]) ? err.error[field].join(' ') : String(err.error[field])
+              });
+            }
+          });
         }
-        this.openErrorOverlay();
-      },
-      complete: () => this.saving = false
-    });
-  }
-
-  excluir(item: Colecao) {
-    if (!item.Idcolecao) return;
-    const ok = confirm(`Excluir a coleção "${item.Descricao}"?`);
-    if (!ok) return;
-
-    this.api.remove(item.Idcolecao).subscribe({
-      next: () => {
-        this.successMsg = 'Coleção excluída.';
-        this.load();
-        if (this.editingId === item.Idcolecao) this.cancelarEdicao();
-      },
-      error: (err) => {
-        console.error(err);
-        this.errorMsg = 'Falha ao excluir.';
       }
     });
   }
 
-  // ===== OVERLAY DE ERROS =====
-  errorOverlayOpen = false;
-  getFormErrors(): string[] {
-    const msgs: string[] = [];
-    const f = this.form;
+  excluir(item: Colecao): void {
+    const id = (item as any).Idcolecao;
+    if (!id) return;
+    if (!confirm(`Excluir a coleção "${(item as any).Descricao}"?`)) return;
 
-    if (f.get('Descricao')?.errors) {
-      if (f.get('Descricao')?.errors?.['required']) msgs.push('Descrição é obrigatória.');
-      if (f.get('Descricao')?.errors?.['maxlength']) msgs.push('Descrição: máximo 100 caracteres.');
-    }
-    if (f.get('Codigo')?.errors) {
-      if (f.get('Codigo')?.errors?.['required']) msgs.push('Código é obrigatório.');
-      if (f.get('Codigo')?.errors?.['pattern']) msgs.push('Código deve ter exatamente 2 dígitos (ex.: 25).');
-    }
-    if (f.get('Estacao')?.errors) {
-      if (f.get('Estacao')?.errors?.['required']) msgs.push('Estação é obrigatória (01..04).');
-    }
-
-    // erros do servidor
-    for (const key of Object.keys(f.controls)) {
-      const serr = f.get(key)?.errors?.['server'];
-      if (serr) msgs.push(String(serr));
-    }
-    return msgs;
+    this.api.remove(id).subscribe({
+      next: () => {
+        this.successMsg = 'Coleção excluída.';
+        const eraUltimo = this.colecoes.length === 1 && this.page > 1;
+        if (eraUltimo) this.page--;
+        this.load();
+        if (this.editingId === id) this.cancelarEdicao();
+      },
+      error: (err) => console.error('Falha ao excluir coleção', err)
+    });
   }
-  openErrorOverlay() { this.errorOverlayOpen = true; }
-  closeErrorOverlay() { this.errorOverlayOpen = false; }
 }

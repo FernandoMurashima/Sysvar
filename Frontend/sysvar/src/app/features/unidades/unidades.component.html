@@ -19,16 +19,16 @@
   <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
   <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
 
+  <!-- Placeholder -->
   <section class="card form-placeholder" *ngIf="formMode === null && !submitted">
     <div class="placeholder-inner">
-      <p>Para cadastrar uma <strong>Unidade</strong>, clique em <strong>Novo</strong>.</p>
-      <p>Para editar, localize uma <strong>Unidade</strong> na lista e clique em <strong>Editar</strong>.</p>
+      <p>Para cadastrar uma <strong>Unidade</strong>, clique em <strong>Nova</strong>.</p>
+      <p>Para editar, localize na lista e clique em <strong>Editar</strong>.</p>
     </div>
   </section>
 
   <div class="content">
-
-    <!-- FORM (agora controlado por formMode) -->
+    <!-- FORM -->
     <section class="card form" *ngIf="formMode !== null || submitted">
       <h3>{{ formMode === 'edit' ? 'Editar Unidade' : 'Nova Unidade' }}</h3>
 
@@ -59,7 +59,7 @@
           <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
         </div>
 
-        <!-- overlay didático -->
+        <!-- Overlay simples -->
         <div class="overlay" *ngIf="submitted && form.invalid" role="alertdialog" aria-modal="true">
           <div class="overlay-card">
             <h4>Ops, precisamos de atenção</h4>
@@ -73,33 +73,61 @@
       </form>
     </section>
 
-    <!-- LISTA -->
+    <!-- LISTA (ListView) -->
     <section class="card list">
-      <div class="empty-hint" *ngIf="!loading && unidades.length === 0">
-        Nenhuma unidade encontrada.
+      <div class="list-header">
+        <div class="list-info">
+          <span>Total: {{ total }}</span>
+        </div>
+        <div class="list-controls">
+          <label for="pageSize">Itens por página</label>
+          <select id="pageSize" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
       </div>
 
-      <table class="table" *ngIf="unidades.length > 0">
-        <thead>
-          <tr>
-            <th>Descrição</th>
-            <th>Código</th>
-            <th style="width:140px;">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let u of unidades">
-            <td>{{ u.Descricao }}</td>
-            <td>{{ u.Codigo }}</td>
-            <td class="actions">
-              <button class="btn sm" (click)="editar(u)">Editar</button>
-              <button class="btn sm danger" (click)="excluir(u)">Excluir</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table class="table" *ngIf="unidades.length > 0; else emptyTpl">
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Código</th>
+              <th style="width:140px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of unidades">
+              <td>{{ u.Descricao }}</td>
+              <td>{{ u.Codigo }}</td>
+              <td class="actions">
+                <button class="btn sm" (click)="editar(u)">Editar</button>
+                <button class="btn sm danger" (click)="excluir(u)">Excluir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #emptyTpl>
+          <div class="empty-hint" *ngIf="!loading">Nenhuma unidade encontrada.</div>
+          <div class="loading" *ngIf="loading">Carregando...</div>
+        </ng-template>
+      </div>
 
-      <div class="loading" *ngIf="loading">Carregando...</div>
+      <!-- Pager -->
+      <div class="pager" *ngIf="total > 0">
+        <div class="left">
+          <button class="btn" (click)="firstPage()" [disabled]="page === 1">« Primeira</button>
+          <button class="btn" (click)="prevPage()"  [disabled]="page === 1">‹ Anterior</button>
+        </div>
+        <div class="center">
+          Página {{ page }} de {{ totalPages }}
+          <span class="range">— Mostrando {{ pageStart }} – {{ pageEnd }} de {{ total }}</span>
+        </div>
+        <div class="right">
+          <button class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Próxima ›</button>
+          <button class="btn" (click)="lastPage()" [disabled]="page >= totalPages">Última »</button>
+        </div>
+      </div>
     </section>
   </div>
 </div>

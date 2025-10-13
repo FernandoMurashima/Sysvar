@@ -115,3 +115,36 @@ input, select {
 /* placeholder */
 .form-placeholder { display:flex; align-items:center; justify-content:center; min-height: 120px; }
 .placeholder-inner { color:#64748b; text-align:center; }
+
+/* --- Fix pager alinhado como os demais componentes --- */
+.pager {
+  display: flex;                 /* usa flex igual ao padrão */
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pager .left,
+.pager .right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 0;
+}
+
+.pager .left  { justify-content: flex-start; }
+.pager .right { justify-content: flex-end; }
+
+.pager .center {
+  white-space: nowrap;           /* evita quebra em 2 linhas */
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+/* mantém altura/visual dos botões, inclusive quando disabled */
+.pager .btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+}

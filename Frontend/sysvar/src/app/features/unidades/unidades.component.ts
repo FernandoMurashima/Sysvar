@@ -1,13 +1,19 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
-import { HttpErrorResponse } from '@angular/common/http';
-
-import { UnidadesService } from '../../core/services/unidades.service';
-import { Unidade } from '../../core/models/unidade';
-
 import { RouterLink } from '@angular/router';
+
+// Ajuste o caminho conforme seu projeto
+import { UnidadesService } from '../../core/services/unidades.service';
+
+export interface Unidade {
+  Idunidade?: number;      // ajuste se a PK tiver outro nome
+  Descricao: string;
+  Codigo?: string | null;
+}
+
+type FormMode = 'new' | 'edit' | null;
 
 @Component({
   selector: 'app-unidades',
@@ -20,147 +26,198 @@ export class UnidadesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(UnidadesService);
 
+  // UI
   loading = false;
   saving = false;
-  errorMsg = '';
-  successMsg = '';
   submitted = false;
-
-  unidades: Unidade[] = [];
-  search = '';
+  formMode: FormMode = null;
   editingId: number | null = null;
 
-  /** novo: controla abertura/fechamento do formulário */
-  formMode: 'new' | 'edit' | null = null;
+  search = '';
+  successMsg = '';
+  errorMsg = '';
 
-  form = this.fb.group({
+  // Form
+  form: FormGroup = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
     Codigo: ['', [Validators.maxLength(10)]],
   });
 
-  ngOnInit(): void { this.load(); }
+  // Lista + ListView
+  unidadesAll: Unidade[] = [];
+  unidades: Unidade[] = [];
 
-  // ===== Listagem =====
-  load() {
+  page = 1;
+  pageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
+  total = 0;
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
+  get pageStart(): number {
+    if (this.total === 0) return 0;
+    return (this.page - 1) * this.pageSize + 1;
+  }
+  get pageEnd(): number {
+    return Math.min(this.page * this.pageSize, this.total);
+  }
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  // ===== Helpers de template =====
+  fieldInvalid(field: string): 'true' | null {
+    const c = this.form.get(field);
+    return c && c.invalid && (c.touched || this.submitted) ? 'true' : null;
+  }
+
+  getFormErrors(): string[] {
+    const f = this.form;
+    const out: string[] = [];
+    const P = (cond: boolean, msg: string) => { if (cond) out.push(msg); };
+
+    P(f.get('Descricao')?.hasError('required') || false, 'Descrição é obrigatória.');
+    P(f.get('Descricao')?.hasError('maxlength') || false, 'Descrição: máx. 100 caracteres.');
+    P(f.get('Codigo')?.hasError('maxlength')   || false, 'Código: máx. 10 caracteres.');
+
+    ['Descricao','Codigo'].forEach(field => {
+      const err = f.get(field)?.errors?.['server'];
+      if (err) out.push(`${field}: ${err}`);
+    });
+
+    return out;
+  }
+
+  // ===== Fluxo =====
+  load(): void {
     this.loading = true;
-    this.errorMsg = '';
-    this.api.list({ search: this.search, ordering: '-data_cadastro' }).subscribe({
-      next: (data) => {
-        this.unidades = Array.isArray(data) ? data : (data as any).results ?? [];
+    this.api.list({ search: this.search, page_size: 2000 }).subscribe({
+      next: (res: any) => {
+        const arr: Unidade[] = Array.isArray(res) ? res : (res?.results ?? []);
+        this.unidadesAll = arr;
+        this.total = (res && typeof res === 'object' && typeof res.count === 'number') ? res.count : arr.length;
+        this.page = 1;
+        this.applyPage();
+        this.loading = false;
+        this.errorMsg = '';
       },
       error: (err) => {
-        console.error(err);
+        console.error('Falha ao carregar unidades', err);
+        this.unidadesAll = [];
+        this.unidades = [];
+        this.total = 0;
+        this.loading = false;
         this.errorMsg = 'Falha ao carregar unidades.';
-      },
-      complete: () => (this.loading = false),
+      }
     });
   }
 
-  onSearchKeyup(ev: KeyboardEvent) { if (ev.key === 'Enter') this.load(); }
-  
-  doSearch() { this.load(); }
-  
-  clearSearch() { this.search = ''; this.load(); }
+  applyPage(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.unidades = this.unidadesAll.slice(start, end);
+  }
+
+  onPageSizeChange(sizeStr: string): void {
+    const size = Number(sizeStr) || 10;
+    this.pageSize = size;
+    this.page = 1;
+    this.applyPage();
+  }
+  firstPage(): void { if (this.page !== 1) { this.page = 1; this.applyPage(); } }
+  prevPage(): void  { if (this.page > 1) { this.page--; this.applyPage(); } }
+  nextPage(): void  { if (this.page < this.totalPages) { this.page++; this.applyPage(); } }
+  lastPage(): void  { if (this.page !== this.totalPages) { this.page = this.totalPages; this.applyPage(); } }
+
+  onSearchKeyup(ev: KeyboardEvent): void {
+    if (ev.key === 'Enter') this.doSearch();
+  }
+  doSearch(): void { this.page = 1; this.load(); }
+  clearSearch(): void { this.search = ''; this.page = 1; this.load(); }
 
   // ===== CRUD =====
-  novo() {
+  novo(): void {
+    this.formMode = 'new';
     this.editingId = null;
-    this.formMode = 'new';        // <- abre o form
     this.submitted = false;
+    this.successMsg = '';
+
     this.form.reset({
       Descricao: '',
-      Codigo: '',
+      Codigo: ''
     });
-    this.successMsg = '';
-    this.errorMsg = '';
   }
 
-  editar(item: Unidade) {
-    this.editingId = item.Idunidade ?? null;
-    this.formMode = 'edit';       // <- abre o form
+  editar(row: Unidade): void {
+    this.formMode = 'edit';
+    this.editingId = (row as any).Idunidade ?? null;
     this.submitted = false;
-    this.form.reset({
-      Descricao: item.Descricao ?? '',
-      Codigo: item.Codigo ?? '',
-    });
     this.successMsg = '';
-    this.errorMsg = '';
+
+    this.form.reset({
+      Descricao: (row as any).Descricao ?? '',
+      Codigo:    (row as any).Codigo ?? ''
+    });
   }
 
-  salvar() {
+  cancelarEdicao(): void {
+    this.formMode = null;
+    this.editingId = null;
+    this.submitted = false;
+  }
+
+  salvar(): void {
     this.submitted = true;
-    if (this.form.invalid) {
-      this.errorMsg = 'Revise os campos destacados e tente novamente.';
-      return;
-    }
+    if (this.form.invalid) return;
+
+    const payload = this.form.value as any;
 
     this.saving = true;
-    this.errorMsg = '';
-    this.successMsg = '';
-
-    const raw = this.form.getRawValue();
-    const payload: Unidade = {
-      Descricao: String(raw.Descricao ?? '').trim(),
-      Codigo: (raw.Codigo ?? '').toString().trim() || undefined,
-    };
-
     const req$ = this.editingId
       ? this.api.update(this.editingId, payload)
       : this.api.create(payload);
 
     req$.subscribe({
       next: () => {
-        this.successMsg = this.editingId ? 'Unidade atualizada com sucesso.' : 'Unidade criada com sucesso.';
+        this.saving = false;
+        this.successMsg = this.editingId ? 'Alterações salvas com sucesso.' : 'Unidade criada com sucesso.';
+        this.cancelarEdicao();
+        this.page = 1;
         this.load();
-        this.cancelarEdicao();   // <- fecha o form
-      },
-      error: (err: HttpErrorResponse) => {
-        console.error(err);
-        const detail = (err?.error?.detail || err?.error?.error || err?.error) ?? '';
-        this.errorMsg = (typeof detail === 'string' && detail) ? detail : 'Falha ao salvar a unidade.';
-      },
-      complete: () => (this.saving = false),
-    });
-  }
-
-  excluir(item: Unidade) {
-    if (!item.Idunidade) return;
-    const ok = confirm(`Excluir a unidade "${item.Descricao}"?`);
-    if (!ok) return;
-
-    this.api.remove(item.Idunidade).subscribe({
-      next: () => {
-        this.successMsg = 'Unidade excluída.';
-        this.load();
-        if (this.editingId === item.Idunidade) this.novo();
       },
       error: (err) => {
-        console.error(err);
-        this.errorMsg = 'Falha ao excluir.';
+        this.saving = false;
+        if (err?.error && typeof err.error === 'object') {
+          Object.keys(err.error).forEach(field => {
+            const ctrl = this.form.get(field);
+            if (ctrl) {
+              ctrl.setErrors({
+                ...(ctrl.errors || {}),
+                server: Array.isArray(err.error[field]) ? err.error[field].join(' ') : String(err.error[field])
+              });
+            }
+          });
+        }
+      }
+    });
+  }
+
+  excluir(item: Unidade): void {
+    const id = (item as any).Idunidade;
+    if (!id) return;
+    if (!confirm(`Excluir a unidade "${(item as any).Descricao}"?`)) return;
+
+    this.api.remove(id).subscribe({
+      next: () => {
+        this.successMsg = 'Unidade excluída.';
+        const eraUltimo = this.unidades.length === 1 && this.page > 1;
+        if (eraUltimo) this.page--;
+        this.load();
+        if (this.editingId === id) this.cancelarEdicao();
       },
+      error: (err) => console.error('Falha ao excluir unidade', err)
     });
-  }
-
-  cancelarEdicao() {
-    this.editingId = null;
-    this.formMode = null;         // <- esconde o form
-    this.submitted = false;
-    this.form.reset({
-      Descricao: '',
-      Codigo: '',
-    });
-  }
-
-  // ===== Helpers de validação =====
-  fieldInvalid(name: string) {
-    const c = this.form.get(name);
-    return (c?.touched || this.submitted) && c?.invalid;
-  }
-
-  getFormErrors(): string[] {
-    const msgs: string[] = [];
-    if (this.fieldInvalid('Descricao')) msgs.push('Informe a Descrição (máx. 100).');
-    if (this.form.get('Codigo')?.errors?.['maxlength']) msgs.push('Código deve ter no máximo 10 caracteres.');
-    return msgs;
   }
 }

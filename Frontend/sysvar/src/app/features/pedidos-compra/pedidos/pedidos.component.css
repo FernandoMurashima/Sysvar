@@ -296,3 +296,12 @@ input, select {
 
 /* Responsivo: permite scroll horizontal suave se necessário */
 .table-wrap { overflow-x: auto; }
+
+/* Espaço entre os botões "Aplicar" e "Limpar" na área de filtros */
+.filters-actions {
+  display: flex;
+  gap: 10px;           /* <<< distancia entre os botões */
+  align-items: center;
+  margin-top: 8px;     /* pequeno respiro acima da linha de botões */
+}
+
