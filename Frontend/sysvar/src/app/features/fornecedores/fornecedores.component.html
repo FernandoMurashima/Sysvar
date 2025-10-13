@@ -12,7 +12,8 @@
       <button class="btn primary" (click)="doSearch()">Buscar</button>
       <button class="btn primary" (click)="clearSearch()">Limpar</button>
       <button class="btn primary" (click)="novo()">Novo</button>
-      <button class="btn primary" [routerLink]="['/home']">Home</button>>
+      <button class="btn primary" (click)=" goHome()">Home</button>
+      <!-- <button class="btn primary" [routerLink]="['/home']">Home</button> -->
     </div>
   </header>
 
@@ -163,6 +164,7 @@
             </select>
           </label>
 
+          <!-- Linha 6 — alinhamento horizontal: Conta Contábil + flags -->
           <label id="conta-contabil-box" class="input-item" [class.invalid]="form.get('ContaContabil')?.invalid && (form.get('ContaContabil')?.touched || submitted)">
             Conta Contábil
             <input type="text" formControlName="ContaContabil" maxlength="15" />
@@ -172,15 +174,14 @@
             </span>
           </label>
 
-          <!-- Linha 6 (flags) -->
           <label id="bloqueio-box" class="flags-item">
             <input type="checkbox" formControlName="Bloqueio" />
-            Bloqueio
+            <span>Bloqueio</span>
           </label>
 
           <label id="mala-direta-box" class="flags-item">
             <input type="checkbox" formControlName="MalaDireta" />
-            Mala Direta
+            <span>Mala Direta</span>
           </label>
         </div>
 
@@ -193,41 +194,67 @@
       </form>
     </section>
 
-    <!-- LISTA -->
+    <!-- LISTA (ListView) -->
     <section class="card list">
-      <div class="empty-hint" *ngIf="!loading && fornecedores.length === 0">
-        Nenhum fornecedor encontrado.
+      <div class="list-header">
+        <div class="list-info"><span>Total: {{ total }}</span></div>
+        <div class="list-controls">
+          <label for="pageSize">Itens por página</label>
+          <select id="pageSize" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
       </div>
 
-      <table class="table" *ngIf="fornecedores.length > 0">
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Apelido</th>
-            <th>CNPJ</th>
-            <th>Cidade</th>
-            <th>Email</th>
-            <th>Telefone</th>
-            <th style="width:140px;">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let f of fornecedores">
-            <td>{{ f.Nome_fornecedor }}</td>
-            <td>{{ f.Apelido }}</td>
-            <td>{{ f.Cnpj }}</td>
-            <td>{{ f.Cidade }}</td>
-            <td class="email">{{ f.email }}</td>
-            <td>{{ f.Telefone1 }}</td>
-            <td class="actions">
-              <button class="btn sm" (click)="editar(f)">Editar</button>
-              <button class="btn sm danger" (click)="excluir(f)">Excluir</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table class="table" *ngIf="fornecedores.length > 0; else emptyTpl">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Apelido</th>
+              <th>CNPJ</th>
+              <th>Cidade</th>
+              <th>Email</th>
+              <th>Telefone</th>
+              <th style="width:140px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of fornecedores">
+              <td>{{ f.Nome_fornecedor }}</td>
+              <td>{{ f.Apelido }}</td>
+              <td>{{ f.Cnpj }}</td>
+              <td>{{ f.Cidade }}</td>
+              <td class="email">{{ f.email }}</td>
+              <td>{{ f.Telefone1 }}</td>
+              <td class="actions">
+                <button class="btn sm" (click)="editar(f)">Editar</button>
+                <button class="btn sm danger" (click)="excluir(f)">Excluir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #emptyTpl>
+          <div class="empty-hint" *ngIf="!loading">Nenhum fornecedor encontrado.</div>
+          <div class="loading" *ngIf="loading">Carregando...</div>
+        </ng-template>
+      </div>
 
-      <div class="loading" *ngIf="loading">Carregando...</div>
+      <!-- Pager -->
+      <div class="pager" *ngIf="total > 0">
+        <div class="left">
+          <button class="btn" (click)="firstPage()" [disabled]="page === 1">« Primeira</button>
+          <button class="btn" (click)="prevPage()"  [disabled]="page === 1">‹ Anterior</button>
+        </div>
+        <div class="center">
+          Página {{ page }} de {{ totalPages }}
+          <span class="range">— Mostrando {{ pageStart }} – {{ pageEnd }} de {{ total }}</span>
+        </div>
+        <div class="right">
+          <button class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Próxima ›</button>
+          <button class="btn" (click)="lastPage()" [disabled]="page >= totalPages">Última »</button>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -236,9 +263,7 @@
     <div class="overlay-card">
       <h4>Ops! Revise as informações</h4>
       <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
-      <ul>
-        <li *ngFor="let m of getFormErrors()">{{ m }}</li>
-      </ul>
+      <ul><li *ngFor="let m of getFormErrors()">{{ m }}</li></ul>
       <div class="overlay-actions">
         <button class="btn primary" type="button" (click)="closeErrorOverlay()">OK, vou corrigir</button>
       </div>

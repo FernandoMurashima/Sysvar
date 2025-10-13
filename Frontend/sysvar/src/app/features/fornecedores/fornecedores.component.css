@@ -1,5 +1,4 @@
-/* Reaproveita o visual do cadastro de clientes */
-
+/* Reaproveita o visual base */
 /* página */
 .clientes-page { display: flex; flex-direction: column; gap: 12px; border-style: solid; margin-left: 5px; padding-bottom: 5px; padding-top: 5px; margin-right: 5px ; }
 
@@ -13,7 +12,6 @@
 .toolbar-actions input {
   min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #0a0a0a;
 }
-
 
 /* conteúdo vertical */
 .content { display: flex; flex-direction: column; gap: 16px; }
@@ -29,15 +27,40 @@
 /* lista */
 .table { width: 100%; border-collapse: collapse; }
 .table thead th {
+  position: sticky; top: 0; z-index: 1;
   background:#a2c4e7; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
   padding: 10px 12px;
 }
-.table td {
-  border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle;
-}
+.table td { border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle; }
 .table .email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 .actions { display:flex; gap:6px; }
 .loading, .empty-hint { text-align:center; color:#64748b; padding: 12px; }
+
+/* wrapper com rolagem */
+.table-wrapper {
+  max-height: 480px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+/* cabeçalho da lista + controles */
+.list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.list-controls { display: flex; align-items: center; gap: 8px; }
+.list-controls select { min-width: 70px; }
+
+/* pager */
+.pager {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.pager .left { justify-self: start; display: flex; gap: 6px; }
+.pager .center { justify-self: center; color: #374151; font-size: 14px; }
+.pager .center .range { color: #6b7280; margin-left: 6px; }
+.pager .right { justify-self: end; display: flex; gap: 6px; }
 
 /* formulário */
 .form h3 { margin: 0 0 10px 0; }
@@ -63,7 +86,7 @@ input, select {
 .btn.danger { border-color: #fecaca; color: #991b1b; }
 .btn.danger:hover { background: #fef2f2; }
 
-/* posicionamento 10 colunas (semelhante ao de clientes) */
+/* POSICIONAMENTO 10 colunas */
 #nome-box           { grid-column: 1 / span 6; }
 #apelido-box        { grid-column: 7 / span 2; }
 #cnpj-box           { grid-column: 1 / span 3; }
@@ -81,25 +104,27 @@ input, select {
 #telefone1-box      { grid-column: 9 / span 2; }
 
 #telefone2-box      { grid-column: 1 / span 2; }
-#conta-contabil-box { grid-column: 3 / span 3; }
-#abertura-box       { grid-column: 6 / span 2; }
-#encerramento-box   { grid-column: 8 / span 3; }
+#categoria-box      { grid-column: 3 / span 3; }
 
-#estoque-neg-box    { grid-column: 1 / span 2; }
-#rede-box           { grid-column: 3 / span 2; }
-#matriz-box         { grid-column: 5 / span 2; }
+/* >>> ALINHAMENTO SOLICITADO (mesma linha) */
+#conta-contabil-box { grid-column: 1 / span 6; }
+#bloqueio-box       { grid-column: 7 / span 2; align-self: end; }
+#mala-direta-box    { grid-column: 9 / span 2; align-self: end; }
+
+/* checkboxes visual */
+.flags-item { display: inline-flex; align-items: center; gap: 8px; height: 100%; }
 
 /* responsivo */
 @media (max-width: 600px) {
   .grid-10 { grid-template-columns: 1fr; }
   #nome-box, #apelido-box, #cnpj-box, #email-box,
   #tipo-box, #endereco-box, #numero-box, #complemento-box,
-  #cep-box, #bairro-box, #cidade-box, #telefone1-box, #telefone2-box,
-  #conta-contabil-box, #abertura-box, #encerramento-box,
-  #estoque-neg-box, #rede-box, #matriz-box { grid-column: 1 / -1; }
+  #cep-box, #bairro-box, #cidade-box, #telefone1-box,
+  #telefone2-box, #categoria-box,
+  #conta-contabil-box, #bloqueio-box, #mala-direta-box { grid-column: 1 / -1; }
 }
 
-/* overlay (mesmo padrão do clientes) */
+/* overlay */
 .overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.25);
   display: flex; align-items: center; justify-content: center; z-index: 60;
