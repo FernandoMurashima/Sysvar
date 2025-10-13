@@ -22,7 +22,7 @@ from .models import (
     Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm,
     TabelaPrecoItem,
     # modelos fiscais / compras
-    NFeEntrada, NFeItem, FornecedorSkuMap, MovimentacaoProdutos, Nat_Lancamento
+    NFeEntrada, NFeItem, FornecedorSkuMap, MovimentacaoProdutos, Nat_Lancamento, ModeloDocumentoFiscal
 )
 from .serializers import (
     UserSerializer,
@@ -30,7 +30,8 @@ from .serializers import (
     FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer,
     CorSerializer, ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer,
     SubgrupoSerializer, CodigosSerializer, TabelaprecoSerializer, NcmSerializer,
-    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer, TabelaPrecoItemSerializer,NatLancamentoSerializer
+    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer, TabelaPrecoItemSerializer,
+    NatLancamentoSerializer, ModeloDocumentoFiscalSerializer
 )
 
 # -------------------------
@@ -931,6 +932,14 @@ class NatLancamentoViewSet(viewsets.ModelViewSet):
     ordering_fields = ['codigo', 'descricao', 'categoria_principal', 'subcategoria', 'tipo', 'status', 'tipo_natureza']
     filterset_fields = ['tipo', 'status', 'tipo_natureza']
 
+class ModeloDocumentoFiscalViewSet(viewsets.ModelViewSet):
+    queryset = ModeloDocumentoFiscal.objects.all().order_by('codigo')
+    serializer_class = ModeloDocumentoFiscalSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['codigo', 'descricao']
+    ordering_fields = ['codigo', 'descricao', 'data_inicial', 'data_final', 'ativo']
+    filterset_fields = ['ativo', 'data_inicial', 'data_final']
 
 class CodigosViewSet(viewsets.ModelViewSet):
     queryset = Codigos.objects.all().order_by('colecao', 'estacao')

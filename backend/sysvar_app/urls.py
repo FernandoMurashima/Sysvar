@@ -10,7 +10,7 @@ from sysvar_app.views import (
     GradeViewSet, TamanhoViewSet, CorViewSet, ColecaoViewSet, FamiliaViewSet,
     UnidadeViewSet, GrupoViewSet, SubgrupoViewSet, CodigosViewSet, TabelaprecoViewSet,
     NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet, 
-    health, register, login_view, me, logout_view, NatLancamentoViewSet
+    health, register, login_view, me, logout_view, NatLancamentoViewSet, ModeloDocumentoFiscalViewSet
 )
 
 
@@ -41,6 +41,8 @@ router.register(r'tabelaprecoitem', TabelaPrecoItemViewSet, basename='tabelaprec
 router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet, basename='fornecedor-sku-map')
 router.register(r'auditoria-logs', AuditoriaLogViewSet, basename='auditoria-logs')
 router.register(r'nat-lancamentos', NatLancamentoViewSet, basename='nat-lancamentos')
+router.register(r'modelos-documentos', ModeloDocumentoFiscalViewSet, basename='modelos-documentos')
+
 
 
 urlpatterns = [
