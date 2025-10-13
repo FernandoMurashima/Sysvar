@@ -1,8 +1,15 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  Validators,
+  AbstractControl,
+  ValidationErrors,
+  FormGroup
+} from '@angular/forms';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { LojasService } from '../../core/services/lojas.service';
 import { Loja } from '../../core/models/loja';
 
@@ -17,29 +24,26 @@ export class LojasComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(LojasService);
 
+  // ======== Estado geral UI ========
   loading = false;
   saving = false;
   submitted = false;
-
-  successMsg = '';
-  errorMsg = '';
-
   showForm = false;
-  errorOverlayOpen = false;
-
-  lojas: Loja[] = [];
-  search = '';
   editingId: number | null = null;
 
-  logradouroOptions = ['Rua','Avenida','Praça','Travessa','Beco','Alameda'];
+  search = '';
+  successMsg = '';
+  errorMsg = '';
+  errorOverlayOpen = false;
 
-  form = this.fb.group({
+  // ======== Formulário ========
+  form: FormGroup = this.fb.group({
     nome_loja: ['', [Validators.required, Validators.maxLength(50)]],
     Apelido_loja: ['', [Validators.required, Validators.maxLength(20)]],
-    // ← valida CNPJ e aceita "00.000.000/0000-00" (ou 14 zeros sem máscara)
     cnpj: ['', [Validators.required, this.cnpjValidator]],
+    email: ['', [Validators.email]],
 
-    Logradouro: [this.logradouroOptions[0]],
+    Logradouro: ['Rua'],            // opções no HTML
     Endereco: [''],
     numero: ['', [Validators.maxLength(10)]],
     Complemento: [''],
@@ -50,307 +54,363 @@ export class LojasComponent implements OnInit {
 
     Telefone1: ['', [this.phoneValidator]],
     Telefone2: ['', [this.phoneValidator]],
-    email: ['', [Validators.email]],
+
+    ContaContabil: [''],
+    DataAbertura: [''],
+    DataEnceramento: [''],
 
     EstoqueNegativo: ['NAO'],
     Rede: ['NAO'],
-    DataAbertura: [''],
-    ContaContabil: [''],
-    DataEnceramento: [''],
     Matriz: ['NAO'],
+   
   });
 
-  ngOnInit(): void { this.load(); }
+    logradouroOptions: string[] = [
+    'Rua',
+    'Avenida',
+    'Travessa',
+    'Alameda',
+    'Praça',
+    'Rodovia',
+    'Estrada',
+    'Largo',
+    'Viela'
+  ];
+
+  // ======== Lista + ListView (client-side) ========
+  lojasAll: Loja[] = [];
+  lojas: Loja[] = [];
+
+  page = 1;
+  pageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
+  total = 0;
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
+  get pageStart(): number {
+    if (this.total === 0) return 0;
+    return (this.page - 1) * this.pageSize + 1;
+  }
+  get pageEnd(): number {
+    return Math.min(this.page * this.pageSize, this.total);
+  }
+
+  ngOnInit(): void {
+    this.load();
+  }
 
   // ========= Validadores =========
 
-  /** Valida CNPJ com/sem máscara. Aceita 14 dígitos válidos.
-   *  Exceção: aceita explicitamente "00.000.000/0000-00" (14 zeros).
-   */
-  cnpjValidator(control: AbstractControl): ValidationErrors | null {
-    const raw = (control.value || '').toString().trim();
-    if (!raw) return null; // vazio permitido (obrigatoriedade é do required)
+  /** Valida CNPJ com/sem máscara (14 dígitos válidos) */
+  cnpjValidator(ctrl: AbstractControl): ValidationErrors | null {
+    const raw: string = (ctrl.value || '').toString();
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return null; // deixa required cuidar de vazio
+    if (digits.length !== 14) return { cnpj: true };
 
-    // somente dígitos
-    const only = raw.replace(/[^\d]/g, '');
-    if (only.length !== 14) return { cnpj: true };
+    // rejeita sequências repetidas
+    if (/^(\d)\1{13}$/.test(digits)) return { cnpj: true };
 
-    // exceção: 14 zeros são aceitos
-    if (only === '00000000000000') return null;
-
-    // reprova sequências repetidas
-    if (/^(\d)\1{13}$/.test(only)) return { cnpj: true };
-
-    // cálculo dos DVs
-    const calc = (base: string, pesos: number[]) => {
-      let soma = 0;
-      for (let i = 0; i < pesos.length; i++) soma += parseInt(base[i], 10) * pesos[i];
-      const resto = soma % 11;
-      return (resto < 2) ? 0 : 11 - resto;
+    const calc = (base: string, factors: number[]) => {
+      const sum = base.split('')
+        .map((n, i) => parseInt(n, 10) * factors[i])
+        .reduce((a, b) => a + b, 0);
+      const mod = sum % 11;
+      return (mod < 2) ? 0 : 11 - mod;
     };
-    const d1 = calc(only.slice(0, 12), [5,4,3,2,9,8,7,6,5,4,3,2]);
-    const d2 = calc(only.slice(0, 12) + d1, [6,5,4,3,2,9,8,7,6,5,4,3,2]);
 
-    return (d1 === parseInt(only[12], 10) && d2 === parseInt(only[13], 10)) ? null : { cnpj: true };
+    const base12 = digits.slice(0, 12);
+    const d1 = calc(base12, [5,4,3,2,9,8,7,6,5,4,3,2]);
+    const base13 = base12 + d1;
+    const d2 = calc(base13, [6,5,4,3,2,9,8,7,6,5,4,3,2]);
+
+    const ok = digits === (base12 + String(d1) + String(d2));
+    return ok ? null : { cnpj: true };
   }
 
-  /** Telefone (99)-99999-9999 */
-  phoneValidator(control: AbstractControl): ValidationErrors | null {
-    const v = (control.value || '').toString().trim();
+  /** Formato de telefone simples: só valida pattern (99)-99999-9999 */
+  phoneValidator(ctrl: AbstractControl): ValidationErrors | null {
+    const v: string = (ctrl.value || '').toString().trim();
     if (!v) return null;
     const ok = /^\(\d{2}\)-\d{5}-\d{4}$/.test(v);
     return ok ? null : { phone: true };
   }
 
-  // máscara para telefone
-  onPhoneInput(controlName: 'Telefone1' | 'Telefone2') {
-    const ctrl = this.form.get(controlName);
+  onPhoneInput(field: 'Telefone1'|'Telefone2'): void {
+    const ctrl = this.form.get(field);
     if (!ctrl) return;
     const digits = (ctrl.value || '').toString().replace(/\D/g, '').slice(0, 11);
-    let out = digits;
-    if (digits.length >= 1) {
-      const d = digits.padEnd(11, '_').split('');
-      out = `(${d[0]}${d[1]})-${d[2]}${d[3]}${d[4]}${d[5]}${d[6]}-${d[7]}${d[8]}${d[9]}${d[10]}`.replace(/_/g, '');
+    if (digits.length <= 2) {
+      ctrl.setValue(digits);
+      return;
+    }
+    const ddd = digits.slice(0, 2);
+    const rest = digits.slice(2);
+    let out = `(${ddd})-`;
+    if (rest.length <= 5) {
+      out += rest;
+    } else {
+      out += rest.slice(0, 5) + '-' + rest.slice(5, 9);
     }
     ctrl.setValue(out, { emitEvent: false });
   }
 
-  // ========= Lista =========
-  load() {
+  // ========= Ações / Fluxo =========
+
+  load(): void {
     this.loading = true;
-    this.errorMsg = '';
-    this.api.list({ search: this.search, ordering: '-data_cadastro' }).subscribe({
-      next: (data) => { this.lojas = Array.isArray(data) ? data : (data as any).results ?? []; },
-      error: (err) => { this.errorMsg = 'Falha ao carregar lojas.'; console.error(err); },
-      complete: () => this.loading = false
+    this.api.list({ search: this.search, page_size: 2000 }).subscribe({
+      next: (res: any) => {
+        // tolera array simples ou DRF paginado
+        const arr: Loja[] = Array.isArray(res) ? res : (res?.results ?? []);
+        this.lojasAll = arr;
+        this.total = (res && typeof res === 'object' && typeof res.count === 'number')
+          ? res.count
+          : arr.length;
+        this.page = 1;
+        this.applyPage();
+        this.loading = false;
+        this.errorMsg = '';
+      },
+      error: (err) => {
+        console.error(err);
+        this.lojasAll = [];
+        this.lojas = [];
+        this.total = 0;
+        this.loading = false;
+        this.errorMsg = 'Falha ao carregar lojas.';
+      }
     });
   }
-  onSearchKeyup(ev: KeyboardEvent) { if (ev.key === 'Enter') this.load(); }
-  doSearch() { this.load(); }
-  clearSearch() { this.search = ''; this.load(); }
 
-  // ========= Form CRUD =========
-  novo() {
+  applyPage(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.lojas = this.lojasAll.slice(start, end);
+  }
+
+  onPageSizeChange(sizeStr: string): void {
+    const size = Number(sizeStr) || 10;
+    this.pageSize = size;
+    this.page = 1;
+    this.applyPage();
+  }
+  firstPage(): void { if (this.page !== 1) { this.page = 1; this.applyPage(); } }
+  prevPage(): void  { if (this.page > 1) { this.page--; this.applyPage(); } }
+  nextPage(): void  { if (this.page < this.totalPages) { this.page++; this.applyPage(); } }
+  lastPage(): void  { if (this.page !== this.totalPages) { this.page = this.totalPages; this.applyPage(); } }
+
+  // Buscar / limpar
+  onSearchKeyup(ev: KeyboardEvent): void {
+    if (ev.key === 'Enter') this.doSearch();
+  }
+  doSearch(): void {
+    this.page = 1;
+    this.load();
+  }
+  clearSearch(): void {
+    this.search = '';
+    this.page = 1;
+    this.load();
+  }
+
+  // Novo / Editar
+  novo(): void {
+    this.showForm = true;
     this.editingId = null;
     this.submitted = false;
-    this.showForm = true;
-    this.errorOverlayOpen = false;
+    this.successMsg = '';
+    this.errorMsg = '';
 
     this.form.reset({
       nome_loja: '',
       Apelido_loja: '',
       cnpj: '',
-      Logradouro: this.logradouroOptions[0],
+      email: '',
+
+      Logradouro: 'Rua',
       Endereco: '',
       numero: '',
       Complemento: '',
+
       Cep: '',
       Bairro: '',
       Cidade: '',
+
       Telefone1: '',
       Telefone2: '',
-      email: '',
+
+      ContaContabil: '',
+      DataAbertura: '',
+      DataEnceramento: '',
+
       EstoqueNegativo: 'NAO',
       Rede: 'NAO',
-      DataAbertura: '',
-      ContaContabil: '',
-      DataEnceramento: '',
       Matriz: 'NAO',
     });
-    this.successMsg = '';
-    this.errorMsg = '';
   }
 
-  editar(item: Loja) {
-    this.editingId = item.Idloja ?? null;
-    this.submitted = false;
+  editar(row: Loja): void {
     this.showForm = true;
-    this.errorOverlayOpen = false;
-
-    this.form.patchValue({
-      nome_loja: item.nome_loja ?? '',
-      Apelido_loja: item.Apelido_loja ?? '',
-      cnpj: item.cnpj ?? '',
-      Logradouro: item.Logradouro ?? this.logradouroOptions[0],
-      Endereco: item.Endereco ?? '',
-      numero: item.numero ?? '',
-      Complemento: item.Complemento ?? '',
-      Cep: item.Cep ?? '',
-      Bairro: item.Bairro ?? '',
-      Cidade: item.Cidade ?? '',
-      Telefone1: item.Telefone1 ?? '',
-      Telefone2: item.Telefone2 ?? '',
-      email: item.email ?? '',
-      EstoqueNegativo: (item.EstoqueNegativo ?? 'NAO') || 'NAO',
-      Rede: (item.Rede ?? 'NAO') || 'NAO',
-      DataAbertura: item.DataAbertura ?? '',
-      ContaContabil: item.ContaContabil ?? '',
-      DataEnceramento: item.DataEnceramento ?? '',
-      Matriz: (item.Matriz ?? 'NAO') || 'NAO',
-    });
+    this.editingId = (row as any).Idloja ?? null;
+    this.submitted = false;
     this.successMsg = '';
     this.errorMsg = '';
+
+    this.form.reset({
+      nome_loja:       (row as any).nome_loja ?? '',
+      Apelido_loja:    (row as any).Apelido_loja ?? '',
+      cnpj:            (row as any).cnpj ?? '',
+      email:           (row as any).email ?? '',
+
+      Logradouro:      (row as any).Logradouro ?? 'Rua',
+      Endereco:        (row as any).Endereco ?? '',
+      numero:          (row as any).numero ?? '',
+      Complemento:     (row as any).Complemento ?? '',
+
+      Cep:             (row as any).Cep ?? '',
+      Bairro:          (row as any).Bairro ?? '',
+      Cidade:          (row as any).Cidade ?? '',
+
+      Telefone1:       (row as any).Telefone1 ?? '',
+      Telefone2:       (row as any).Telefone2 ?? '',
+
+      ContaContabil:   (row as any).ContaContabil ?? '',
+      DataAbertura:    (row as any).DataAbertura ?? '',
+      DataEnceramento: (row as any).DataEnceramento ?? '',
+
+      EstoqueNegativo: (row as any).EstoqueNegativo ?? 'NAO',
+      Rede:            (row as any).Rede ?? 'NAO',
+      Matriz:          (row as any).Matriz ?? 'NAO',
+    });
   }
 
-  cancelarEdicao() {
+  cancelarEdicao(): void {
     this.showForm = false;
     this.editingId = null;
     this.submitted = false;
     this.errorOverlayOpen = false;
-    this.form.reset();
   }
 
-  private normalizePayload(raw: any): Loja {
-    const toNull = (v: any) => (v === '' ? null : v);
-    const yn = (v: any) => (String(v || 'NAO').toUpperCase() === 'SIM' ? 'SIM' : 'NAO');
-
-    return {
-      nome_loja: (raw.nome_loja ?? '').trim(),
-      Apelido_loja: (raw.Apelido_loja ?? '').trim(),
-      cnpj: (raw.cnpj ?? '').trim(),
-
-      Logradouro: toNull(raw.Logradouro),
-      Endereco: toNull(raw.Endereco),
-      numero: toNull(raw.numero),
-      Complemento: toNull(raw.Complemento),
-      Cep: toNull(raw.Cep),
-      Bairro: toNull(raw.Bairro),
-      Cidade: toNull(raw.Cidade),
-
-      Telefone1: toNull(raw.Telefone1),
-      Telefone2: toNull(raw.Telefone2),
-      email: toNull(raw.email),
-
-      EstoqueNegativo: yn(raw.EstoqueNegativo),
-      Rede: yn(raw.Rede),
-      DataAbertura: toNull(raw.DataAbertura),
-      ContaContabil: toNull(raw.ContaContabil),
-      DataEnceramento: toNull(raw.DataEnceramento),
-      Matriz: yn(raw.Matriz),
-    };
+  salvar(): void {
+  this.submitted = true;
+  if (this.form.invalid) {
+    this.openErrorOverlayIfNeeded();
+    return;
   }
 
-  private scrollToFirstInvalid(): void {
-    for (const key of Object.keys(this.form.controls)) {
-      const ctrl = this.form.get(key);
-      if (ctrl && ctrl.invalid) {
-        const el = document.querySelector(`[formControlName="${key}"]`) as HTMLElement | null;
-        if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        (el as HTMLInputElement | null)?.focus?.();
-        break;
+  const raw = this.form.value;
+
+  // Converte string vazia ('') em null para campos de data opcionais
+  const payload = {
+    ...raw,
+    DataEnceramento: raw.DataEnceramento ? raw.DataEnceramento : null,
+    // Se DataAbertura também for opcional, descomente a linha abaixo:
+    // DataAbertura: raw.DataAbertura ? raw.DataAbertura : null,
+  };
+
+  this.saving = true;
+  const req$ = this.editingId
+    ? this.api.update(this.editingId, payload)
+    : this.api.create(payload);
+
+  req$.subscribe({
+    next: () => {
+      this.saving = false;
+      this.successMsg = this.editingId
+        ? 'Alterações salvas com sucesso.'
+        : 'Loja criada com sucesso.';
+      this.cancelarEdicao();
+      this.page = 1;
+      this.load();
+    },
+    error: (err) => {
+      this.saving = false;
+      this.successMsg = '';
+      if (err?.error && typeof err.error === 'object') {
+        Object.keys(err.error).forEach(field => {
+          const ctrl = this.form.get(field);
+          if (ctrl) {
+            ctrl.setErrors({
+              ...(ctrl.errors || {}),
+              server: Array.isArray(err.error[field]) ? err.error[field].join(' ') : String(err.error[field])
+            });
+          }
+        });
       }
+      this.openErrorOverlayIfNeeded();
     }
-  }
+  });
+}
 
-  private applyBackendErrors(err: any) {
-    const be = err?.error;
-    if (!be || typeof be !== 'object') return;
-    Object.keys(be).forEach((key) => {
-      const ctrl = this.form.get(key);
-      const val = Array.isArray(be[key]) ? be[key].join(' ') : String(be[key]);
-      if (ctrl) {
-        const current = ctrl.errors || {};
-        ctrl.setErrors({ ...current, server: val || 'Valor inválido' });
-      }
-    });
-  }
 
-  getFormErrors(): string[] {
-    const labels: Record<string, string> = {
-      nome_loja: 'Nome da Loja',
-      Apelido_loja: 'Apelido',
-      cnpj: 'CNPJ',
-      email: 'Email',
-      Telefone1: 'Telefone 1',
-      Telefone2: 'Telefone 2',
-      numero: 'Número',
-      Endereco: 'Endereço',
-      Cidade: 'Cidade',
-      Bairro: 'Bairro',
-      Cep: 'CEP',
-      ContaContabil: 'Conta Contábil',
-      DataAbertura: 'Data de Abertura',
-      DataEnceramento: 'Data de Encerramento',
-      Logradouro: 'Logradouro',
-      Complemento: 'Complemento',
-      EstoqueNegativo: 'Estoque Negativo',
-      Rede: 'Rede',
-      Matriz: 'Matriz',
-    };
+  excluir(item: Loja): void {
+    const id = (item as any).Idloja;
+    if (!id) return;
+    if (!confirm(`Excluir a loja "${(item as any).nome_loja}"?`)) return;
 
-    const msgs: string[] = [];
-    for (const key of Object.keys(this.form.controls)) {
-      const c = this.form.get(key);
-      if (!c || !c.errors) continue;
-      const label = labels[key] ?? key;
-
-      if (c.errors['required']) msgs.push(`${label}: faltando informação.`);
-      if (c.errors['maxlength']) msgs.push(`${label}: fora do padrão (tamanho acima do permitido).`);
-      if (c.errors['email']) msgs.push(`Email: fora do padrão (formato inválido).`);
-      if (c.errors['cnpj']) msgs.push(`CNPJ: fora do padrão (dígitos inválidos).`);
-      if (c.errors['phone']) msgs.push(`${label}: fora do padrão (use (99)-99999-9999).`);
-      if (c.errors['server']) msgs.push(`${label}: ${c.errors['server']}`);
-    }
-    return msgs;
-  }
-
-  closeErrorOverlay() { this.errorOverlayOpen = false; }
-
-  salvar() {
-    this.submitted = true;
-
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      this.scrollToFirstInvalid();
-      this.errorOverlayOpen = true;
-      return;
-    }
-
-    this.saving = true;
-    this.errorMsg = '';
-    this.successMsg = '';
-    this.errorOverlayOpen = false;
-
-    const payload: Loja = this.normalizePayload(this.form.value as any);
-
-    const req$ = this.editingId
-      ? this.api.update(this.editingId, payload)
-      : this.api.create(payload);
-
-    req$.subscribe({
-      next: () => {
-        this.successMsg = this.editingId ? 'Loja atualizada com sucesso.' : 'Loja criada com sucesso.';
-        this.load();
-        this.cancelarEdicao();    // volta ao estado inicial (sem form aberto)
-        this.saving = false;
-        this.submitted = false;
-      },
-      error: (err) => {
-        console.error(err);
-        this.applyBackendErrors(err);
-        this.saving = false;
-        this.scrollToFirstInvalid();
-        this.errorOverlayOpen = this.getFormErrors().length > 0;
-        if (!this.errorOverlayOpen) this.errorMsg = 'Não foi possível salvar. Tente novamente.';
-      }
-    });
-  }
-
-  excluir(item: Loja) {
-    if (!item.Idloja) return;
-    const ok = confirm(`Excluir a loja "${item.nome_loja}"?`);
-    if (!ok) return;
-
-    this.api.remove(item.Idloja).subscribe({
+    this.api.remove(id).subscribe({
       next: () => {
         this.successMsg = 'Loja excluída.';
+        // Se a página ficar vazia, volta uma
+        const eraUltimo = this.lojas.length === 1 && this.page > 1;
+        if (eraUltimo) this.page--;
         this.load();
-        if (this.editingId === item.Idloja) this.cancelarEdicao();
+        if (this.editingId === id) this.cancelarEdicao();
       },
       error: (err) => {
         console.error(err);
         this.errorMsg = 'Falha ao excluir.';
       }
     });
+  }
+
+  // ========= Overlay de erros =========
+
+  getFormErrors(): string[] {
+    const f = this.form;
+    const msgs: string[] = [];
+    const P = (c: boolean, m: string) => { if (c) msgs.push(m); };
+
+    P(f.get('nome_loja')?.hasError('required') || false, 'Nome da loja é obrigatório.');
+    P(f.get('nome_loja')?.hasError('maxlength') || false, 'Nome da loja: máx. 50 caracteres.');
+
+    P(f.get('Apelido_loja')?.hasError('required') || false, 'Apelido é obrigatório.');
+    P(f.get('Apelido_loja')?.hasError('maxlength') || false, 'Apelido: máx. 20 caracteres.');
+
+    P(f.get('cnpj')?.hasError('required') || false, 'CNPJ é obrigatório.');
+    P(f.get('cnpj')?.hasError('cnpj') || false, 'CNPJ inválido.');
+
+    P(f.get('email')?.hasError('email') || false, 'Email inválido.');
+
+    P(f.get('numero')?.hasError('maxlength') || false, 'Número: máx. 10 caracteres.');
+
+    P(f.get('Telefone1')?.hasError('phone') || false, 'Telefone 1: formato (99)-99999-9999.');
+    P(f.get('Telefone2')?.hasError('phone') || false, 'Telefone 2: formato (99)-99999-9999.');
+
+    // erros vindos do backend
+    [
+      'nome_loja','Apelido_loja','cnpj','email',
+      'Logradouro','Endereco','numero','Complemento',
+      'Cep','Bairro','Cidade',
+      'Telefone1','Telefone2',
+      'ContaContabil','DataAbertura','DataEnceramento',
+      'EstoqueNegativo','Rede','Matriz'
+    ].forEach(field => {
+      const err = f.get(field)?.errors?.['server'];
+      if (err) msgs.push(`${field}: ${err}`);
+    });
+
+    return msgs;
+  }
+
+  openErrorOverlayIfNeeded(): void {
+    const has = this.getFormErrors().length > 0;
+    this.errorOverlayOpen = has;
+  }
+  closeErrorOverlay(): void {
+    this.errorOverlayOpen = false;
   }
 }
