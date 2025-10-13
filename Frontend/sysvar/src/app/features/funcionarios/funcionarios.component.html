@@ -12,7 +12,7 @@
       <button class="btn primary" (click)="doSearch()">Buscar</button>
       <button class="btn primary" (click)="clearSearch()">Limpar</button>
       <button class="btn primary" (click)="novo()">Novo</button>
-      <button class="btn primary" [routerLink]="['/home']">Home</button>>
+      <button class="btn primary" [routerLink]="['/home']">Home</button>
     </div>
   </header>
 
@@ -76,6 +76,7 @@
             Categoria*
             <select formControlName="categoria"
               [attr.aria-invalid]="form.get('categoria')?.invalid && (form.get('categoria')?.touched || submitted) ? 'true' : null">
+              <option value="" disabled>Selecione</option>
               <option *ngFor="let c of categoriaOptions" [value]="c">{{ c }}</option>
             </select>
             <span class="field-error" *ngIf="form.get('categoria')?.touched || submitted">
@@ -95,14 +96,11 @@
           </label>
 
           <label id="loja-box" class="input-item" [class.invalid]="form.get('idloja')?.invalid && (form.get('idloja')?.touched || submitted)">
-            Loja*
-            <select formControlName="idloja"
-              [attr.aria-invalid]="form.get('idloja')?.invalid && (form.get('idloja')?.touched || submitted) ? 'true' : null">
-              <option [ngValue]="null">-- selecione --</option>
-              <option *ngFor="let l of lojas" [value]="getLojaId(l)">{{ l.nome_loja }}</option>
-            </select>
+            Loja (ID)*
+            <input type="number" formControlName="idloja"
+              [attr.aria-invalid]="form.get('idloja')?.invalid && (form.get('idloja')?.touched || submitted) ? 'true' : null" />
             <span class="field-error" *ngIf="form.get('idloja')?.touched || submitted">
-              <ng-container *ngIf="form.get('idloja')?.errors?.['required']">Selecione a loja (vínculo obrigatório).</ng-container>
+              <ng-container *ngIf="form.get('idloja')?.errors?.['required']">Informe o ID da loja.</ng-container>
               <ng-container *ngIf="form.get('idloja')?.errors?.['server']">{{ form.get('idloja')?.errors?.['server'] }}</ng-container>
             </span>
           </label>
@@ -130,45 +128,71 @@
       </form>
     </section>
 
-    <!-- LISTA -->
+    <!-- LISTA (ListView) -->
     <section class="card list">
-      <div class="empty-hint" *ngIf="!loading && funcionarios.length === 0">
-        Nenhum funcionário encontrado.
+      <div class="list-header">
+        <div class="list-info"><span>Total: {{ total }}</span></div>
+        <div class="list-controls">
+          <label for="pageSize">Itens por página</label>
+          <select id="pageSize" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
       </div>
 
-      <table class="table" *ngIf="funcionarios.length > 0">
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Apelido</th>
-            <th>CPF</th>
-            <th>Categoria</th>
-            <th>Loja</th>
-            <th>Meta</th>
-            <th>Início</th>
-            <th>Fim</th>
-            <th style="width:140px;">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let f of funcionarios">
-            <td>{{ f.nomefuncionario }}</td>
-            <td>{{ f.apelido }}</td>
-            <td>{{ f.cpf }}</td>
-            <td>{{ f.categoria }}</td>
-            <td>{{ lojaNameById(f.idloja) }}</td>
-            <td>{{ f.meta | number:'1.2-2' }}</td>
-            <td>{{ f.inicio }}</td>
-            <td>{{ f.fim }}</td>
-            <td class="actions">
-              <button class="btn sm" (click)="editar(f)">Editar</button>
-              <button class="btn sm danger" (click)="excluir(f)">Excluir</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table class="table" *ngIf="funcionarios.length > 0; else emptyTpl">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Apelido</th>
+              <th>CPF</th>
+              <th>Categoria</th>
+              <th>Loja (ID)</th>
+              <th>Meta</th>
+              <th>Início</th>
+              <th>Fim</th>
+              <th style="width:140px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of funcionarios">
+              <td>{{ f.nomefuncionario }}</td>
+              <td>{{ f.apelido }}</td>
+              <td>{{ f.cpf }}</td>
+              <td>{{ f.categoria }}</td>
+              <td>{{ f.idloja }}</td>
+              <td>{{ f.meta | number:'1.2-2' }}</td>
+              <td>{{ f.inicio }}</td>
+              <td>{{ f.fim }}</td>
+              <td class="actions">
+                <button class="btn sm" (click)="editar(f)">Editar</button>
+                <button class="btn sm danger" (click)="excluir(f)">Excluir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #emptyTpl>
+          <div class="empty-hint" *ngIf="!loading">Nenhum funcionário encontrado.</div>
+          <div class="loading" *ngIf="loading">Carregando...</div>
+        </ng-template>
+      </div>
 
-      <div class="loading" *ngIf="loading">Carregando...</div>
+      <!-- Pager -->
+      <div class="pager" *ngIf="total > 0">
+        <div class="left">
+          <button class="btn" (click)="firstPage()" [disabled]="page === 1">« Primeira</button>
+          <button class="btn" (click)="prevPage()"  [disabled]="page === 1">‹ Anterior</button>
+        </div>
+        <div class="center">
+          Página {{ page }} de {{ totalPages }}
+          <span class="range">— Mostrando {{ pageStart }} – {{ pageEnd }} de {{ total }}</span>
+        </div>
+        <div class="right">
+          <button class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Próxima ›</button>
+          <button class="btn" (click)="lastPage()" [disabled]="page >= totalPages">Última »</button>
+        </div>
+      </div>
     </section>
   </div>
 

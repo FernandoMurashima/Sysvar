@@ -1,13 +1,19 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  Validators,
+  FormGroup,
+  AbstractControl,
+  ValidationErrors
+} from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+
+// use os caminhos do seu projeto (ajuste se for "app/core/..."):
 import { FuncionariosService } from '../../core/services/funcionarios.service';
 import { Funcionario } from '../../core/models/funcionario';
-
-import { LojasService } from '../../core/services/lojas.service';
-import { Loja } from '../../core/models/loja';
 
 @Component({
   selector: 'app-funcionarios',
@@ -19,300 +25,264 @@ import { Loja } from '../../core/models/loja';
 export class FuncionariosComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(FuncionariosService);
-  private lojasApi = inject(LojasService);
 
+  // ===== UI =====
   loading = false;
   saving = false;
   submitted = false;
-
-  successMsg = '';
-  errorMsg = '';
-
   showForm = false;
-  errorOverlayOpen = false;
-
-  funcionarios: Funcionario[] = [];
-  lojas: Loja[] = [];
-  lojasMap: Record<number, string> = {};
-
-  search = '';
   editingId: number | null = null;
 
-  categoriaOptions: Funcionario['categoria'][] = [
-    'Tecnico','Caixa','Gerente','Vendedor','Assistente','Auxiliar','Diretoria'
-  ];
+  search = '';
+  successMsg = '';
+  errorMsg = '';
+  errorOverlayOpen = false;
 
-  form = this.fb.group({
+  // ===== Form =====
+  form: FormGroup = this.fb.group({
     nomefuncionario: ['', [Validators.required, Validators.maxLength(50)]],
     apelido: ['', [Validators.required, Validators.maxLength(20)]],
     cpf: ['', [this.cpfValidator]],
 
+    categoria: ['', [Validators.required]],
+    meta: [null, [Validators.min(0)]],
+
+    // sem dependência de lojas; apenas o id numérico
+    idloja: [null, [Validators.required]],
+
     inicio: [''],
     fim: [''],
-
-    categoria: ['Vendedor', [Validators.required]],
-    meta: [0, [Validators.min(0)]],
-
-    // vínculo obrigatório com a loja
-    idloja: [null as unknown as number, [Validators.required]],
   });
+
+  categoriaOptions: string[] = ['Vendas', 'Caixa', 'Gerência', 'Financeiro', 'Estoque'];
+
+  // ===== Lista + ListView (client-side) =====
+  funcionariosAll: Funcionario[] = [];
+  funcionarios: Funcionario[] = [];
+
+  page = 1;
+  pageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
+  total = 0;
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
+  get pageStart(): number {
+    if (this.total === 0) return 0;
+    return (this.page - 1) * this.pageSize + 1;
+  }
+  get pageEnd(): number {
+    return Math.min(this.page * this.pageSize, this.total);
+  }
 
   ngOnInit(): void {
     this.load();
-    this.loadLojas();
   }
 
-  /** CPF opcional; aceita “000.000.000-00” como especial */
-  cpfValidator(control: AbstractControl): ValidationErrors | null {
-    const raw = (control.value || '').toString().trim();
-    if (!raw) return null;
-    const only = raw.replace(/[^\d]/g, '');
-    if (only.length !== 11) return { cpf: true };
-    if (only === '00000000000') return null;
-    if (/^(\d)\1{10}$/.test(only)) return { cpf: true };
+  // ===== Validadores =====
+  cpfValidator(ctrl: AbstractControl): ValidationErrors | null {
+    const raw = (ctrl.value || '').toString();
+    const cpf = raw.replace(/\D/g, '');
+    if (!cpf) return null;              // opcional
+    if (cpf.length !== 11) return { cpf: true };
+    if (/^(\d)\1{10}$/.test(cpf)) return { cpf: true };
 
-    const calcDV = (base: string, factor: number) => {
+    const calc = (slice: number) => {
       let sum = 0;
-      for (let i = 0; i < base.length; i++) sum += parseInt(base[i], 10) * (factor - i);
-      const mod = (sum * 10) % 11;
-      return mod === 10 ? 0 : mod;
+      for (let i = 0; i < slice; i++) sum += parseInt(cpf.charAt(i), 10) * (slice + 1 - i);
+      const mod = sum % 11;
+      return (mod < 2) ? 0 : 11 - mod;
     };
-    const dv1 = calcDV(only.substring(0, 9), 10);
-    const dv2 = calcDV(only.substring(0, 10), 11);
-    return (dv1 === parseInt(only[9], 10) && dv2 === parseInt(only[10], 10)) ? null : { cpf: true };
+    const d1 = calc(9);
+    const d2 = calc(10);
+    const ok = cpf === cpf.substring(0, 9) + d1 + d2;
+    return ok ? null : { cpf: true };
   }
 
-  // ======= Loads =======
-  load() {
+  // ===== Fluxo =====
+  load(): void {
     this.loading = true;
-    this.errorMsg = '';
-    this.api.list({ search: this.search, ordering: '-data_cadastro' }).subscribe({
-      next: (data) => { this.funcionarios = Array.isArray(data) ? data : (data as any).results ?? []; },
-      error: (err) => { this.errorMsg = 'Falha ao carregar funcionários.'; console.error(err); },
-      complete: () => this.loading = false
-    });
-  }
-
-  loadLojas() {
-    this.lojasApi.list({ ordering: 'nome_loja' }).subscribe({
-      next: (data) => {
-        this.lojas = Array.isArray(data) ? data : (data as any).results ?? [];
-        this.lojasMap = {};
-        for (const l of this.lojas as any[]) {
-          const id = this.getLojaId(l);
-          if (id != null) this.lojasMap[id] = l.nome_loja ?? 'Loja';
-        }
+    this.api.list({ search: this.search, page_size: 2000 }).subscribe({
+      next: (res: any) => {
+        const arr: Funcionario[] = Array.isArray(res) ? res : (res?.results ?? []);
+        this.funcionariosAll = arr;
+        this.total = (res && typeof res === 'object' && typeof res.count === 'number') ? res.count : arr.length;
+        this.page = 1;
+        this.applyPage();
+        this.loading = false;
+        this.errorMsg = '';
       },
-      error: (err) => { console.error('Falha ao carregar lojas', err); }
+      error: (err) => {
+        console.error('Falha ao carregar funcionários', err);
+        this.funcionariosAll = [];
+        this.funcionarios = [];
+        this.total = 0;
+        this.loading = false;
+        this.errorMsg = 'Falha ao carregar funcionários.';
+      }
     });
   }
 
-  // ======= Helpers para o template (evitam ?? e Number() no HTML) =======
-  getLojaId(l: any): number | null {
-    if (!l) return null;
-    if (l.Idloja !== undefined && l.Idloja !== null) return Number(l.Idloja);
-    if (l.Idloja !== undefined && l.Idloja !== null) return Number(l.Idloja);
-    if (l.id !== undefined && l.id !== null) return Number(l.id);
-    if (l['Idloja'] !== undefined && l['Idloja'] !== null) return Number(l['Idloja']);
-    return null;
+  applyPage(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.funcionarios = this.funcionariosAll.slice(start, end);
   }
 
-  lojaNameById(id: any): string {
-    const num = id === null || id === undefined || id === '' ? NaN : Number(id);
-    if (!isNaN(num) && this.lojasMap[num]) return this.lojasMap[num];
-    return id != null ? String(id) : '';
+  onPageSizeChange(sizeStr: string): void {
+    const size = Number(sizeStr) || 10;
+    this.pageSize = size;
+    this.page = 1;
+    this.applyPage();
   }
+  firstPage(): void { if (this.page !== 1) { this.page = 1; this.applyPage(); } }
+  prevPage(): void  { if (this.page > 1) { this.page--; this.applyPage(); } }
+  nextPage(): void  { if (this.page < this.totalPages) { this.page++; this.applyPage(); } }
+  lastPage(): void  { if (this.page !== this.totalPages) { this.page = this.totalPages; this.applyPage(); } }
 
-  onSearchKeyup(ev: KeyboardEvent) { if (ev.key === 'Enter') this.load(); }
-  doSearch() { this.load(); }
-  clearSearch() { this.search = ''; this.load(); }
+  onSearchKeyup(ev: KeyboardEvent): void { if (ev.key === 'Enter') this.doSearch(); }
+  doSearch(): void { this.page = 1; this.load(); }
+  clearSearch(): void { this.search = ''; this.page = 1; this.load(); }
 
-  // ======= Form =======
-  novo() {
+  novo(): void {
+    this.showForm = true;
     this.editingId = null;
     this.submitted = false;
-    this.showForm = true;
-    this.errorOverlayOpen = false;
+    this.successMsg = '';
+    this.errorMsg = '';
 
     this.form.reset({
       nomefuncionario: '',
       apelido: '',
       cpf: '',
+      categoria: '',
+      meta: null,
+      idloja: null,
       inicio: '',
-      fim: '',
-      categoria: 'Vendedor',
-      meta: 0,
-      idloja: null as unknown as number,
+      fim: ''
     });
-    this.successMsg = '';
-    this.errorMsg = '';
   }
 
-  editar(item: Funcionario) {
-    this.editingId = item.Idfuncionario ?? null;
-    this.submitted = false;
+  editar(row: Funcionario): void {
     this.showForm = true;
-    this.errorOverlayOpen = false;
-
-    const lojaId =
-      (item as any).idloja && typeof (item as any).idloja === 'object'
-        ? this.getLojaId((item as any).idloja)
-        : (item as any).idloja ?? null;
-
-    this.form.patchValue({
-      nomefuncionario: item.nomefuncionario ?? '',
-      apelido: item.apelido ?? '',
-      cpf: item.cpf ?? '',
-      inicio: item.inicio ?? '',
-      fim: item.fim ?? '',
-      categoria: item.categoria ?? 'Vendedor',
-      meta: item.meta ?? 0,
-      idloja: lojaId,
-    });
+    this.editingId = (row as any).Idfuncionario ?? null;
+    this.submitted = false;
     this.successMsg = '';
     this.errorMsg = '';
+
+    this.form.reset({
+      nomefuncionario: (row as any).nomefuncionario ?? '',
+      apelido:         (row as any).apelido ?? '',
+      cpf:             (row as any).cpf ?? '',
+      categoria:       (row as any).categoria ?? '',
+      meta:            (row as any).meta ?? null,
+      idloja:          (row as any).idloja ?? null,
+      inicio:          (row as any).inicio ?? '',
+      fim:             (row as any).fim ?? ''
+    });
   }
 
-  cancelarEdicao() {
+  cancelarEdicao(): void {
     this.showForm = false;
     this.editingId = null;
     this.submitted = false;
     this.errorOverlayOpen = false;
-    this.form.reset();
   }
 
-  private normalizePayload(raw: any): Funcionario {
-    const toNull = (v: any) => (v === '' || v === null || v === undefined ? null : v);
-    const numeric = (v: any) => {
-      if (v === '' || v === null || v === undefined) return 0;
-      const n = Number(v);
-      return isNaN(n) ? 0 : n;
-    };
-
-    return {
-      nomefuncionario: (raw.nomefuncionario ?? '').trim(),
-      apelido: (raw.apelido ?? '').trim(),
-      cpf: (raw.cpf ?? '').trim() || undefined,
-
-      inicio: toNull(raw.inicio) as any,
-      fim: toNull(raw.fim) as any,
-
-      categoria: raw.categoria,
-      meta: numeric(raw.meta),
-
-      idloja: Number(raw.idloja),
-    } as Funcionario;
-  }
-
-  private scrollToFirstInvalid(): void {
-    for (const key of Object.keys(this.form.controls)) {
-      const ctrl = this.form.get(key);
-      if (ctrl && ctrl.invalid) {
-        const el = document.querySelector(`[formControlName="${key}"]`) as HTMLElement | null;
-        if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        (el as HTMLInputElement | null)?.focus?.();
-        break;
-      }
-    }
-  }
-
-  private applyBackendErrors(err: any) {
-    const be = err?.error;
-    if (!be || typeof be !== 'object') return;
-    Object.keys(be).forEach((key) => {
-      const ctrl = this.form.get(key);
-      const val = Array.isArray(be[key]) ? be[key].join(' ') : String(be[key]);
-      if (ctrl) {
-        const current = ctrl.errors || {};
-        ctrl.setErrors({ ...current, server: val || 'Valor inválido' });
-      }
-    });
-  }
-
-  getFormErrors(): string[] {
-    const labels: Record<string, string> = {
-      nomefuncionario: 'Nome',
-      apelido: 'Apelido',
-      cpf: 'CPF',
-      inicio: 'Início',
-      fim: 'Fim',
-      categoria: 'Categoria',
-      meta: 'Meta',
-      idloja: 'Loja',
-    };
-
-    const msgs: string[] = [];
-    for (const key of Object.keys(this.form.controls)) {
-      const c = this.form.get(key);
-      if (!c || !c.errors) continue;
-      const label = labels[key] ?? key;
-
-      if (c.errors['required']) msgs.push(`${label}: faltando informação.`);
-      if (c.errors['maxlength']) msgs.push(`${label}: fora do padrão (tamanho acima do permitido).`);
-      if (c.errors['min']) msgs.push(`${label}: fora do padrão (não pode ser negativo).`);
-      if (c.errors['cpf']) msgs.push(`CPF: fora do padrão (dígitos inválidos).`);
-      if (c.errors['server']) msgs.push(`${label}: ${c.errors['server']}`);
-    }
-    return msgs;
-  }
-
-  closeErrorOverlay() { this.errorOverlayOpen = false; }
-
-  salvar() {
+  salvar(): void {
     this.submitted = true;
-
     if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      this.scrollToFirstInvalid();
-      this.errorOverlayOpen = true;
+      this.openErrorOverlayIfNeeded();
       return;
     }
 
+    const raw = this.form.value as any;
+    // datas opcionais: '' → null
+    const payload: any = {
+      ...raw,
+      inicio: raw.inicio ? raw.inicio : null,
+      fim:    raw.fim    ? raw.fim    : null,
+    };
+
     this.saving = true;
-    this.errorMsg = '';
-    this.successMsg = '';
-    this.errorOverlayOpen = false;
-
-    const payload: Funcionario = this.normalizePayload(this.form.value as any);
-
     const req$ = this.editingId
       ? this.api.update(this.editingId, payload)
       : this.api.create(payload);
 
     req$.subscribe({
       next: () => {
-        this.successMsg = this.editingId ? 'Funcionário atualizado com sucesso.' : 'Funcionário criado com sucesso.';
-        this.load();
-        this.cancelarEdicao(); // fecha o form e volta ao estado inicial
         this.saving = false;
-        this.submitted = false;
+        this.successMsg = this.editingId ? 'Alterações salvas com sucesso.' : 'Funcionário criado com sucesso.';
+        this.cancelarEdicao();
+        this.page = 1;
+        this.load();
       },
       error: (err) => {
-        console.error(err);
-        this.applyBackendErrors(err);
         this.saving = false;
-        this.scrollToFirstInvalid();
-        this.errorOverlayOpen = this.getFormErrors().length > 0;
-        if (!this.errorOverlayOpen) this.errorMsg = 'Não foi possível salvar. Tente novamente.';
+        this.successMsg = '';
+        if (err?.error && typeof err.error === 'object') {
+          Object.keys(err.error).forEach(field => {
+            const ctrl = this.form.get(field);
+            if (ctrl) {
+              ctrl.setErrors({
+                ...(ctrl.errors || {}),
+                server: Array.isArray(err.error[field]) ? err.error[field].join(' ') : String(err.error[field])
+              });
+            }
+          });
+        }
+        this.openErrorOverlayIfNeeded();
       }
     });
   }
 
-  excluir(item: Funcionario) {
-    if (!item.Idfuncionario) return;
-    const ok = confirm(`Excluir o funcionário "${item.nomefuncionario}"?`);
-    if (!ok) return;
+  excluir(item: Funcionario): void {
+    const id = (item as any).Idfuncionario;
+    if (!id) return;
+    if (!confirm(`Excluir o funcionário "${(item as any).nomefuncionario}"?`)) return;
 
-    this.api.remove(item.Idfuncionario).subscribe({
+    this.api.remove(id).subscribe({
       next: () => {
         this.successMsg = 'Funcionário excluído.';
+        const eraUltimo = this.funcionarios.length === 1 && this.page > 1;
+        if (eraUltimo) this.page--;
         this.load();
-        if (this.editingId === item.Idfuncionario) this.cancelarEdicao();
+        if (this.editingId === id) this.cancelarEdicao();
       },
-      error: (err) => {
-        console.error(err);
-        this.errorMsg = 'Falha ao excluir.';
-      }
+      error: (err) => console.error('Falha ao excluir funcionário', err)
     });
+  }
+
+  // ===== Overlay de erros =====
+  getFormErrors(): string[] {
+    const f = this.form;
+    const msgs: string[] = [];
+    const P = (c: boolean, m: string) => { if (c) msgs.push(m); };
+
+    P(f.get('nomefuncionario')?.hasError('required') || false, 'Nome é obrigatório.');
+    P(f.get('nomefuncionario')?.hasError('maxlength') || false, 'Nome: máx. 50 caracteres.');
+    P(f.get('apelido')?.hasError('required') || false, 'Apelido é obrigatório.');
+    P(f.get('apelido')?.hasError('maxlength') || false, 'Apelido: máx. 20 caracteres.');
+    P(f.get('cpf')?.hasError('cpf') || false, 'CPF inválido.');
+
+    P(f.get('categoria')?.hasError('required') || false, 'Categoria é obrigatória.');
+    P(f.get('meta')?.hasError('min') || false, 'Meta não pode ser negativa.');
+    P(f.get('idloja')?.hasError('required') || false, 'Informe o ID da loja.');
+
+    ['nomefuncionario','apelido','cpf','categoria','meta','idloja','inicio','fim']
+      .forEach(field => {
+        const err = f.get(field)?.errors?.['server'];
+        if (err) msgs.push(`${field}: ${err}`);
+      });
+
+    return msgs;
+  }
+
+  openErrorOverlayIfNeeded(): void {
+    this.errorOverlayOpen = this.getFormErrors().length > 0;
+  }
+  closeErrorOverlay(): void {
+    this.errorOverlayOpen = false;
   }
 }
