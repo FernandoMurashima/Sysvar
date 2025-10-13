@@ -156,7 +156,7 @@
 
     <form [formGroup]="filtrosForm" (ngSubmit)="buscar()" class="filters">
       <!-- 1ª linha: Status + Tipo (compactos, lado a lado) -->
-      <div class="field-group1">
+      <!-- <div class="field-group1">
         <div class="fi" id="status">
           <label>Status:</label>
           <select formControlName="status">
@@ -189,7 +189,57 @@
           <input type="text" formControlName="loja" placeholder="ID"/>
         </div>
       
-      </div>
+      </div> -->
+
+      <div class="field-group1">
+          <!-- Status -->
+          <div class="fi" id="status">
+            <label>Status:</label>
+            <select formControlName="status">
+              <option value="">(todos)</option>
+              <option value="AB">AB (Aberto)</option>
+              <option value="AP">AP (Aprovado)</option>
+              <option value="CA">CA (Cancelado)</option>
+              <option value="AT">AT (Atendido)</option>
+              <option value="PA">PA (Parcial aberto)</option>
+              <option value="PE">PE (Parcial encerrado)</option>
+            </select>
+          </div>
+
+          <!-- Tipo -->
+          <div class="fi" id="tipo">
+            <label>Tipo:</label>
+            <select formControlName="tipo_pedido">
+              <option value="">(todos)</option>
+              <option value="revenda">Revenda</option>
+              <option value="uso/consumo">Uso/Consumo</option>
+            </select>
+          </div>
+
+          <!-- Fornecedor: ID + Nome lado a lado -->
+          <div class="fi-pair" id="fornecedor">
+            <label>Fornecedor:</label>
+            <div class="pair">
+              <input class="id" type="number" formControlName="q_fornecedor" placeholder="ID" />
+              <input class="name" type="text" [value]="filtrosForm.get('fornecedor_nome')?.value || ''" placeholder="Nome do fornecedor" readonly />
+            </div>
+          </div>
+
+          <!-- Loja: ID + Nome lado a lado -->
+          <div class="fi-pair" id="loja">
+            <label>Loja:</label>
+            <div class="pair">
+              <input class="id" type="text" formControlName="loja" placeholder="ID" />
+              <input class="name" type="text"
+                    [value]="filtrosForm.get('loja_nome')?.value || ''"
+                    placeholder="Nome da loja" readonly />
+            </div>
+          </div>
+        </div>
+
+
+
+
 
       <!-- 3ª linha: Emissão | Entrega -->
       <div class="f-row-3">

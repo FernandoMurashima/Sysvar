@@ -1,124 +1,48 @@
-/* Reaproveita o visual do cadastro de clientes */
+/* ================== Variáveis úteis ================== */
+:root {
+  /* filtros (1ª linha) */
+  --w-sm: 170px;  /* Status/Tipo */
+  --w-id: 120px;  /* largura do campo ID (Fornecedor/Loja) */
+  --gap: 10px;    /* espaço entre ID e Nome */
 
-/* página */
-.clientes-page { display: flex; flex-direction: column; gap: 12px; border-style: solid; margin-left: 5px; padding-bottom: 5px; padding-top: 5px; margin-right: 5px ; }
+  /* espaçamentos gerais */
+  --space-1: 8px;
+  --space-2: 10px;
+}
 
-/* toolbar */
+/* ================== Toolbar / Alerts / Card ================== */
 .toolbar {
   display: flex; align-items: center; justify-content: space-between;
   padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;
 }
 .toolbar h2 { margin: 5px; }
-.toolbar-actions { display: flex; gap: 8px; align-items: center; margin-right: 5px;}
-.toolbar-actions input {
-  min-width: 280px; padding: 8px 10px; border-radius: 6px; border: 1px solid #0a0a0a;
-}
+.toolbar-actions { display: flex; gap: 8px; align-items: center; margin-right: 5px; }
 
-/* conteúdo vertical */
-.content { display: flex; flex-direction: column; gap: 16px; }
-
-/* alerts */
 .alert { padding: 10px 12px; border-radius: 8px; }
 .alert.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
 .alert.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
 
-/* cards */
-.card { background:#98bbd3; border:1px solid #0a0a0a; border-radius: 10px; padding: 12px; margin-left: 5px; margin-right: 5px; margin-top: 5px; }
+.card { background:#98bbd3; border:1px solid #0a0a0a; border-radius: 10px; padding: 12px; margin: 5px; }
 
-/* lista */
-.table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-.table thead th {
-  background:#a2c4e7; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
-  padding: 10px 12px;
-}
-.table td {
-  border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle;
-}
-.table .email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-.actions { display:flex; gap:6px; }
-.loading, .empty-hint { text-align:center; color:#64748b; padding: 12px; }
+/* ================== Botões ================== */
+.btn { padding: 8px 12px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; cursor: pointer; }
+.btn:hover { background: #f8fafc; }
+.btn-primary, .btn.primary { background:#111827; color:#fff; border-color:#111827; }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-danger { border-color:#fecaca; color:#991b1b; }
+.btn-danger:hover { background:#fef2f2; }
+.btn-light { background:#f8fafc; border-color:#e5e7eb; }
 
-/* formulário */
-.form h3 { margin: 0 0 10px 0; }
-.grid-10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
-
-/* regra global antiga dos labels mantida (mas vamos isolar nos filtros) */
-label { display: grid; gap: 6px; font-size: 14px; }
-
+/* ================== Inputs / Labels ================== */
+label { font-size:14px; margin-bottom:4px; display:block; }
 input, select {
   padding: 8px 10px; border-radius: 8px; border: 1px solid #e5e7eb; outline: none;
 }
 .input-item.invalid input, .input-item.invalid select, input[aria-invalid="true"] {
   border-color: #ef4444; background: #fef2f2;
 }
-.field-error { color:#b91c1c; font-size: 12px; min-height: 16px; }
 
-.actions-form { margin-top: 12px; display: flex; gap: 8px; }
-
-/* botões */
-.btn { padding: 8px 12px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; cursor: pointer; }
-.btn:hover { background: #f8fafc; }
-.btn.primary { background: #111827; color: #fff; border-color: #111827; }
-.btn.primary:hover { filter: brightness(1.06); }
-.btn.ghost { background: transparent; }
-.btn.sm { padding: 6px 10px; font-size: 13px; }
-.btn.danger { border-color: #fecaca; color: #991b1b; }
-.btn.danger:hover { background: #fef2f2; }
-
-/* posicionamento 10 colunas (semelhante ao de clientes) */
-#nome-box           { grid-column: 1 / span 6; }
-#apelido-box        { grid-column: 7 / span 2; }
-#cnpj-box           { grid-column: 1 / span 3; }
-#email-box          { grid-column: 4 / span 4; }
-
-#tipo-box           { grid-column: 1 / span 1; }
-#endereco-box       { grid-column: 2 / span 7; }
-#numero-box         { grid-column: 9 / span 2; }
-
-#complemento-box    { grid-column: 1 / span 10; }
-
-#cep-box            { grid-column: 1 / span 2; }
-#bairro-box         { grid-column: 3 / span 3; }
-#cidade-box         { grid-column: 6 / span 3; }
-#telefone1-box      { grid-column: 9 / span 2; }
-
-#telefone2-box      { grid-column: 1 / span 2; }
-#conta-contabil-box { grid-column: 3 / span 3; }
-#abertura-box       { grid-column: 6 / span 2; }
-#encerramento-box   { grid-column: 8 / span 3; }
-
-#estoque-neg-box    { grid-column: 1 / span 2; }
-#rede-box           { grid-column: 3 / span 2; }
-#matriz-box         { grid-column: 5 / span 2; }
-
-/* responsivo */
-@media (max-width: 600px) {
-  .grid-10 { grid-template-columns: 1fr; }
-  #nome-box, #apelido-box, #cnpj-box, #email-box,
-  #tipo-box, #endereco-box, #numero-box, #complemento-box,
-  #cep-box, #bairro-box, #cidade-box, #telefone1-box, #telefone2-box,
-  #conta-contabil-box, #abertura-box, #encerramento-box,
-  #estoque-neg-box, #rede-box, #matriz-box { grid-column: 1 / -1; }
-}
-
-/* overlay (mesmo padrão do clientes) */
-.overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.25);
-  display: flex; align-items: center; justify-content: center; z-index: 60;
-}
-.overlay-card {
-  background: #fff; border-radius: 12px; padding: 16px; width: 520px; max-width: calc(100% - 24px);
-  border: 1px solid #e5e7eb; box-shadow: 0 10px 30px rgba(0,0,0,.15);
-}
-.overlay-card h4 { margin: 0 0 8px; }
-.overlay-card ul { margin: 8px 0 0 18px; }
-.overlay-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-
-/* placeholder */
-.form-placeholder { display:flex; align-items:center; justify-content:center; min-height: 120px; }
-.placeholder-inner { color:#64748b; text-align:center; }
-
-/* === Utilitários de grid para o NOVO === */
+/* ================== NOVO: grid linhas ================== */
 .form-row { display: grid; gap: 10px 12px; align-items: end; }
 .form-row.row-3 { grid-template-columns: 1fr 1fr 1fr; }
 .form-row.row-2 { grid-template-columns: 1fr 1fr; }
@@ -128,63 +52,48 @@ input, select {
 
 .items-actions.stacked { display: flex; justify-content: flex-start; margin-top: 8px; }
 .total-line { text-align: right; margin-top: 6px; font-size: 15px; }
-.total-line strong { font-weight: 700; }
-
 .spaced-top { margin-top: 12px; }
 
-/* ========= FILTROS (CSS NOVO COM FLEX) ========= */
-
-/* Ajustes fáceis por variável */
-:root{
-  --f-sm: 170px;   /* largura dos selects pequenos (Status, Tipo) */
-  --f-gap: 12px;   /* espaçamento horizontal entre colunas */
-  --f-loja: 220px; /* largura do campo Loja */
-}
-
+/* ================== FILTROS ================== */
 /* container geral dos filtros */
 .filters { display: grid; gap: 10px; }
 
-/* 1ª linha: Status + Tipo (fixos) */
-.filters-inline{
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--f-gap);
-  align-items: flex-end;
-}
-.filters-inline .fi{
+/* 1ª linha: grid de 20 colunas para posicionar os blocos */
+.field-group1 {
   display: grid;
-  gap: 6px;
-  width: var(--f-sm);     /* << controla largura do campo */
-  flex: 0 0 var(--f-sm);  /* impede de esticar */
+  grid-template-columns: repeat(20, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
 }
-.filters-inline .fi label{
-  /* isola do label global (que é display:grid) */
-  display: block;
-  margin: 0;
-  white-space: nowrap;
-}
-.filters-inline .fi select{ width: 100%; min-width: 0; }
 
-/* 2ª linha: Fornecedor (flex) + Loja (fixo) */
-.filters-second{
-  display: flex;
-  gap: var(--f-gap);
-  align-items: flex-end;
-}
-.filters-second .f-field{
-  display: grid; gap: 6px; flex: 1 1 auto; min-width: 0;
-}
-.filters-second .f-field--loja{
-  flex: 0 0 var(--f-loja);   /* << controla largura da Loja */
-  max-width: var(--f-loja);
-}
-.filters-second .f-field input{ width: 100%; }
+/* blocos pequenos (Status/Tipo) */
+.field-group1 .fi { display: grid; gap: 6px; justify-self: start; }
+.field-group1 .fi select { width: var(--w-sm); max-width: 100%; }
 
-/* 3ª linha: datas (mantém sua range-line) */
+/* pares ID + Nome */
+.field-group1 .fi-pair { display: grid; gap: 6px; }
+#fornecedor .pair, #loja .pair {
+  display: flex; gap: var(--gap); align-items: end;
+}
+#fornecedor .pair .id, #loja .pair .id {
+  width: var(--w-id); min-width: var(--w-id);
+}
+#fornecedor .pair .name, #loja .pair .name {
+  flex: 1 1 auto; min-width: 180px;
+  background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px;
+}
+
+/* posições na 1ª linha (ajuste livre) */
+#status     { grid-row: 1; grid-column: 1 / span 3; }
+#tipo       { grid-row: 1; grid-column: 4 / span 3; }
+#fornecedor { grid-row: 1; grid-column: 7 / span 8; }
+#loja       { grid-row: 1; grid-column: 15 / span 6; }
+
+/* 2ª linha (datas) */
 .f-row-3{
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--f-gap);
+  gap: 12px;
   align-items: center;
 }
 .range-line{
@@ -197,23 +106,27 @@ input, select {
 .range-line .sep { margin: 0 12px; opacity: .85; }
 .range-line input[type="date"] { padding: 8px 10px; }
 
-/* Ações dos filtros */
+/* botões dos filtros */
 .filters-actions{
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 4px;
+  display: flex; gap: 10px; align-items: center; margin-top: 4px;
 }
 
-/* Responsivo */
-@media (max-width: 900px){
-  .filters-inline .fi{ width: 100%; flex: 1 1 100%; }
-  .filters-second{ flex-direction: column; }
-  .filters-second .f-field--loja{ width: 100%; max-width: 100%; flex-basis: auto; }
-  .f-row-3{ grid-template-columns: 1fr; }
+/* responsivo filtros */
+@media (max-width: 960px) {
+  .field-group1 { grid-template-columns: 1fr; }
+  #status, #tipo, #fornecedor, #loja { grid-column: 1 / -1; }
+  .field-group1 .fi select { width: 100%; }
+  #fornecedor .pair, #loja .pair { gap: 8px; }
+  .f-row-3 { grid-template-columns: 1fr; }
 }
 
-/* ======== (restante da tabela e ações) ======== */
+/* ================== Tabela de resultados ================== */
+.table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.table thead th {
+  background:#a2c4e7; border-bottom:1px solid #e5e7eb; font-weight:600; text-align:left;
+  padding: 10px 12px;
+}
+.table td { border-bottom:1px solid #f1f5f9; padding:10px 12px; vertical-align: middle; }
 
 .table-full { width: 100%; table-layout: fixed; }
 .table-full th, .table-full td { padding: 10px 12px; }
@@ -226,27 +139,23 @@ input, select {
 .actions-wrap { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
 .table-wrap { overflow-x: auto; }
 
-/* (regras antigas duplicadas mantidas para não quebrar telas do NOVO) */
-.form-row { display: grid; gap: 10px 12px; align-items: end; }
-.form-row.row-3 { grid-template-columns: 1fr 1fr 1fr; }
-@media (max-width: 720px) {
-  .form-row.row-3 { grid-template-columns: 1fr; }
+/* ================== EDITAR: linha inline (FP) ================== */
+.edit-inline-row{
+  display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end;
+  margin: 8px 5px 12px 5px;
 }
-.form-row { display: grid; gap: 10px 12px; align-items: center; }
-.form-row.row-2 { grid-template-columns: 1fr 1fr; }
-
-
-/* -------------------------------------------------------------------------*/
-.field-group1,
-.field-group2,
-.field-group3
-{
-    display: grid;
-    grid-template-columns: repeat(20, 1fr); /* 10 colunas */
-    gap: 10px;
+.edit-inline-row .pair{
+  display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center;
+}
+.edit-inline-row .pair.apply{ grid-template-columns: 1fr; }
+.edit-inline-row label.inline{ margin:0; white-space: nowrap; padding-right:10px; }
+.edit-inline-row input[type="date"]{ min-width: 180px; }
+.edit-inline-row input[type="text"]{ min-width: 120px; }
+.edit-inline-row select{ min-width: 220px; }
+.desc-readonly{
+  background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; min-width: 260px;
 }
 
-#status     { grid-row: 1; grid-column: 1; width: 10px; }
-#tipo       { grid-row: 1; grid-column: 4; width: 70px; }
-#fornecedor { grid-row: 1; grid-column: 6; width: 100px; }
-#loja       { grid-row: 1; grid-column: 14; width: 200px; }
+/* ================== Placeholder ================== */
+.form-placeholder { display:flex; align-items:center; justify-content:center; min-height: 120px; }
+.placeholder-inner { color:#64748b; text-align:center; }
