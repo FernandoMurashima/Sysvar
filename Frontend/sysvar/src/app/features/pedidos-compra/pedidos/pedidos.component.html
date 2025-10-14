@@ -1,14 +1,13 @@
 <div class="pc-page">
-  
   <header class="toolbar">
     <h2>Pedido de Compra</h2>
     <div class="toolbar-actions">
-      <button class="btn primary" (click)="setAction('novo')">Novo</button>
-      <button class="btn primary" (click)="setAction('consultar')">Consultar</button>
-      <button class="btn primary" [routerLink]="['/home']">Home</button>
+      <button class="btn btn-primary" (click)="setAction('novo')">Novo</button>
+      <button class="btn btn-primary" (click)="setAction('consultar')">Consultar</button>
+      <button class="btn btn-primary" [routerLink]="['/home']">Home</button>
     </div>
   </header>
-  
+
   <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
   <div *ngIf="fieldErrors.length" class="alert error">
     <div *ngFor="let fe of fieldErrors">
@@ -31,7 +30,6 @@
     <h3>Novo Pedido de Compra</h3>
 
     <form (ngSubmit)="salvarNovo()" [formGroup]="novoForm">
-
       <!-- 1ª linha: Fornecedor (ID + Nome) | Loja | Tipo de Pedido -->
       <div class="form-row row-3">
         <!-- Fornecedor (ID + Nome ao lado) -->
@@ -60,7 +58,7 @@
         <div class="field-block">
           <div class="label">Tipo de Pedido</div>
           <select formControlName="tipo_pedido">
-            <option value="revenda">Revenda</option>
+            <option value="revenda">revenda</option>
             <option value="consumo">Uso/Consumo</option>
           </select>
         </div>
@@ -149,14 +147,13 @@
     </form>
   </section>
 
-
   <!-- CONSULTAR -->
   <section class="card" *ngIf="action === 'consultar'">
     <h3>Consultar</h3>
 
     <form [formGroup]="filtrosForm" (ngSubmit)="buscar()" class="filters">
-      <!-- 1ª linha: Status + Tipo (compactos, lado a lado) -->
-      <!-- <div class="field-group1">
+      <!-- 1ª linha: Status | Tipo | Fornecedor(ID+Nome) | Loja(ID+Nome) -->
+      <div class="field-group1">
         <div class="fi" id="status">
           <label>Status:</label>
           <select formControlName="status">
@@ -175,73 +172,32 @@
           <select formControlName="tipo_pedido">
             <option value="">(todos)</option>
             <option value="revenda">Revenda</option>
-            <option value="uso/consumo">Uso/Consumo</option>
+            <option value="consumo">Uso/Consumo</option>
           </select>
         </div>
 
-        <div class="fi" id="fornecedor">
+        <div class="fi-pair" id="fornecedor">
           <label>Fornecedor:</label>
-          <input type="text" formControlName="q_fornecedor" placeholder="ID ou Nome"/>
+          <div class="pair">
+            <input class="id" type="number" formControlName="q_fornecedor" placeholder="ID" />
+            <input class="name" type="text"
+                   [value]="filtrosForm.get('fornecedor_nome')?.value || ''"
+                   placeholder="Nome do fornecedor" readonly />
+          </div>
         </div>
 
-        <div class="fi" id="loja">
+        <div class="fi-pair" id="loja">
           <label>Loja:</label>
-          <input type="text" formControlName="loja" placeholder="ID"/>
-        </div>
-      
-      </div> -->
-
-      <div class="field-group1">
-          <!-- Status -->
-          <div class="fi" id="status">
-            <label>Status:</label>
-            <select formControlName="status">
-              <option value="">(todos)</option>
-              <option value="AB">AB (Aberto)</option>
-              <option value="AP">AP (Aprovado)</option>
-              <option value="CA">CA (Cancelado)</option>
-              <option value="AT">AT (Atendido)</option>
-              <option value="PA">PA (Parcial aberto)</option>
-              <option value="PE">PE (Parcial encerrado)</option>
-            </select>
-          </div>
-
-          <!-- Tipo -->
-          <div class="fi" id="tipo">
-            <label>Tipo:</label>
-            <select formControlName="tipo_pedido">
-              <option value="">(todos)</option>
-              <option value="revenda">Revenda</option>
-              <option value="uso/consumo">Uso/Consumo</option>
-            </select>
-          </div>
-
-          <!-- Fornecedor: ID + Nome lado a lado -->
-          <div class="fi-pair" id="fornecedor">
-            <label>Fornecedor:</label>
-            <div class="pair">
-              <input class="id" type="number" formControlName="q_fornecedor" placeholder="ID" />
-              <input class="name" type="text" [value]="filtrosForm.get('fornecedor_nome')?.value || ''" placeholder="Nome do fornecedor" readonly />
-            </div>
-          </div>
-
-          <!-- Loja: ID + Nome lado a lado -->
-          <div class="fi-pair" id="loja">
-            <label>Loja:</label>
-            <div class="pair">
-              <input class="id" type="text" formControlName="loja" placeholder="ID" />
-              <input class="name" type="text"
-                    [value]="filtrosForm.get('loja_nome')?.value || ''"
-                    placeholder="Nome da loja" readonly />
-            </div>
+          <div class="pair">
+            <input class="id" type="text" formControlName="loja" placeholder="ID" />
+            <input class="name" type="text"
+                   [value]="filtrosForm.get('loja_nome')?.value || ''"
+                   placeholder="Nome da loja" readonly />
           </div>
         </div>
+      </div>
 
-
-
-
-
-      <!-- 3ª linha: Emissão | Entrega -->
+      <!-- 2ª linha: Emissão | Entrega -->
       <div class="f-row-3">
         <div class="range-line">
           <label class="inline">Emissão:</label>
@@ -274,6 +230,8 @@
             <th (click)="setOrdenacao('Dataentrega')">Data Entrega</th>
             <th (click)="setOrdenacao('Idpedidocompra')">Código Compra</th>
             <th (click)="setOrdenacao('Idfornecedor__Nome_fornecedor')">Nome Fornecedor</th>
+            <th (click)="setOrdenacao('loja_nome')">Loja</th>
+            <th (click)="setOrdenacao('tipo_pedido')">Tipo</th>
             <th (click)="setOrdenacao('Status')">Status</th>
             <th (click)="setOrdenacao('Valorpedido')">Valor Pedido</th>
             <th class="col-actions">Ações</th>
@@ -285,14 +243,16 @@
             <td class="col-date">{{ p.Dataentrega | date:'dd/MM/yyyy' }}</td>
             <td class="col-id">{{ p.Idpedidocompra }}</td>
             <td class="col-text">{{ p.fornecedor_nome }}</td>
+            <td class="col-loja">{{ p.loja_nome }}</td>
+            <td class="col-tipo">{{ p.tipo_pedido }}</td>
             <td class="col-status">{{ p.Status }}</td>
             <td class="col-money">{{ p.Valorpedido | number:'1.2-2' }}</td>
             <td class="col-actions">
               <div class="actions-wrap">
-                <button class="btn btn-primary" *ngIf="p.Status === 'AB'" (click)="aprovarLinha(p)" title="Aprovar">Aprovar</button>
-                <button class="btn" *ngIf="p.Status === 'AB'" (click)="editarLinha(p)" title="Editar">Editar</button>
-                <button class="btn btn-danger" *ngIf="p.Status === 'AB' || p.Status === 'AP'" (click)="cancelarLinha(p)" title="Cancelar">Cancelar</button>
-                <button class="btn btn-light" *ngIf="p.Status === 'CA'" (click)="reabrirLinha(p)" title="Reabrir">Reabrir</button>
+                <button class="btn btn-primary" *ngIf="p.Status === 'AB'" (click)="aprovarLinha(p)">Aprovar</button>
+                <button class="btn" *ngIf="p.Status === 'AB'" (click)="editarLinha(p)">Editar</button>
+                <button class="btn btn-danger" *ngIf="p.Status === 'AB' || p.Status === 'AP'" (click)="cancelarLinha(p)">Cancelar</button>
+                <button class="btn btn-light" *ngIf="p.Status === 'CA'" (click)="reabrirLinha(p)">Reabrir</button>
               </div>
             </td>
           </tr>
@@ -338,28 +298,6 @@
       </div>
     </div>
 
-    <div *ngIf="fpParcelas?.length" style="margin-top:10px;">
-      <h5>Parcelas</h5>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Prazo (dias)</th>
-            <th>Vencimento</th>
-            <th>Valor</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let p of fpParcelas">
-            <td>{{ p.parcela }}</td>
-            <td>{{ p.prazo_dias ?? '—' }}</td>
-            <td>{{ p.vencimento | date:'dd/MM/yyyy' }}</td>
-            <td>{{ p.valor | number:'1.2-2' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
     <form [formGroup]="editForm" style="margin-top:12px;">
       <div class="items">
         <h4>Itens</h4>
@@ -394,3 +332,4 @@
     </div>
   </section>
 </div>
+

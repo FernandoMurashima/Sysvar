@@ -132,9 +132,12 @@ input, select {
 .table-full th, .table-full td { padding: 10px 12px; }
 .table-full .col-date   { width: 120px; }
 .table-full .col-id     { width: 140px; white-space: nowrap; }
-.table-full .col-money  { width: 140px; text-align: right; }
+.table-full .col-money  { width: 140px; text-align: left; }
 .table-full .col-status { width: 110px; white-space: nowrap; }
 .table-full .col-text   { overflow: hidden; text-overflow: ellipsis; }
+/* larguras sugeridas para as novas colunas */
+.table-full .col-loja   { width: 160px; }
+.table-full .col-tipo   { width: 120px; }
 .table-full .col-actions { width: 320px; }
 .actions-wrap { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
 .table-wrap { overflow-x: auto; }

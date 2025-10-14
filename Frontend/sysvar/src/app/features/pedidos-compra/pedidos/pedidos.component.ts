@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormArray, FormGroup, FormControl } from '@angular/forms';
 import {
@@ -14,9 +14,10 @@ import {
   FormaPagamentosService,
   FormaPagamentoRow
 } from '../../../core/services/forma-pagamentos.service';
-
 import { RouterLink } from '@angular/router';
 
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, map, catchError, takeUntil, finalize } from 'rxjs/operators';
 
 @Component({
   standalone: true,
@@ -25,10 +26,12 @@ import { RouterLink } from '@angular/router';
   templateUrl: './pedidos.component.html',
   styleUrls: ['./pedidos.component.css']
 })
-export class PedidosComponent implements OnInit {
+export class PedidosComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private api = inject(PedidosCompraService);
   private fpApi = inject(FormaPagamentosService);
+
+  private destroy$ = new Subject<void>();
 
   action: '' | 'novo' | 'consultar' | 'editar' = '';
 
@@ -46,8 +49,11 @@ export class PedidosComponent implements OnInit {
   // === Consulta ===
   filtrosForm = this.fb.nonNullable.group({
     status: [''],
-    q_fornecedor: [''],
-    loja: [''],
+    tipo_pedido: [''],           // (se usar tipo no filtro)
+    q_fornecedor: [''],          // ID (ou texto) do fornecedor
+    fornecedor_nome: [''],       // <- preenchido automaticamente
+    loja: [''],                  // ID da loja
+    loja_nome: [''],             // <- preenchido automaticamente
     emissao_de: [''],
     emissao_ate: [''],
     entrega_de: [''],
@@ -96,12 +102,15 @@ export class PedidosComponent implements OnInit {
   }> = [];
 
   ngOnInit(): void {
-    // Lojas
+    // Lojas (para exibir nome pelo ID na tela de filtros e no "novo")
     this.api.listLojas().subscribe({
       next: (res: any[]) => {
         this.lojas = (res || [])
           .map(x => ({ id: x?.Idloja ?? x?.id ?? x?.pk, nome: x?.nome_loja ?? x?.nome ?? '' }))
           .filter(x => x.id && x.nome);
+        // Se já tiver ID digitado no filtro, tenta refletir nome após carregar a lista
+        const lojaIdTxt = this.filtrosForm.get('loja')!.value || '';
+        this.filtrosForm.patchValue({ loja_nome: this.resolveLojaNome(lojaIdTxt) }, { emitEvent: false });
       },
       error: (_err: any) => {}
     });
@@ -112,25 +121,73 @@ export class PedidosComponent implements OnInit {
       error: (_e) => { /* silencioso */ }
     });
 
-    // Reagir ao fornecedor digitado
-    this.novoForm.controls.Idfornecedor.valueChanges.subscribe(v => {
-      this.fornecedorNome = '';
-      if (v !== null && !Number.isNaN(v)) {
-        this.api.getFornecedorById(Number(v)).subscribe({
-          next: (f: any) => this.fornecedorNome = f?.Nome_fornecedor || f?.nome || '(sem nome)',
-          error: (_err: any) => this.fornecedorNome = 'Fornecedor não encontrado',
-        });
-      }
+    // Reagir ao fornecedor digitado (formulário "Novo")
+    this.novoForm.controls.Idfornecedor.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(v => {
+        this.fornecedorNome = '';
+        if (v !== null && !Number.isNaN(v)) {
+          this.api.getFornecedorById(Number(v)).subscribe({
+            next: (f: any) => this.fornecedorNome = f?.Nome_fornecedor || f?.nome || '(sem nome)',
+            error: (_err: any) => this.fornecedorNome = 'Fornecedor não encontrado',
+          });
+        }
+      });
+
+    // Nome da loja (formulário "Novo")
+    this.novoForm.controls.Idloja.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(v => {
+        const found = this.lojas.find(l => l.id === Number(v));
+        this.lojaNome = found ? found.nome : '';
+      });
+
+    // ====== LOOKUPS AUTOMÁTICOS NA TELA DE CONSULTA (FILTROS) ======
+
+    // Fornecedor: ao digitar ID, buscar o nome
+    this.filtrosForm.get('q_fornecedor')!.valueChanges.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      switchMap((val: any) => {
+        const id = Number(val);
+        if (!val || Number.isNaN(id)) {
+          return of(''); // vazio ou não-numérico -> limpa nome
+        }
+        return this.api.getFornecedorById(id).pipe(
+          map((f: any) => f?.Nome_fornecedor || f?.nome || ''),
+          catchError(() => of(''))
+        );
+      }),
+      takeUntil(this.destroy$)
+    ).subscribe(nome => {
+      this.filtrosForm.patchValue({ fornecedor_nome: nome || '' }, { emitEvent: false });
     });
 
-    // Nome da loja
-    this.novoForm.controls.Idloja.valueChanges.subscribe(v => {
-      const found = this.lojas.find(l => l.id === Number(v));
-      this.lojaNome = found ? found.nome : '';
+    // Loja: ao digitar ID, resolve nome a partir da lista carregada
+    this.filtrosForm.get('loja')!.valueChanges.pipe(
+      debounceTime(200),
+      distinctUntilChanged(),
+      map((val: any) => this.resolveLojaNome(val)),
+      takeUntil(this.destroy$)
+    ).subscribe(nome => {
+      this.filtrosForm.patchValue({ loja_nome: nome || '' }, { emitEvent: false });
     });
 
     // Inicializa o formulário "Novo" LIMPO
     this.resetNovoForm();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // Resolve nome da loja a partir do texto do campo (esperado ID)
+  private resolveLojaNome(val: any): string {
+    const id = Number(val);
+    if (!val || Number.isNaN(id)) return '';
+    const found = this.lojas.find(l => l.id === id);
+    return found ? found.nome : '';
   }
 
   // Rotina centralizada para limpar o formulário "Novo"
@@ -182,43 +239,55 @@ export class PedidosComponent implements OnInit {
   }
 
   // ===== Consulta =====
-  private buildFiltro(): PedidoCompraFiltro {
-    const raw = this.filtrosForm.getRawValue();
-    const s = (v: string) => (v?.trim() ? v.trim() : undefined);
-    const isNum = (txt?: string) => !!txt && /^[0-9]+$/.test(txt.trim());
+private buildFiltro(): PedidoCompraFiltro {
+  const raw = this.filtrosForm.getRawValue();
 
-    const fornecedorTxt = s(raw.q_fornecedor);
-    const lojaTxt = s(raw.loja);
+  // Coerções SEGURAS para string (independente de vir number, string ou null)
+  const toTxt = (v: unknown) => (v === null || v === undefined) ? '' : String(v).trim();
+  const isNum = (txt: string) => !!txt && /^[0-9]+$/.test(txt);
 
-    const filtro: PedidoCompraFiltro = {
-      ordering: this.ordering(),
-      status: s(raw.status),
+  const fornecedorTxt = toTxt(raw.q_fornecedor); // pode vir "1", 1, " 1 "
+  const lojaTxt       = toTxt(raw.loja);
 
-      fornecedor: isNum(fornecedorTxt) ? Number(fornecedorTxt) : undefined,
-      q_fornecedor: !isNum(fornecedorTxt) ? fornecedorTxt : undefined,
+  const filtro: PedidoCompraFiltro = {
+    ordering   : this.ordering(),
+    status     : toTxt(raw.status) || undefined,
+    // mantém o tipo_pedido como está (já funcionando)
+    // @ts-ignore se o DTO local não tiver o campo
+    tipo_pedido: toTxt((raw as any).tipo_pedido) || undefined,
 
-      loja: isNum(lojaTxt) ? Number(lojaTxt) : undefined,
+    // Se for número (ex.: "1", "01"), manda como fornecedor (ID)
+    // Se NÃO for número (ex.: "Acme"), manda em q_fornecedor (texto)
+    fornecedor : isNum(fornecedorTxt) ? Number(fornecedorTxt) : undefined,
+    q_fornecedor: !isNum(fornecedorTxt) && fornecedorTxt ? fornecedorTxt : undefined,
 
-      emissao_de: s(raw.emissao_de),
-      emissao_ate: s(raw.emissao_ate),
-      entrega_de: s(raw.entrega_de),
-      entrega_ate: s(raw.entrega_ate),
-    };
-    return filtro;
-  }
+    loja       : isNum(lojaTxt) ? Number(lojaTxt) : undefined,
+
+    emissao_de : toTxt(raw.emissao_de) || undefined,
+    emissao_ate: toTxt(raw.emissao_ate) || undefined,
+    entrega_de : toTxt(raw.entrega_de) || undefined,
+    entrega_ate: toTxt(raw.entrega_ate) || undefined,
+  };
+
+  return filtro;
+}
+
 
   buscar(): void {
     this.carregando.set(true);
     const filtro = this.buildFiltro();
-    this.api.listar(filtro).subscribe({
-      next: (res) => {
-        this.rows.set(this.sortClient(res, this.ordering()));
-        this.carregando.set(false);
-        if (!res.length) this.infoMsg = 'Nenhum pedido encontrado com os filtros informados.';
+
+    this.api.listar(filtro).pipe(
+      finalize(() => this.carregando.set(false)) // ✅ garante que desliga o “Carregando...”
+    ).subscribe({
+      next: (res: any) => {
+        // ✅ normaliza para array (suporta back-ends que retornam {results:[]})
+        const data: PedidoCompraRow[] = Array.isArray(res) ? res : (res?.results ?? []);
+        this.rows.set(this.sortClient(data, this.ordering()));
+        if (!data.length) this.infoMsg = 'Nenhum pedido encontrado com os filtros informados.';
       },
       error: (_err: any) => {
         this.errorMsg = 'Falha ao carregar pedidos.';
-        this.carregando.set(false);
       }
     });
   }
@@ -226,8 +295,11 @@ export class PedidosComponent implements OnInit {
   limparFiltros(): void {
     this.filtrosForm.reset({
       status: '',
+      tipo_pedido: '',
       q_fornecedor: '',
+      fornecedor_nome: '',
       loja: '',
+      loja_nome: '',
       emissao_de: '', emissao_ate: '', entrega_de: '', entrega_ate: '',
     });
     this.ordering.set('-Datapedido,Idpedidocompra');
@@ -246,6 +318,7 @@ export class PedidosComponent implements OnInit {
   }
 
   private sortClient(data: PedidoCompraRow[], ordering: string): PedidoCompraRow[] {
+    if (!Array.isArray(data)) return [];
     const keys = (ordering || '').split(',').filter(Boolean);
     if (!keys.length) return data.slice();
     const norm = (v: any) => (v === null || v === undefined) ? '' : v;

@@ -14,6 +14,8 @@ export interface PedidoCompraRow {
   Valorpedido: number | string;
   fornecedor_nome: string;
   loja_nome: string;
+  /** Tipo do pedido (se o backend retornar na listagem) */
+  tipo_pedido?: 'revenda' | 'consumo' | string;
   // (opcional) se o backend expõe na lista:
   condicao_pagamento?: string | null;
 }
@@ -30,6 +32,7 @@ export interface PedidoCompraFiltro {
   entrega_ate?: string;
   total_min?: number;
   total_max?: number;
+  tipo_pedido?: 'revenda' | 'consumo' | string;
 }
 
 export interface PedidoCompraCreateDTO {
@@ -113,13 +116,21 @@ export class PedidosCompraService {
 
     add('ordering', f.ordering);
     add('status', f.status);
+
+    // --- fornecedor ---
     add('fornecedor', f.fornecedor);
+    add('Idfornecedor', f.fornecedor);   // ✅ alguns back-ends esperam esse nome
     add('q_fornecedor', f.q_fornecedor);
+
+    // --- loja ---
     add('loja', f.loja);
+    add('Idloja', f.loja);               // ✅ idem para loja
+
     add('emissao_de', f.emissao_de);
     add('emissao_ate', f.emissao_ate);
     add('entrega_de', f.entrega_de);
     add('entrega_ate', f.entrega_ate);
+    add('tipo_pedido', f.tipo_pedido);
     add('total_min', f.total_min);
     add('total_max', f.total_max);
 
@@ -204,4 +215,3 @@ export class PedidosCompraService {
     return this.http.get<any[]>(`${this.base}/lojas/`);
   }
 }
-

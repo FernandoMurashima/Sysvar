@@ -8,6 +8,8 @@ export interface PedidoCompraRow {
   Valorpedido: string;         // decimal em string
   fornecedor_nome: string;
   loja_nome: string;
+  /** Tipo do pedido (se o backend retornar na listagem) */
+  tipo_pedido?: 'revenda' | 'consumo' | string;
 }
 
 export interface PedidoCompraFiltro {
@@ -23,4 +25,6 @@ export interface PedidoCompraFiltro {
   entrega_ate?: string;
   total_min?: number;
   total_max?: number;
+  tipo_pedido?: 'revenda' | 'consumo' | string;
 }
+
