@@ -36,7 +36,7 @@ type Ncm = { ncm: string; descricao?: string };
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, LojasSelectorComponent, ProdutoLookupComponent, RouterLink], 
+  imports: [CommonModule, FormsModule, LojasSelectorComponent, ProdutoLookupComponent, RouterLink],
   templateUrl: './produtos.component.html',
   styleUrls: ['./produtos.component.css']
 })
@@ -82,6 +82,9 @@ export class ProdutosComponent implements OnInit {
 
   // lojas marcadas para inicializar estoque (qty 0)
   lojasMarcadas: number[] = [];
+
+  // >>> NOVO: controle do modal de lojas
+  lojasDialogOpen = false;
 
   // SKUs gerados (preview)
   combinacoes: Array<{
@@ -259,6 +262,9 @@ export class ProdutosComponent implements OnInit {
     this.batchMsg = '';
     this.batchErrors = [];
     this.productId = null;
+
+    // fecha modal de lojas e limpa seleção visual
+    this.lojasDialogOpen = false;
   }
 
   private clearMessages(): void {
@@ -283,7 +289,8 @@ export class ProdutosComponent implements OnInit {
       next: (row: CodigoRow | null) => {
         const atual = Number(row?.valor_var ?? 0);
         const prox = (atual + 1).toString().padStart(3, '0');
-        this.referenciaPreview = `${cc}-${ee}-${gg}${prox}`;
+        const ref = `${cc}-${ee}-${gg}${prox}`;
+        this.referenciaPreview = ref;
       },
       error: () => { /* mantém vazio */ }
     });
@@ -568,7 +575,7 @@ export class ProdutosComponent implements OnInit {
 
   private resetFotoPreview(): void {
     this.fotoCandidates = [];
-    this.fotoIdx = 0;
+       this.fotoIdx = 0;
     this.fotoSrc = '';
     this.fotoHidden = false;
   }
@@ -620,5 +627,21 @@ export class ProdutosComponent implements OnInit {
     } else {
       this.fotoHidden = true;
     }
+  }
+
+  /* =======================
+     LOJAS – modal helpers
+     ======================= */
+  clearLojasMarcadas(): void {
+    this.lojasMarcadas = [];
+  }
+
+  confirmLojasDialog(): void {
+    // nada para consolidar: binding [(selected)] já mantém lojasMarcadas
+    this.lojasDialogOpen = false;
+  }
+
+  closeLojasDialog(): void {
+    this.lojasDialogOpen = false;
   }
 }

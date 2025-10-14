@@ -43,6 +43,8 @@ export class LojasSelectorComponent implements OnInit {
     this.toggle(lojaId, checked);
   }
 
+  @Input() allowAll = true
+
   toggle(lojaId: number, checked: boolean): void {
     const set = new Set<number>(this.selected);
     checked ? set.add(lojaId) : set.delete(lojaId);

@@ -18,10 +18,8 @@
   <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
   <div *ngIf="infoMsg" class="alert info">{{ infoMsg }}</div>
 
-  <!-- dica enquanto aguarda tecla -->
   <div *ngIf="awaitKeyAfterSave" class="alert info">Pressione qualquer tecla para continuar.</div>
 
-  <!-- Enquanto aguarda tecla, escondemos o restante da tela -->
   <ng-container *ngIf="!awaitKeyAfterSave">
 
     <!-- PLACEHOLDER -->
@@ -37,7 +35,7 @@
       <h3>Novo Produto</h3>
 
       <form (ngSubmit)="salvar()">
-        <!-- Linha 1: Referência / Descrição / Descrição reduzida / NCM -->
+        <!-- Linha 1 -->
         <div class="row">
           <div class="col">
             <label for="referencia">Referência (preview)</label>
@@ -63,7 +61,7 @@
           </div>
         </div>
 
-        <!-- Linha 2 (compacta): Coleção / Estação / Grupo / Subgrupo / Unidade / Grade / Tabela / Preço -->
+        <!-- Linha 2 -->
         <div class="row">
           <div class="col">
             <label for="colecao">Coleção (código)*</label>
@@ -131,7 +129,7 @@
           </div>
         </div>
 
-        <!-- Linha da IMAGEM (fica ABAIXO da linha acima) -->
+        <!-- Linha da IMAGEM -->
         <div class="row row-image">
           <div class="col img-col">
             <label for="produtoFoto">Imagem (nome do arquivo)</label>
@@ -151,9 +149,9 @@
           </div>
         </div>
 
-        <!-- Seletor de lojas para inicializar estoque (qty 0 por SKU x loja) -->
+        <!-- Abertura do seletor de lojas -->
         <div style="margin-top:12px;">
-          <app-lojas-selector [(selected)]="lojasMarcadas"></app-lojas-selector>
+          <button type="button" class="btn" (click)="lojasDialogOpen = true">Selecionar lojas...</button>
         </div>
 
         <div class="row actions">
@@ -162,7 +160,7 @@
         </div>
 
         <p class="hint">
-          A referência é calculada automaticamente (formato: <code>CC-EE-GGXXX</code>) e será confirmada no salvamento.
+          A referência é calculada automaticamente (formato: <code>CC - EE - GGXXX</code>) e será confirmada no salvamento.
         </p>
       </form>
     </section>
@@ -220,7 +218,6 @@
           </tbody>
         </table>
 
-        <!-- Ações do batch + mensagens -->
         <div class="row actions">
           <button
             class="btn btn-primary"
@@ -238,7 +235,7 @@
       </div>
     </section>
 
-    <!-- ====== CONSULTAR ====== -->
+    <!-- CONSULTAR -->
     <section class="card" *ngIf="action === 'consultar'">
       <h3>Consulta</h3>
 
@@ -255,9 +252,7 @@
         <div class="col" style="display:flex; gap:8px;">
           <button class="btn btn-primary" type="button" (click)="buscarProduto(refProcura.value)">Buscar</button>
           <button class="btn" type="button" (click)="limparBusca(refProcura)">Limpar</button>
-          <!-- forma mais simples -->
-          <button  class="btn" [routerLink]="['/home']">Home</button>
-
+          <button class="btn" [routerLink]="['/home']">Home</button>
         </div>
       </div>
 
@@ -273,4 +268,23 @@
     </section>
 
   </ng-container>
+
+  <!-- ===== MODAL DE LOJAS (sobre-tela) ===== -->
+  <div class="modal-backdrop" *ngIf="lojasDialogOpen">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lojasTitle">
+      <div class="modal-header">
+        <h4 id="lojasTitle">Selecionar lojas</h4>
+        <button type="button" class="btn-icon" (click)="closeLojasDialog()" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-body">
+        <app-lojas-selector [(selected)]="lojasMarcadas"></app-lojas-selector>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" type="button" (click)="clearLojasMarcadas()">Limpar</button>
+        <div class="spacer"></div>
+        <button class="btn" type="button" (click)="closeLojasDialog()">Cancelar</button>
+        <button class="btn btn-primary" type="button" (click)="confirmLojasDialog()">Aplicar</button>
+      </div>
+    </div>
+  </div>
 </div>
