@@ -15,6 +15,10 @@ export class ProdutosService {
   private baseEstoques = `${environment.apiBaseUrl}/estoques/`;
   private baseTabelaPrecoItem = `${environment.apiBaseUrl}/tabelaprecoitem/`;
 
+  /* === NOVOS endpoints opcionais (podem não existir no backend) === */
+  private baseNcms = `${environment.apiBaseUrl}/ncms/`;
+  private baseTabelasPreco = `${environment.apiBaseUrl}/tabelas-preco/`;
+
   // ---- Produtos ----
   list(params?: { search?: string; ordering?: string; page?: number; page_size?: number }): Observable<Produto[] | any> {
     let p = new HttpParams();
@@ -238,5 +242,33 @@ export class ProdutosService {
   // ---- Estoque ----
   createEstoque(payload: Estoque): Observable<Estoque> {
     return this.http.post<Estoque>(this.baseEstoques, payload);
+  }
+
+  /* ====== LISTAGENS OPCIONAIS (tratam 404 como “sem dados”) ====== */
+
+  /** Lista NCMs. Se o endpoint não existir (404), retorna []. */
+  listNcms(params?: { ordering?: string; search?: string; page?: number; page_size?: number }): Observable<any[]> {
+    let p = new HttpParams();
+    if (params?.ordering)  p = p.set('ordering', params.ordering);
+    if (params?.search)    p = p.set('search', params.search);
+    if (params?.page)      p = p.set('page', String(params.page));
+    if (params?.page_size) p = p.set('page_size', String(params.page_size));
+
+    return this.http.get<any[]>(this.baseNcms, { params: p }).pipe(
+      catchError(err => (err?.status === 404 ? of([]) : throwError(() => err)))
+    );
+  }
+
+  /** Lista Tabelas de Preço. Se o endpoint não existir (404), retorna []. */
+  listTabelasPreco(params?: { ordering?: string; search?: string; page?: number; page_size?: number }): Observable<any[]> {
+    let p = new HttpParams();
+    if (params?.ordering)  p = p.set('ordering', params.ordering);
+    if (params?.search)    p = p.set('search', params.search);
+    if (params?.page)      p = p.set('page', String(params.page));
+    if (params?.page_size) p = p.set('page_size', String(params.page_size));
+
+    return this.http.get<any[]>(this.baseTabelasPreco, { params: p }).pipe(
+      catchError(err => (err?.status === 404 ? of([]) : throwError(() => err)))
+    );
   }
 }

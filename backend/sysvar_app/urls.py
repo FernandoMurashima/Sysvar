@@ -2,8 +2,6 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-
-
 from sysvar_app.views import (
     UserViewSet, LojaViewSet, ClienteViewSet, ProdutoViewSet, ProdutoDetalheViewSet,
     EstoqueViewSet, FornecedorViewSet, VendedorViewSet, FuncionariosViewSet,
@@ -12,8 +10,6 @@ from sysvar_app.views import (
     NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet, 
     health, register, login_view, me, logout_view, NatLancamentoViewSet, ModeloDocumentoFiscalViewSet
 )
-
-
 
 from auditoria.views import AuditoriaLogViewSet
 
@@ -36,14 +32,17 @@ router.register(r'unidades', UnidadeViewSet, basename='unidades')
 router.register(r'grupos', GrupoViewSet, basename='grupos')
 router.register(r'subgrupos', SubgrupoViewSet, basename='subgrupos')
 router.register(r'codigos', CodigosViewSet, basename='codigos')
-router.register(r'tabelaprecos', TabelaprecoViewSet, basename='tabelaprecos')
+
+# ROTAS DE TABELA DE PREÇO
+router.register(r'tabelaprecos', TabelaprecoViewSet, basename='tabelaprecos')      # existente (mantida)
+router.register(r'tabelas-preco', TabelaprecoViewSet, basename='tabelas-preco')     # NOVA (compat com o front)
+
 router.register(r'tabelaprecoitem', TabelaPrecoItemViewSet, basename='tabelaprecoitem')
 router.register(r'fornecedor-sku-map', FornecedorSkuMapViewSet, basename='fornecedor-sku-map')
 router.register(r'auditoria-logs', AuditoriaLogViewSet, basename='auditoria-logs')
 router.register(r'nat-lancamentos', NatLancamentoViewSet, basename='nat-lancamentos')
 router.register(r'modelos-documentos', ModeloDocumentoFiscalViewSet, basename='modelos-documentos')
-
-
+router.register(r'ncms', NcmViewSet, basename='ncm')
 
 urlpatterns = [
     path('api/health/', health),
@@ -53,7 +52,7 @@ urlpatterns = [
     path('api/auth/logout/', logout_view),
     path('api/', include(router.urls)),
 
-    # rotas do pacote pedido_compra (<<< AJUSTE no módulo)
+    # rotas do pacote pedido_compra
     path('api/', include('sysvar_app.pedido_compra.pedido_compra_urls')),
     path('api/', include('sysvar_app.forma_pagamentos.forma_pagamentos_urls')),
 ]
