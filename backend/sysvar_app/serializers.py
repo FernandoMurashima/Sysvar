@@ -105,8 +105,9 @@ class ColecaoSerializer(serializers.ModelSerializer):
         if not codigo or len(codigo) != 2 or not codigo.isdigit():
             raise serializers.ValidationError("Código deve ter exatamente 2 dígitos numéricos (ex.: '25').")
 
+        # Aceita apenas os códigos 01..04 (rótulos ficam no front)
         if estacao not in {'01', '02', '03', '04'}:
-            raise serializers.ValidationError("Estação inválida. Use: 01=Verão, 02=Outono, 03=Inverno, 04=Primavera.")
+            raise serializers.ValidationError("Estação inválida. Use um dos códigos: 01, 02, 03 ou 04.")
 
         exists = Colecao.objects.filter(Codigo=codigo, Estacao=estacao).exists()
         instance = getattr(self, 'instance', None)
@@ -114,7 +115,22 @@ class ColecaoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Já existe uma Coleção com este Código e Estação.")
         return attrs
 
+    def validate_Status(self, v: str):
+        """
+        Regras definitivas:
+        - Permite vazio (None/'') → mantém comportamento atual (criar sem status).
+        - Se vier preenchido, deve ser um dos: CR, PD, AT, EN, AR.
+        """
+        if v in (None, ''):
+            return None
+        v = str(v).strip().upper()
+        allowed = {'CR', 'PD', 'AT', 'EN', 'AR'}
+        if v not in allowed:
+            raise serializers.ValidationError('Status inválido. Use CR, PD, AT, EN ou AR.')
+        return v
+
     def create(self, validated_data):
+        # Se Status vier vazio (None), não força default aqui: mantém o comportamento “aceita vazio no create”.
         with transaction.atomic():
             colecao = super().create(validated_data)
             codigo = (colecao.Codigo or '').strip()
@@ -139,6 +155,7 @@ class ColecaoSerializer(serializers.ModelSerializer):
         if cod:
             data['Contador'] = int(cod.valor_var)
         return data
+
 
 
 class FamiliaSerializer(serializers.ModelSerializer):

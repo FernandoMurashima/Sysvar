@@ -200,16 +200,34 @@ class Material(models.Model):
 
 
 class Colecao(models.Model):
+    # Choices oficiais (códigos do front)
+    ESTACOES_CHOICES = (
+        ('01', 'Primavera'),
+        ('02', 'Verão'),
+        ('03', 'Outono'),
+        ('04', 'Inverno'),
+    )
+    STATUS_CHOICES = (
+        ('CR', 'Criação'),
+        ('PD', 'Produção'),
+        ('AT', 'Ativa'),
+        ('EN', 'Encerrada'),
+        ('AR', 'Arquivada'),
+    )
+
     Idcolecao = models.BigAutoField(primary_key=True)
     Descricao = models.CharField(max_length=100)
     Codigo = models.CharField(max_length=2, null=True, blank=True)
-    Estacao = models.CharField(max_length=2, null=True, blank=True)
-    Status = models.CharField(max_length=10, null=True, blank=True)
+    # ✅ passa a ter choices (sem mudar null/blank)
+    Estacao = models.CharField(max_length=2, null=True, blank=True, choices=ESTACOES_CHOICES)
+    # ✅ passa a ter choices (sem mudar null/blank)
+    Status = models.CharField(max_length=10, null=True, blank=True, choices=STATUS_CHOICES)
     Contador = models.IntegerField(null=True, blank=True, default=0)
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return self.Descricao
+
 
 
 class Familia(models.Model):

@@ -11,17 +11,16 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
-// Ajuste os paths conforme sua estrutura
 import { ColecoesService } from '../../core/services/colecoes.service';
 
-export interface Colecao {
-  Idcolecao?: number;   // ajuste se a PK tiver outro nome
-  Descricao: string;
-  Codigo: string;
-  Estacao: string;
-  Status?: string | null;
-  Contador?: number | null;
-}
+// ✅ Reuso dos tipos e listas centralizados no model
+import {
+  Colecao,
+  CodigoEstacao,
+  ESTACOES,
+  StatusColecao,
+  STATUS_COLECAO
+} from '../../core/models/colecoes';
 
 type FormMode = 'new' | 'edit' | null;
 
@@ -47,21 +46,18 @@ export class ColecoesComponent implements OnInit {
   successMsg = '';
   errorMsg = '';
 
+  // Listas de Select (provenientes do model)
+  estacoes = ESTACOES;
+  statusOptions = STATUS_COLECAO;
+
   // Form
   form: FormGroup = this.fb.group({
     Descricao: ['', [Validators.required, Validators.maxLength(100)]],
     Codigo: ['', [Validators.required, this.codigoDoisDigitos]],
-    Estacao: ['', [Validators.required]],
-    Status: [''],
+    Estacao: ['', [Validators.required, Validators.pattern(/^(01|02|03|04)$/)]],
+    Status: ['CR', [Validators.pattern(/^(CR|PD|AT|EN|AR)$/)]], // default CR (Criação)
     Contador: [{ value: null, disabled: true }]
   });
-
-  estacoes = [
-    { value: 'VERAO', label: 'Verão' },
-    { value: 'INVERNO', label: 'Inverno' },
-    { value: 'OUTONO', label: 'Outono' },
-    { value: 'PRIMAVERA', label: 'Primavera' }
-  ];
 
   // Lista + ListView
   colecoesAll: Colecao[] = [];
@@ -92,7 +88,6 @@ export class ColecoesComponent implements OnInit {
     const v = (ctrl.value || '').toString().trim();
     if (!v) return { required: true };
     return /^\d{2}$/.test(v) ? null : { codigoInvalido: true };
-    // Se quiser manter EXACTO 2 dígitos numéricos
   }
 
   // ===== Helpers de template =====
@@ -113,6 +108,9 @@ export class ColecoesComponent implements OnInit {
     P(f.get('Codigo')?.hasError('codigoInvalido') || false, 'Código deve conter exatamente 2 dígitos numéricos.');
 
     P(f.get('Estacao')?.hasError('required') || false, 'Estação é obrigatória.');
+    P(f.get('Estacao')?.hasError('pattern') || false, 'Estação inválida.');
+
+    P(f.get('Status')?.hasError('pattern') || false, 'Status inválido.');
 
     ['Descricao','Codigo','Estacao','Status'].forEach(field => {
       const err = f.get(field)?.errors?.['server'];
@@ -120,6 +118,16 @@ export class ColecoesComponent implements OnInit {
     });
 
     return out;
+  }
+
+  // Mapas para exibir labels na lista
+  getEstacaoLabel(code: CodigoEstacao | string | null | undefined): string {
+    const found = this.estacoes.find(e => e.value === code);
+    return found ? found.label : String(code ?? '');
+  }
+  getStatusLabel(code: StatusColecao | string | null | undefined): string {
+    const found = this.statusOptions.find(s => s.value === code);
+    return found ? found.label : String(code ?? '');
   }
 
   // ===== Fluxo =====
@@ -180,7 +188,7 @@ export class ColecoesComponent implements OnInit {
       Descricao: '',
       Codigo: '',
       Estacao: '',
-      Status: '',
+      Status: 'CR',   // default para nova coleção = Criação
       Contador: null
     });
   }
@@ -195,7 +203,7 @@ export class ColecoesComponent implements OnInit {
       Descricao: (row as any).Descricao ?? '',
       Codigo:    (row as any).Codigo ?? '',
       Estacao:   (row as any).Estacao ?? '',
-      Status:    (row as any).Status ?? '',
+      Status:    (row as any).Status ?? 'CR',
       Contador:  (row as any).Contador ?? null
     });
   }
@@ -210,10 +218,9 @@ export class ColecoesComponent implements OnInit {
     this.submitted = true;
     if (this.form.invalid) return;
 
-    // Habilita temporariamente o campo somente leitura para enviar se necessário
     const payload = {
       ...this.form.getRawValue()
-    };
+    } as Colecao;
 
     this.saving = true;
     const req$ = this.editingId

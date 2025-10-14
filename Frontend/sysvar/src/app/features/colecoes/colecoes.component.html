@@ -65,7 +65,10 @@
 
           <label id="status-box">
             Status
-            <input type="text" formControlName="Status" />
+            <!-- ✅ Select com Opção A -->
+            <select formControlName="Status">
+              <option *ngFor="let s of statusOptions" [value]="s.value">{{ s.label }}</option>
+            </select>
           </label>
 
           <label id="contador-box">
@@ -114,7 +117,7 @@
               <th>Descrição</th>
               <th>Código</th>
               <th>Estação</th>
-              <th>Contador</th>
+              <th>Itens</th>
               <th>Status</th>
               <th style="width:140px;">Ações</th>
             </tr>
@@ -123,9 +126,10 @@
             <tr *ngFor="let c of colecoes">
               <td>{{ c.Descricao }}</td>
               <td>{{ c.Codigo }}</td>
-              <td>{{ c.Estacao }}</td>
+              <!-- Exibe label amigável -->
+              <td>{{ getEstacaoLabel(c.Estacao) }}</td>
               <td>{{ c.Contador }}</td>
-              <td>{{ c.Status }}</td>
+              <td>{{ getStatusLabel(c.Status) }}</td>
               <td class="actions">
                 <button class="btn sm" (click)="editar(c)">Editar</button>
                 <button class="btn sm danger" (click)="excluir(c)">Excluir</button>
