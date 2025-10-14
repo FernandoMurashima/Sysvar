@@ -15,10 +15,9 @@ import { TamanhosService } from '../../core/services/tamanhos.service';
 import { CoresService } from '../../core/services/cores.service';
 import { LojasSelectorComponent } from '../../shared/lojas-selector/lojas-selector.component';
 
-// + NOVOS imports (lookup + model básico)
 import { ProdutoLookupComponent } from './produto-lookup/produto-lookup.component';
 import { ProdutoBasic } from '../../core/models/produto-basic.model';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 
 import { GrupoModel } from '../../core/models/grupo';
 import { SubgrupoModel } from '../../core/models/subgrupo';
@@ -80,11 +79,8 @@ export class ProdutosComponent implements OnInit {
   // id do produto salvo
   productId: number | null = null;
 
-  // lojas marcadas para inicializar estoque (qty 0)
+  // lojas marcadas para inicializar estoque
   lojasMarcadas: number[] = [];
-
-  // >>> NOVO: controle do modal de lojas
-  lojasDialogOpen = false;
 
   // SKUs gerados (preview)
   combinacoes: Array<{
@@ -94,14 +90,18 @@ export class ProdutosComponent implements OnInit {
     preco: number | null;
   }> = [];
 
-  // aguarda tecla após salvar SKUs (esconde formulário)
+  // aguarda tecla após salvar SKUs
   awaitKeyAfterSave = false;
 
-  // >>> NOVO: foto (nome do arquivo) + preview
+  // foto
   private fotoCandidates: string[] = [];
   private fotoIdx = 0;
   fotoSrc = '';
   fotoHidden = false;
+
+  // === MODAIS ===
+  lojasDialogOpen = false;
+  coresDialogOpen = false;
 
   form = {
     colecao: null as string | null,
@@ -115,7 +115,6 @@ export class ProdutosComponent implements OnInit {
     grade: null as number | null,
     Descricao: '' as string,
     Desc_reduzida: '' as string | null,
-    // >>> NOVO campo: será gravado no backend como string (apenas o nome do arquivo)
     produto_foto: '' as string | null
   };
 
@@ -196,9 +195,7 @@ export class ProdutosComponent implements OnInit {
     this.updateReferenciaPreview();
   }
 
-  onEstacaoChange(): void {
-    this.updateReferenciaPreview();
-  }
+  onEstacaoChange(): void { this.updateReferenciaPreview(); }
 
   onGrupoChange(): void {
     this.form.subgrupo = null;
@@ -215,7 +212,6 @@ export class ProdutosComponent implements OnInit {
     this.updateReferenciaPreview();
   }
 
-  /** carrega tamanhos da grade ao selecionar e limpa o preview de SKUs */
   onGradeChange(): void {
     this.tamanhosDaGrade = [];
     this.combinacoes = [];
@@ -249,22 +245,16 @@ export class ProdutosComponent implements OnInit {
     this.subgrupos = [];
     this.referenciaPreview = '';
 
-    // limpa cores / tamanhos / skus
     this.coresSelecionadas.clear();
     this.corFiltro = '';
     this.tamanhosDaGrade = [];
     this.combinacoes = [];
 
-    // foto preview
     this.resetFotoPreview();
 
-    // mensagens
     this.batchMsg = '';
     this.batchErrors = [];
     this.productId = null;
-
-    // fecha modal de lojas e limpa seleção visual
-    this.lojasDialogOpen = false;
   }
 
   private clearMessages(): void {
@@ -276,7 +266,6 @@ export class ProdutosComponent implements OnInit {
     this.batchErrors = [];
   }
 
-  /** Monta preview da referência (CC-EE-GGXXX) sem gravar/incrementar */
   private updateReferenciaPreview(): void {
     this.referenciaPreview = '';
     if (!this.form.colecao || !this.form.estacao || !this.form.grupo) return;
@@ -289,8 +278,7 @@ export class ProdutosComponent implements OnInit {
       next: (row: CodigoRow | null) => {
         const atual = Number(row?.valor_var ?? 0);
         const prox = (atual + 1).toString().padStart(3, '0');
-        const ref = `${cc}-${ee}-${gg}${prox}`;
-        this.referenciaPreview = ref;
+        this.referenciaPreview = `${cc}-${ee}-${gg}${prox}`;
       },
       error: () => { /* mantém vazio */ }
     });
@@ -312,9 +300,7 @@ export class ProdutosComponent implements OnInit {
     }
   }
 
-  limparSelecaoCores(): void {
-    this.coresSelecionadas.clear();
-  }
+  limparSelecaoCores(): void { this.coresSelecionadas.clear(); }
 
   toggleCor(id: number | null | undefined, checked: boolean): void {
     if (id == null) return;
@@ -322,7 +308,7 @@ export class ProdutosComponent implements OnInit {
     else this.coresSelecionadas.delete(id);
   }
 
-  /* ------------ EAN-13 helper (fallback local) ------------ */
+  /* ------------ EAN-13 helper ------------ */
   private ean13CheckDigit12(d12: string): string {
     const digits = d12.split('').map(d => parseInt(d, 10));
     let sum = 0;
@@ -335,7 +321,6 @@ export class ProdutosComponent implements OnInit {
     return String(check);
   }
 
-  /** Gera um EAN-13 local com prefixos fixos e uma sequência numérica */
   private gerarEan13Local(seq: number): string {
     const prefixoPais = '789';
     const prefixoEmpresa = '1234';
@@ -345,22 +330,14 @@ export class ProdutosComponent implements OnInit {
     return `${base12}${dv}`;
   }
 
-  /* ------------ Geração de SKUs (EAN-13) ------------ */
   async gerarSkus(): Promise<void> {
     this.errorMsg = ''; this.successMsg = ''; this.infoMsg = '';
     this.combinacoes = [];
 
-    if (!this.form.grade) {
-      this.errorMsg = 'Selecione a Grade.';
-      return;
-    }
-    if (this.coresSelecionadas.size === 0) {
-      this.errorMsg = 'Selecione ao menos uma Cor.';
-      return;
-    }
+    if (!this.form.grade) { this.errorMsg = 'Selecione a Grade.'; return; }
+    if (this.coresSelecionadas.size === 0) { this.errorMsg = 'Selecione ao menos uma Cor.'; return; }
     if (this.form.tabela_preco == null || this.form.Preco == null) {
-      this.errorMsg = 'Informe Tabela de Preço e o Preço de venda.';
-      return;
+      this.errorMsg = 'Informe Tabela de Preço e o Preço de venda.'; return;
     }
 
     if (!this.tamanhosDaGrade.length) {
@@ -382,7 +359,7 @@ export class ProdutosComponent implements OnInit {
         try {
           const resp = await firstValueFrom(this.codigosApi.nextEan13());
           ean13 = resp?.ean13 || '';
-        } catch { /* fallback abaixo */ }
+        } catch { /* fallback */ }
         if (!ean13) ean13 = this.gerarEan13Local(++seq);
 
         this.combinacoes.push({
@@ -397,28 +374,15 @@ export class ProdutosComponent implements OnInit {
     this.infoMsg = `Gerados ${this.combinacoes.length} SKUs para as cores e tamanhos selecionados.`;
   }
 
-  /* ------------ Salvar SKUs em lote ------------ */
   salvarSkus(produtoSalvo?: any): void {
     this.batchMsg = '';
     this.batchErrors = [];
 
     const pid = produtoSalvo?.Idproduto ?? produtoSalvo?.id ?? this.productId ?? null;
-    if (!pid) {
-      this.errorMsg = 'Produto não identificado. Salve o produto antes de salvar os SKUs.';
-      return;
-    }
-    if (!this.form.tabela_preco) {
-      this.errorMsg = 'Selecione a Tabela de Preço antes de salvar os SKUs.';
-      return;
-    }
-    if (this.form.Preco == null) {
-      this.errorMsg = 'Informe um preço padrão para os SKUs.';
-      return;
-    }
-    if (!this.combinacoes.length) {
-      this.errorMsg = 'Nenhuma combinação para salvar.';
-      return;
-    }
+    if (!pid) { this.errorMsg = 'Produto não identificado. Salve o produto antes de salvar os SKUs.'; return; }
+    if (!this.form.tabela_preco) { this.errorMsg = 'Selecione a Tabela de Preço antes de salvar os SKUs.'; return; }
+    if (this.form.Preco == null) { this.errorMsg = 'Informe um preço padrão para os SKUs.'; return; }
+    if (!this.combinacoes.length) { this.errorMsg = 'Nenhuma combinação para salvar.'; return; }
 
     const itens = this.combinacoes.map(c => ({
       cor_id: c.cor.Idcor!,
@@ -470,25 +434,12 @@ export class ProdutosComponent implements OnInit {
     this.clearMessages();
 
     if (!this.form.colecao || !this.form.estacao || !this.form.grupo || !this.form.Descricao) {
-      this.errorMsg = 'Preencha Coleção, Estação, Grupo e Descrição.';
-      return;
+      this.errorMsg = 'Preencha Coleção, Estação, Grupo e Descrição.'; return;
     }
-    if (!this.form.unidade) {
-      this.errorMsg = 'Selecione a Unidade.';
-      return;
-    }
-    if (!this.form.classificacao_fiscal) {
-      this.errorMsg = 'Selecione a Classificação Fiscal (NCM).';
-      return;
-    }
-    if (!this.form.tabela_preco) {
-      this.errorMsg = 'Selecione a Tabela de Preço.';
-      return;
-    }
-    if (this.form.Preco == null || this.form.Preco < 0) {
-      this.errorMsg = 'Informe um Preço de venda válido.';
-      return;
-    }
+    if (!this.form.unidade) { this.errorMsg = 'Selecione a Unidade.'; return; }
+    if (!this.form.classificacao_fiscal) { this.errorMsg = 'Selecione a Classificação Fiscal (NCM).'; return; }
+    if (!this.form.tabela_preco) { this.errorMsg = 'Selecione a Tabela de Preço.'; return; }
+    if (this.form.Preco == null || this.form.Preco < 0) { this.errorMsg = 'Informe um Preço de venda válido.'; return; }
 
     const fotoBasename = this.sanitizeFotoName(this.form.produto_foto || '');
 
@@ -505,7 +456,6 @@ export class ProdutosComponent implements OnInit {
       grade: this.form.grade,
       tabela_preco: this.form.tabela_preco,
       preco: this.form.Preco,
-      // >>> NOVO: enviar o nome do arquivo (apenas basename)
       produto_foto: fotoBasename || null
     };
 
@@ -533,17 +483,11 @@ export class ProdutosComponent implements OnInit {
     });
   }
 
-  /* =======================
-     MÉTODOS DO LOOKUP
-     ======================= */
   buscarProduto(ref: string): void {
     const referencia = (ref || '').trim();
     if (!referencia) return;
-    if (this.lookupCmp) {
-      this.lookupCmp.buscarComReferencia(referencia);
-    }
+    if (this.lookupCmp) this.lookupCmp.buscarComReferencia(referencia);
   }
-
   limparBusca(inputEl: HTMLInputElement): void {
     if (inputEl) inputEl.value = '';
     if (this.lookupCmp) {
@@ -552,34 +496,23 @@ export class ProdutosComponent implements OnInit {
       (this.lookupCmp as any).erroMsg?.set(null);
     }
   }
+  onProdutoSelecionado(_prod: ProdutoBasic): void { /* reservado */ }
+  onVerVariacoes(_prod: ProdutoBasic): void { /* reservado */ }
 
-  onProdutoSelecionado(_prod: ProdutoBasic): void {
-    // reservado para edição futura
-  }
-
-  onVerVariacoes(_prod: ProdutoBasic): void {
-    // reservado para modal futura
-  }
-
-  /* =======================
-     FOTO – helpers / preview
-     ======================= */
+  // ==== FOTO ====
   private sanitizeFotoName(nome: string): string {
     return (nome || '').trim().replace(/^.*[\\/]/, '');
   }
-
   onFotoInputChange(): void {
     const base = this.sanitizeFotoName(this.form.produto_foto || '');
     this.prepareFoto(base);
   }
-
   private resetFotoPreview(): void {
     this.fotoCandidates = [];
-       this.fotoIdx = 0;
+    this.fotoIdx = 0;
     this.fotoSrc = '';
     this.fotoHidden = false;
   }
-
   private prepareFoto(basename: string): void {
     this.resetFotoPreview();
     if (!basename) { this.fotoHidden = true; return; }
@@ -613,35 +546,23 @@ export class ProdutosComponent implements OnInit {
     }
 
     this.fotoCandidates = Array.from(set.values());
-    if (this.fotoCandidates.length) {
-      this.fotoSrc = this.fotoCandidates[0];
-    } else {
-      this.fotoHidden = true;
-    }
+    if (this.fotoCandidates.length) this.fotoSrc = this.fotoCandidates[0];
+    else this.fotoHidden = true;
   }
-
   onFotoError(): void {
     this.fotoIdx++;
-    if (this.fotoIdx < this.fotoCandidates.length) {
-      this.fotoSrc = this.fotoCandidates[this.fotoIdx];
-    } else {
-      this.fotoHidden = true;
-    }
+    if (this.fotoIdx < this.fotoCandidates.length) this.fotoSrc = this.fotoCandidates[this.fotoIdx];
+    else this.fotoHidden = true;
   }
 
-  /* =======================
-     LOJAS – modal helpers
-     ======================= */
-  clearLojasMarcadas(): void {
-    this.lojasMarcadas = [];
-  }
+  // ==== MODAL LOJAS ====
+  closeLojasDialog(): void { this.lojasDialogOpen = false; }
+  confirmLojasDialog(): void { this.lojasDialogOpen = false; }
+  clearLojasMarcadas(): void { this.lojasMarcadas = []; }
 
-  confirmLojasDialog(): void {
-    // nada para consolidar: binding [(selected)] já mantém lojasMarcadas
-    this.lojasDialogOpen = false;
-  }
-
-  closeLojasDialog(): void {
-    this.lojasDialogOpen = false;
-  }
+  // ==== MODAL CORES ====
+  openCoresDialog(): void { this.coresDialogOpen = true; }
+  closeCoresDialog(): void { this.coresDialogOpen = false; }
+  confirmCoresDialog(): void { this.coresDialogOpen = false; }
+  clearCoresSelecionadas(): void { this.limparSelecaoCores(); }
 }

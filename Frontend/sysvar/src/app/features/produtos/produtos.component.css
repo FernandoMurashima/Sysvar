@@ -264,3 +264,39 @@
 }
 
 .modal-footer .spacer{ flex: 1; }
+
+/* === Modal de cores === */
+.color-toolbar{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.color-toolbar input[type="text"]{
+  flex: 1 1 auto;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.color-actions{ display: flex; gap: 8px; }
+
+.color-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.color-card{
+  display: grid;
+  grid-template-columns: auto 28px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+.color-card .swatch{
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e5e7eb;
+}
+.color-card .texts .name{ font-weight: 500; }
+.color-card .texts .code{ font-size: 12px; color: #6b7280; }
