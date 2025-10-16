@@ -49,13 +49,22 @@ export class ShellComponent {
     },
 
     {
-      label: 'Estoque', icon: 'bi bi-archive', roles: ['Regular'],
+  label: 'Estoque', icon: 'bi bi-archive', roles: ['Regular'],
+  children: [
+    {
+      label: 'Consultas', icon: 'bi bi-search', roles: ['Regular'],
       children: [
-        { label: 'Consulta de Estoque', link: '/estoque/consulta-referencia',       icon: 'bi bi-search',            roles: ['Regular'] },
-        { label: 'Movimentações',       link: '/estoque/movimentacoes',  icon: 'bi bi-arrow-left-right',  roles: ['Regular'] },
-        { label: 'Inventário',          link: '/estoque/inventario',     icon: 'bi bi-clipboard-data',    roles: ['Regular'] },
+        { label: 'Por Referência', link: '/estoque/consulta-referencia', icon: 'bi bi-dot', roles: ['Regular'] },
+        // adicione outras consultas aqui:
+        // { label: 'Por EAN',       link: '/estoque/consulta-ean',         icon: 'bi bi-dot', roles: ['Regular'] },
+        // { label: 'Por Loja',      link: '/estoque/consulta-loja',        icon: 'bi bi-dot', roles: ['Regular'] },
       ]
     },
+    { label: 'Movimentações', link: '/estoque/movimentacoes', icon: 'bi bi-arrow-left-right', roles: ['Regular'] },
+    { label: 'Inventário',    link: '/estoque/inventario',    icon: 'bi bi-clipboard-data',  roles: ['Regular'] },
+  ]
+},
+
 
     {
       label: 'Faturamento', icon: 'bi bi-receipt', roles: ['Regular'],

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EstoquesService } from '../../../core/services/estoques.service';
 
+import { Router } from '@angular/router';
+
 @Component({
   selector: 'app-consulta-referencia',
   standalone: true,
@@ -12,6 +14,12 @@ import { EstoquesService } from '../../../core/services/estoques.service';
 })
 export class ConsultaReferenciaComponent {
   private api = inject(EstoquesService);
+
+  constructor(private router: Router) {}
+
+  goHome() {
+    this.router.navigate(['/home']);
+  }
 
   ref = '';
   loading = false;

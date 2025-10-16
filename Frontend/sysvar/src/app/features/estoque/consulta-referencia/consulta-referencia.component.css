@@ -171,3 +171,12 @@
 .btn:hover {
   filter: brightness(1.06);    /* Aumente p/ efeito mais forte, diminua p/ mais sutil */
 }
+
+
+
+/* Linha FINAL de totais por coluna (fica no <tfoot>) */
+.matriz tfoot th,
+.matriz tfoot td {
+  background: #7f65dd;  /* cor da linha de totais de coluna */
+  font-weight: 700;
+}
