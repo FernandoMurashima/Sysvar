@@ -677,22 +677,22 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
     ordering_fields = ['data_cadastro', 'CodigodeBarra']
 
     def get_queryset(self):
-        """
-        Por padrão retorna apenas SKUs ativos.
-        ?ativo=false  → somente inativos
-        ?ativo=all    → todos
-        ?ativo=true   → somente ativos (padrão)
-        Mantém filtros existentes (Idproduto, etc).
-        """
         qs = super().get_queryset()
+        action_name = getattr(self, 'action', None)
+        if action_name and action_name != 'list':
+            return qs
+
+        # se está pesquisando, não filtra por Ativo (traz todos)
+        if self.request.query_params.get('search'):
+            return qs
+
         ativo = self.request.query_params.get('ativo')
-        if ativo is None or (isinstance(ativo, str) and ativo.lower() in ('true', '1', '')):
-            qs = qs.filter(Ativo=True)
-        elif isinstance(ativo, str) and ativo.lower() == 'all':
-            pass
-        else:
-            qs = qs.filter(Ativo=False)
-        return qs
+        if ativo is None or (isinstance(ativo, str) and ativo.lower() in ('true','1','')):
+            return qs.filter(Ativo=True)
+        if isinstance(ativo, str) and ativo.lower() == 'all':
+            return qs
+        return qs.filter(Ativo=False)
+
 
     # --- AUDITORIA >> create/update/partial_update/destroy ---
     def perform_create(self, serializer):

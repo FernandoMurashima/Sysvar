@@ -74,24 +74,33 @@ export class ProdutoLookupComponent {
   // BUSCA POR REFERÊNCIA
   // ========================
   buscarComReferencia(referencia: string): void {
-    this.erroMsg.set(null);
-    this.loading.set(true);
-    this.resultado.set(null);
-    this.resetImage();
-    this.buscou.set(true);
+  this.erroMsg.set(null);
+  this.loading.set(true);
+  this.resultado.set(null);
+  this.resetImage();
+  this.buscou.set(true);
 
-    this.produtosApi.list({ search: referencia.trim(), page: 1, page_size: 1 }).subscribe({
+  const raw = (referencia || '').trim();
+  if (!raw) { this.loading.set(false); return; }
+
+  // tenta: original → com hífens → com pontos
+  const candidates = [raw, raw.replace(/\./g, '-'), raw.replace(/-/g, '.')];
+
+  const tryNext = (i: number) => {
+    if (i >= candidates.length) {
+      this.erroMsg.set('Nenhum produto encontrado.');
+      this.loading.set(false);
+      return;
+    }
+
+    this.produtosApi.list({ search: candidates[i], page: 1, page_size: 1, ativo: 'all' }).subscribe({
       next: (res: any) => {
         const arr = Array.isArray(res) ? res : (res?.results ?? []);
         const src = arr?.[0] as any | undefined;
 
-        if (!src) {
-          this.erroMsg.set('Nenhum produto encontrado.');
-          this.loading.set(false);
-          return;
-        }
+        if (!src) { tryNext(i + 1); return; }
 
-        const basic: ProdutoBasicView = {
+        const basic: any = {
           Idproduto: src.Idproduto ?? src.id ?? 0,
           Referencia: src.Referencia ?? src.referencia ?? '',
           Nome_produto: src.Nome_produto ?? src.Descricao ?? '',
@@ -109,12 +118,13 @@ export class ProdutoLookupComponent {
         this.prepareImage(basic.produto_foto || '');
         this.loading.set(false);
       },
-      error: () => {
-        this.erroMsg.set('Falha ao buscar produto.');
-        this.loading.set(false);
-      }
+      error: () => { tryNext(i + 1); }
     });
-  }
+  };
+
+  tryNext(0);
+}
+
 
   // ========================
   // ENRIQUECER DESCRIÇÕES

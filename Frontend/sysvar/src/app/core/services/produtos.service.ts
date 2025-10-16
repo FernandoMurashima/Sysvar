@@ -20,14 +20,24 @@ export class ProdutosService {
   private baseTabelasPreco = `${environment.apiBaseUrl}/tabelas-preco/`;
 
   // ---- Produtos ----
-  list(params?: { search?: string; ordering?: string; page?: number; page_size?: number }): Observable<Produto[] | any> {
+// ⬇️ altere a assinatura para aceitar "ativo"
+  list(params?: {
+    search?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+    ativo?: 'true' | 'false' | 'all';
+  }): Observable<Produto[] | any> {
     let p = new HttpParams();
     if (params?.search)    p = p.set('search', params.search);
     if (params?.ordering)  p = p.set('ordering', params.ordering);
     if (params?.page)      p = p.set('page', String(params.page));
     if (params?.page_size) p = p.set('page_size', String(params.page_size));
+    // ⬇️ nova linha
+    if (params?.ativo)     p = p.set('ativo', params.ativo);
     return this.http.get<Produto[] | any>(this.baseProdutos, { params: p });
-  }
+}
+
 
   get(id: number): Observable<Produto> {
     return this.http.get<Produto>(`${this.baseProdutos}${id}/`);
