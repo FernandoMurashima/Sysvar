@@ -55,4 +55,5 @@ urlpatterns = [
     # rotas do pacote pedido_compra
     path('api/', include('sysvar_app.pedido_compra.pedido_compra_urls')),
     path('api/', include('sysvar_app.forma_pagamentos.forma_pagamentos_urls')),
+    path('api/estoques/matriz-referencia/', EstoqueViewSet.as_view({'get': 'matriz_referencia'}), name='estoques-matriz-referencia'),
 ]

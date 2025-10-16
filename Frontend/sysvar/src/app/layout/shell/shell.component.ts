@@ -51,7 +51,7 @@ export class ShellComponent {
     {
       label: 'Estoque', icon: 'bi bi-archive', roles: ['Regular'],
       children: [
-        { label: 'Consulta de Estoque', link: '/estoque/consulta',       icon: 'bi bi-search',            roles: ['Regular'] },
+        { label: 'Consulta de Estoque', link: '/estoque/consulta-referencia',       icon: 'bi bi-search',            roles: ['Regular'] },
         { label: 'Movimentações',       link: '/estoque/movimentacoes',  icon: 'bi bi-arrow-left-right',  roles: ['Regular'] },
         { label: 'Inventário',          link: '/estoque/inventario',     icon: 'bi bi-clipboard-data',    roles: ['Regular'] },
       ]

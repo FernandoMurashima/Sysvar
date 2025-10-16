@@ -13,6 +13,12 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 
+from django.db.models import Sum, Value, IntegerField, Subquery, OuterRef, F
+from django.db.models.functions import Coalesce
+
+
+
+
 # >>> AUDITORIA <<<
 from auditoria.utils import write_audit, snapshot_instance
 
@@ -33,6 +39,23 @@ from .serializers import (
     NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer, TabelaPrecoItemSerializer,
     NatLancamentoSerializer, ModeloDocumentoFiscalSerializer
 )
+
+try:
+    from auditoria.utils import write_product_status_change  # type: ignore
+except Exception:
+    def write_product_status_change(request, instance, old_status, new_status, reason=None):
+        """Fallback: registra a troca de status do produto usando write_audit."""
+        try:
+            write_audit(
+                request=request,
+                model="Produto",
+                object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
+                verb="status",
+                diff={"from": bool(old_status), "to": bool(new_status)},
+                note=(reason or None),
+            )
+        except Exception:
+            pass
 
 # -------------------------
 # Health Check (público)
@@ -233,7 +256,26 @@ class ProdutoViewSet(viewsets.ModelViewSet):
                 or request.headers.get('X-User-Password')
                 or '').strip()
 
-    # ---------- ações explícitas ----------
+    def _audit_status_change(self, request, instance, old_status, new_status, reason=None, verb='status'):
+        """Tenta registrar auditoria; ignora silenciosamente se utilitário não existir."""
+        try:
+            from auditoria.utils import write_audit, snapshot_instance
+        except Exception:
+            return
+        try:
+            write_audit(
+                request=request,
+                model_name="Produto",
+                object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
+                action=verb,
+                before={"Ativo": bool(old_status)},
+                after={"Ativo": bool(new_status)},
+                reason=(reason or None),
+            )
+        except Exception:
+            pass
+
+    # ---------- AÇÕES EXPLÍCITAS ----------
     @action(detail=True, methods=['post'], url_path='inativar')
     def inativar(self, request, pk=None):
         produto = self.get_object()
@@ -246,7 +288,6 @@ class ProdutoViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
-        # >>> EXIGE senha do usuário logado
         raw_password = (request.data.get('password') or request.data.get('senha') or '').strip()
         if not raw_password or not request.user.check_password(raw_password):
             return Response(
@@ -266,14 +307,8 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             # cascata: desativar SKUs
             ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=True).update(Ativo=False)
 
-            # auditoria (guarda o motivo)
-            write_product_status_change(
-                request=request,
-                instance=produto,
-                old_status=True,
-                new_status=False,
-                reason=motivo
-            )
+            # auditoria
+            self._audit_status_change(request, produto, True, False, motivo, verb='inativar')
 
         return Response({'Ativo': bool(produto.Ativo)}, status=200)
 
@@ -289,13 +324,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             produto.inativado_por = None
             produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
 
-            write_product_status_change(
-                request=request,
-                instance=produto,
-                old_status=False,
-                new_status=True,
-                reason=(motivo or None)
-            )
+            self._audit_status_change(request, produto, False, True, motivo, verb='ativar')
 
         return Response({'Ativo': bool(produto.Ativo)}, status=200)
 
@@ -352,6 +381,67 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             'tabelas': list(agrup.values())
         }, status=200)
 
+    # --------- RESGATE/ATIVAÇÃO POR REFERÊNCIA (NOVO) ----------
+    @action(detail=False, methods=['get'], url_path='by-referencia')
+    def by_referencia(self, request):
+        """
+        Busca 1 produto por referencia, independentemente do status (ativo/inativo).
+        GET /api/produtos/by-referencia/?ref=25.03.04002
+        """
+        ref = (request.query_params.get('ref') or '').strip()
+        if not ref:
+            return Response({'detail': 'Parâmetro "ref" é obrigatório.'}, status=400)
+
+        try:
+            produto = Produto.objects.get(referencia=ref)
+        except Produto.DoesNotExist:
+            return Response({'detail': 'Referência não encontrada.'}, status=404)
+
+        data = self.get_serializer(produto).data
+        data['_ativo'] = bool(getattr(produto, 'Ativo', False))
+        return Response(data, status=200)
+
+    @action(detail=False, methods=['post'], url_path='ativar-por-referencia')
+    def ativar_por_referencia(self, request):
+        """
+        Ativa um produto pela referencia (e opcionalmente reativa SKUs).
+        POST /api/produtos/ativar-por-referencia/
+        body: { "referencia":"25.03.04002", "reativar_skus": true }
+        """
+        ref = (request.data.get('referencia') or '').strip()
+        if not ref:
+            return Response({'detail': 'Campo "referencia" é obrigatório.'}, status=400)
+
+        reativar_skus = str(request.data.get('reativar_skus') or '').lower() in {'1','true','sim'}
+
+        try:
+            produto = Produto.objects.get(referencia=ref)
+        except Produto.DoesNotExist:
+            return Response({'detail': 'Referência não encontrada.'}, status=404)
+
+        if bool(produto.Ativo):
+            out = {'id': produto.pk, 'referencia': produto.referencia, 'Ativo': True}
+            return Response(out, status=200)
+
+        produto.Ativo = True
+        produto.inativado_em = None
+        produto.inativado_por = None
+        produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
+
+        if reativar_skus:
+            ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=False).update(Ativo=True)
+
+        # auditoria amigável
+        self._audit_status_change(request, produto, False, True, request.data.get('motivo'), verb='ativar_por_referencia')
+
+        return Response({
+            'id': produto.pk,
+            'referencia': produto.referencia,
+            'Ativo': True,
+            'skus_reativados': bool(reativar_skus),
+        }, status=200)
+
+    # ---------- Queryset ----------
     def get_queryset(self):
         """
         LIST: filtra por ativo (padrão só ativos).
@@ -369,6 +459,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             return qs
         return qs.filter(Ativo=False)
 
+    # ---------- PATCH com controle de status + auditoria ----------
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_status = bool(getattr(instance, 'Ativo', False))
@@ -397,13 +488,12 @@ class ProdutoViewSet(viewsets.ModelViewSet):
                 try: data.pop(k)
                 except Exception: pass
 
-        # motivo obrigatório se desativar
+        # motivo + senha obrigatórios se for desativar
         if new_status is not None and old_status and not new_status:
             motivo = self._get_reason(request)
             if not motivo or len(motivo.strip()) < 3:
                 return Response({'detail': 'Informe o motivo da inativação (mín. 3 caracteres).'}, status=400)
 
-            # senha obrigatória também pelo PATCH que desativa
             senha = self._get_password(request)
             user = request.user
             if not user or not user.is_authenticated:
@@ -421,127 +511,158 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         instance.refresh_from_db()
         now_active = bool(getattr(instance, 'Ativo', False))
 
+        # cascata: se acabou de desativar, desativar SKUs
         if old_status and not now_active:
             ProdutoDetalhe.objects.filter(Idproduto=instance, Ativo=True).update(Ativo=False)
 
+        # auditoria de mudança de status
         if new_status is not None and old_status != now_active:
             motivo = self._get_reason(request)
-            write_product_status_change(
-                request=request,
-                instance=instance,
-                old_status=old_status,
-                new_status=now_active,
-                reason=(motivo or None)
-            )
+            self._audit_status_change(request, instance, old_status, now_active, motivo, verb='patch_status')
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # ----- AUDITORIA: create/update/destroy -----
+    # ---------- AUDITORIA CRUDE ----------
     def perform_create(self, serializer):
-        instance = serializer.save()
+        """Auditoria consolidada (única)."""
         try:
-            write_audit(
-                request=self.request,
-                model="Produto",
-                object_id=getattr(instance, "Idproduto", None),
-                verb="create",
-                diff={"new": serializer.data},
-                note=None,
-            )
+            from auditoria.utils import write_audit, snapshot_instance
         except Exception:
-            pass
+            instance = serializer.save()
+            return
+        with transaction.atomic():
+            instance = serializer.save()
+            after = snapshot_instance(instance)
+            try:
+                write_audit(
+                    request=self.request,
+                    model_name="Produto",
+                    object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
+                    action="create",
+                    before=None,
+                    after=after,
+                    reason="Criação de produto via API",
+                )
+            except Exception:
+                pass
 
     def perform_update(self, serializer):
-        instance = serializer.instance
-        before = {
-            "Descricao": getattr(instance, "Descricao", None),
-            "referencia": getattr(instance, "referencia", None),
-            "Ativo": getattr(instance, "Ativo", None),
-        }
-        obj = serializer.save()
-        after = {
-            "Descricao": getattr(obj, "Descricao", None),
-            "referencia": getattr(obj, "referencia", None),
-            "Ativo": getattr(obj, "Ativo", None),
-        }
         try:
-            write_audit(
-                request=self.request,
-                model="Produto",
-                object_id=getattr(obj, "Idproduto", None),
-                verb="update",
-                diff={"before": before, "after": after},
-                note=None,
-            )
+            from auditoria.utils import write_audit, snapshot_instance
         except Exception:
-            pass
+            serializer.save()
+            return
+        with transaction.atomic():
+            # snapshot antes
+            inst_before = serializer.instance
+            before = snapshot_instance(inst_before)
+            instance = serializer.save()
+            after = snapshot_instance(instance)
+            try:
+                write_audit(
+                    request=self.request,
+                    model_name="Produto",
+                    object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
+                    action="update",
+                    before=before,
+                    after=after,
+                    reason="Atualização de produto via API",
+                )
+            except Exception:
+                pass
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        obj_id = getattr(instance, "Idproduto", None)
-        snap = {
-            "Descricao": getattr(instance, "Descricao", None),
-            "referencia": getattr(instance, "referencia", None),
-        }
-        resp = super().destroy(request, *args, **kwargs)
         try:
-            write_audit(
-                request=request,
-                model="Produto",
-                object_id=obj_id,
-                verb="delete",
-                diff={"old": snap},
-                note=None,
-            )
+            from auditoria.utils import write_audit, snapshot_instance
         except Exception:
-            pass
-        return resp
+            return super().destroy(request, *args, **kwargs)
 
-        # >>> AUDITORIA AUTOMÁTICA <<<
-    def perform_create(self, serializer):
-        with transaction.atomic():
-            instance = serializer.save()
-            after = snapshot_instance(instance)
-            write_audit(
-                request=self.request,
-                model_name="Produto",
-                object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
-                action="create",
-                before=None,
-                after=after,
-                reason="Criação de produto via API",
-            )
-
-    def perform_update(self, serializer):
-        with transaction.atomic():
-            instance_before = self.get_object()
-            before = snapshot_instance(instance_before)
-            instance = serializer.save()
-            after = snapshot_instance(instance)
-            write_audit(
-                request=self.request,
-                model_name="Produto",
-                object_id=getattr(instance, "Idproduto", getattr(instance, "pk", None)),
-                action="update",
-                before=before,
-                after=after,
-                reason="Atualização de produto via API",
-            )
-
-    def perform_destroy(self, instance):
+        instance = self.get_object()
         with transaction.atomic():
             before = snapshot_instance(instance)
             oid = getattr(instance, "Idproduto", getattr(instance, "pk", None))
-            instance.delete()
-            write_audit(
-                request=self.request,
-                model_name="Produto",
-                object_id=oid,
-                action="delete",
-                before=before,
-                after=None,
-                reason="Exclusão de produto via API",
-            )
+            resp = super().destroy(request, *args, **kwargs)
+            try:
+                write_audit(
+                    request=request,
+                    model_name="Produto",
+                    object_id=oid,
+                    action="delete",
+                    before=before,
+                    after=None,
+                    reason="Exclusão de produto via API",
+                )
+            except Exception:
+                pass
+            return resp
+
+    # ProdutoViewSet  >>> adicione este método
+@action(detail=False, methods=['post'], url_path='ativar-por-referencia')
+def ativar_por_referencia(self, request):
+    """
+    Reativa um produto (e opcionalmente seus SKUs) informando a referência.
+    Não exige senha (somente desativar exige).
+    """
+    ref = (request.data.get('referencia') or request.data.get('ref') or '').strip()
+    reativar_skus = str(request.data.get('reativar_skus') or '').lower() in {'1', 'true', 'sim'}
+
+    if not ref:
+        return Response({'detail': 'Informe "referencia".'}, status=400)
+
+    # ignorar o filtro padrão de list: buscamos no queryset base do model
+    try:
+        produto = Produto.objects.get(referencia=ref)
+    except Produto.DoesNotExist:
+        return Response({'detail': 'Referência não encontrada.'}, status=404)
+
+    if produto.Ativo:
+        return Response({
+            'id': produto.Idproduto,
+            'referencia': produto.referencia,
+            'Ativo': True,
+            'skus_reativados': False,
+            'detail': 'Produto já estava ativo.'
+        }, status=200)
+
+    # reativar
+    produto.Ativo = True
+    produto.inativado_em = None
+    produto.inativado_por = None
+    produto.save(update_fields=['Ativo', 'inativado_em', 'inativado_por'])
+
+    # reativar SKUs, se pedido
+    skus_reat = False
+    if reativar_skus:
+        from .models import ProdutoDetalhe
+        ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=False).update(Ativo=True)
+        skus_reat = True
+
+    # auditoria (best-effort, se existir)
+    try:
+        from auditoria.utils import write_audit, snapshot_instance
+        after = snapshot_instance(produto)
+        write_audit(
+            request=request,
+            model_name="Produto",
+            object_id=getattr(produto, "Idproduto", getattr(produto, "pk", None)),
+            action="ativar_por_referencia",
+            before=None,
+            after=after,
+            reason=f"Reativação via API por referência {ref}",
+        )
+    except Exception:
+        pass
+
+    return Response({
+        'id': produto.Idproduto,
+        'referencia': produto.referencia,
+        'Ativo': True,
+        'skus_reativados': skus_reat,
+        'detail': 'Produto reativado com sucesso.'
+    }, status=200)
+    
+
+
 
 class ProdutoDetalheViewSet(viewsets.ModelViewSet):
     queryset = (ProdutoDetalhe.objects
@@ -839,6 +960,162 @@ class EstoqueViewSet(viewsets.ModelViewSet):
     filterset_fields = ['Idloja', 'CodigodeBarra', 'codigoproduto']
     search_fields = ['CodigodeBarra', 'codigoproduto']
     ordering_fields = ['CodigodeBarra', 'Idloja']
+
+    # ---------- NOVO ENDPOINT ----------
+    @action(detail=False, methods=['get'], url_path='matriz-referencia')
+    def matriz_referencia(self, request):
+        ref = (request.query_params.get('ref') or '').strip()
+        if not ref:
+            return Response({'detail': 'Parâmetro "ref" é obrigatório.'}, status=400)
+
+        lojas_param = (request.query_params.get('lojas') or '').strip()
+        loja_ids = []
+        if lojas_param:
+            try:
+                loja_ids = [int(x) for x in lojas_param.split(',') if x.strip()]
+            except ValueError:
+                return Response({'detail': 'Parâmetro "lojas" inválido (use IDs separados por vírgula).'}, status=400)
+
+        incluir_inativos = (str(request.query_params.get('incluir_inativos') or '').lower() in {'1','true','sim'})
+
+        # PRE-CHECK: Se a referência existe em Produto e está inativa, bloquear consulta
+        prod = Produto.objects.filter(referencia=ref).only('Idproduto', 'Ativo').first()
+        if prod is not None and not bool(getattr(prod, 'Ativo', False)):
+            return Response({'detail': 'Referência inativada — sem consulta de estoque.'}, status=409)
+
+        # 1) Começa pelo ESTOQUE (referência existente no estoque)
+        rows_base = Estoque.objects.filter(codigoproduto=ref)
+        if loja_ids:
+            rows_base = rows_base.filter(Idloja_id__in=loja_ids)
+
+        # opcional: excluir SKUs inativos em ProdutoDetalhe
+        if not incluir_inativos:
+            ativos_eans = ProdutoDetalhe.objects.filter(Ativo=True).values('CodigodeBarra')
+            rows_base = rows_base.filter(CodigodeBarra__in=ativos_eans)
+
+        if not rows_base.exists():
+            # Observação: se Produto não existe, mantemos a mensagem de "não encontrada no estoque"
+            return Response({'detail': 'Referência não encontrada no estoque.'}, status=404)
+
+        # 2) Anota cor/tamanho via ProdutoDetalhe (por EAN)
+        rows = (
+            rows_base.annotate(
+                cor_id=Subquery(
+                    ProdutoDetalhe.objects
+                        .filter(CodigodeBarra=OuterRef('CodigodeBarra'))
+                        .values('Idcor')[:1]
+                ),
+                tam_id=Subquery(
+                    ProdutoDetalhe.objects
+                        .filter(CodigodeBarra=OuterRef('CodigodeBarra'))
+                        .values('Idtamanho')[:1]
+                ),
+            )
+            .exclude(cor_id__isnull=True)
+            .exclude(tam_id__isnull=True)
+        )
+
+        if not rows.exists():
+            return Response({'detail': 'Não há SKUs mapeados (cor/tamanho) para esta referência.'}, status=404)
+
+        agg = (
+            rows.values('Idloja_id', 'cor_id', 'tam_id')
+                .annotate(
+                    estoque=Coalesce(Sum('Estoque'), Value(0)),
+                    reserva=Coalesce(Sum('reserva'), Value(0))
+                )
+        )
+
+        # 3) Eixos (lojas/cores/tamanhos)
+        loja_ids_set = set(agg.values_list('Idloja_id', flat=True))
+        cor_ids_set  = set(agg.values_list('cor_id',    flat=True))
+        tam_ids_set  = set(agg.values_list('tam_id',    flat=True))
+
+        lojas = list(Loja.objects.filter(pk__in=loja_ids_set).values('Idloja','nome_loja'))
+        cores = list(Cor.objects.filter(pk__in=cor_ids_set).values('Idcor','Descricao'))
+        tams  = list(Tamanho.objects.filter(pk__in=tam_ids_set).values('Idtamanho','Tamanho','Descricao'))
+
+        ordem_tam = {'PP':1,'P':2,'M':3,'G':4,'GG':5}
+        def tam_key(t):
+            sigla = (t.get('Tamanho') or t.get('Descricao') or '').upper()
+            return (ordem_tam.get(sigla, 999), sigla)
+
+        lojas_sorted = sorted(lojas, key=lambda l:(l.get('nome_loja') or '').upper())
+        cores_sorted = sorted(cores, key=lambda c:(c.get('Descricao') or '').upper())
+        tams_sorted  = sorted(tams,  key=tam_key)
+
+        tam_ids_sorted = [t['Idtamanho'] for t in tams_sorted]
+        cor_ids_sorted = [c['Idcor'] for c in cores_sorted]
+
+        # 4) Monta a matriz
+        base_tams_zero = {str(tid): 0 for tid in tam_ids_sorted}
+        por_loja = {}
+        total_geral_estoque = 0
+        total_geral_reserva = 0
+
+        for row in agg:
+            lid = row['Idloja_id']; cid = row['cor_id']; tid = row['tam_id']
+            est = int(row['estoque'] or 0); res = int(row['reserva'] or 0)
+
+            if lid not in por_loja:
+                por_loja[lid] = {'cores': {}, 'total_loja': 0, 'total_loja_reserva': 0}
+            if cid not in por_loja[lid]['cores']:
+                por_loja[lid]['cores'][cid] = {'tamanhos': dict(base_tams_zero), 'total_cor': 0, 'total_cor_reserva': 0}
+
+            por_loja[lid]['cores'][cid]['tamanhos'][str(tid)] += est
+            por_loja[lid]['cores'][cid]['total_cor'] += est
+            por_loja[lid]['cores'][cid]['total_cor_reserva'] += res
+
+            por_loja[lid]['total_loja'] += est
+            por_loja[lid]['total_loja_reserva'] += res
+
+            total_geral_estoque += est
+            total_geral_reserva += res
+
+        totals_por_cor = {str(cid): 0 for cid in cor_ids_sorted}
+        totals_por_tam = {str(tid): 0 for tid in tam_ids_sorted}
+        for loja in por_loja.values():
+            for cid, cdata in loja['cores'].items():
+                totals_por_cor[str(cid)] += cdata['total_cor']
+                for tid, qt in cdata['tamanhos'].items():
+                    totals_por_tam[str(tid)] += qt
+
+        payload = {
+            "referencia": ref,
+            "resumo": {
+                "estoque": int(total_geral_estoque),
+                "reserva": int(total_geral_reserva),
+                "disponivel": max(int(total_geral_estoque) - int(total_geral_reserva), 0),
+            },
+            "eixos": {
+                "lojas": [{"id": l['Idloja'], "nome": l['nome_loja']} for l in lojas_sorted],
+                "cores": [{"id": c['Idcor'], "nome": c['Descricao']} for c in cores_sorted],
+                "tamanhos": [{"id": t['Idtamanho'], "sigla": t['Tamanho'], "descricao": t['Descricao']} for t in tams_sorted],
+            },
+            "matriz": {
+                "por_loja": [
+                    {
+                        "loja_id": lid,
+                        "cores": [
+                            {
+                                "cor_id": cid,
+                                "tamanhos": { str(tid): por_loja[lid]['cores'][cid]['tamanhos'].get(str(tid), 0) for tid in tam_ids_sorted },
+                                "total_cor": por_loja[lid]['cores'][cid]['total_cor'],
+                            }
+                            for cid in cor_ids_sorted if cid in por_loja[lid]['cores']
+                        ],
+                        "total_loja": por_loja[lid]['total_loja'],
+                    }
+                    for lid in [l['Idloja'] for l in lojas_sorted] if lid in por_loja
+                ],
+                "totais": {
+                    "por_cor": { str(cid): totals_por_cor[str(cid)] for cid in cor_ids_sorted },
+                    "por_tamanho": { str(tid): totals_por_tam[str(tid)] for tid in tam_ids_sorted },
+                    "geral": int(total_geral_estoque),
+                }
+            }
+        }
+        return Response(payload, status=200)
 
 
 class FornecedorViewSet(viewsets.ModelViewSet):

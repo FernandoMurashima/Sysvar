@@ -1,0 +1,26 @@
+.estoque-ref-page { display:flex; flex-direction:column; gap:12px; }
+.toolbar { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb; padding-bottom:8px; }
+.actions { display:flex; gap:8px; }
+.actions input { min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; }
+
+.alert.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; padding:8px 10px; border-radius:8px; }
+.loading { color:#6b7280; }
+
+.card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; }
+
+.resumo { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:12px; }
+.kpi { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:10px; text-align:center; }
+.kpi-title { color:#6b7280; font-size:12px; }
+.kpi-value { font-size:20px; font-weight:700; }
+
+.table-wrapper { overflow:auto; }
+.matriz { border-collapse:collapse; width:100%; }
+.matriz th, .matriz td { border:1px solid #e5e7eb; padding:6px 8px; }
+.matriz thead th { background:#f3f4f6; }
+.matriz .sep { border-left-width:3px; }
+.matriz .loja { white-space:nowrap; }
+.matriz .tam { font-weight:600; font-size:12px; text-align:center; }
+.num { text-align:right; }
+.total-col { background:#f9fafb; font-weight:700; }
+.btn { padding:8px 12px; border-radius:8px; border:1px solid #111827; background:#111827; color:#fff; cursor:pointer; }
+.btn:hover { filter:brightness(1.06); }

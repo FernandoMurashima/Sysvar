@@ -1,0 +1,77 @@
+<div class="estoque-ref-page">
+  <header class="toolbar">
+    <h2>Consulta de Estoque — Referência</h2>
+    <div class="actions">
+      <input type="text" placeholder="Ex.: 25.02.010003" [(ngModel)]="ref" (keyup.enter)="buscar()" />
+      <button class="btn primary" (click)="buscar()">Buscar</button>
+    </div>
+  </header>
+
+  <div *ngIf="error" class="alert error">{{ error }}</div>
+  <div *ngIf="loading" class="loading">Carregando...</div>
+
+  <section *ngIf="data && !loading" class="card">
+    <div class="resumo">
+      <div class="kpi">
+        <div class="kpi-title">Estoque</div>
+        <div class="kpi-value">{{ data?.resumo?.estoque }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-title">Reservado</div>
+        <div class="kpi-value">{{ data?.resumo?.reserva }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-title">Disponível</div>
+        <div class="kpi-value">{{ data?.resumo?.disponivel }}</div>
+      </div>
+    </div>
+
+    <div class="table-wrapper" *ngIf="lojas.length">
+      <table class="matriz">
+        <thead>
+          <tr>
+            <th>Loja</th>
+            <ng-container *ngFor="let cor of cores">
+              <th class="sep" [attr.colspan]="(tamanhos.length || 0) + 1">{{ cor.nome }}</th>
+            </ng-container>
+            <th class="sep total-col">Total da Loja</th>
+          </tr>
+          <tr>
+            <th></th>
+            <ng-container *ngFor="let cor of cores">
+              <ng-container *ngFor="let t of tamanhos">
+                <th class="tam">{{ t.sigla || t.descricao }}</th>
+              </ng-container>
+              <th class="total-col">Total</th>
+            </ng-container>
+            <th class="total-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let l of lojas">
+            <td class="loja">{{ l.nome }}</td>
+            <ng-container *ngFor="let cor of cores">
+              <ng-container *ngFor="let t of tamanhos">
+                <td class="num">{{ qtd(l.id, cor.id, t.id) }}</td>
+              </ng-container>
+              <td class="num total-col">{{ totalCorLoja(l.id, cor.id) }}</td>
+            </ng-container>
+            <td class="num total-col">{{ totalLoja(l.id) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Total</th>
+            <ng-container *ngFor="let cor of cores">
+              <ng-container *ngFor="let t of tamanhos">
+                <th class="num">{{ totalPorTamanho(t.id) }}</th>
+              </ng-container>
+              <th class="num total-col">{{ totalPorCor(cor.id) }}</th>
+            </ng-container>
+            <th class="num total-col">{{ totalGeral() }}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+</div>
