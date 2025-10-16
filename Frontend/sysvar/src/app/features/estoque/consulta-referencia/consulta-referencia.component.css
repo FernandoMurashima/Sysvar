@@ -1,26 +1,173 @@
-.estoque-ref-page { display:flex; flex-direction:column; gap:12px; }
-.toolbar { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb; padding-bottom:8px; }
-.actions { display:flex; gap:8px; }
-.actions input { min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; }
+/* =========================================
+   PÁGINA / LAYOUT GERAL
+   ========================================= */
 
-.alert.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; padding:8px 10px; border-radius:8px; }
-.loading { color:#6b7280; }
+/* Contêiner principal da página de consulta por referência */
+.estoque-ref-page {
+  display: flex;               /* Layout em coluna */
+  flex-direction: column;      /* Empilha os blocos verticalmente */
+  gap: 12px;                   /* Espaço vertical entre blocos → aumente/diminua para mais/menos respiro */
+}
 
-.card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; }
+/* Barra superior de ferramentas (título + ações) */
+.toolbar {
+  display: flex;               
+  align-items: center;         /* Alinha verticalmente */
+  justify-content: space-between; /* Título à esquerda, ações à direita */
+  border-bottom: 1px solid #e5e7eb; /* Linha inferior: mude a cor/espessura aqui */
+  padding-bottom: 8px;         /* Espaço interno abaixo → aumenta/diminui a “altura visual” da barra */
+}
 
-.resumo { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:12px; }
-.kpi { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:10px; text-align:center; }
-.kpi-title { color:#6b7280; font-size:12px; }
-.kpi-value { font-size:20px; font-weight:700; }
+/* Grupo de botões/campos à direita da toolbar */
+.actions {
+  display: flex;
+  gap: 8px;                    /* Espaço horizontal entre botões/campos */
+}
 
-.table-wrapper { overflow:auto; }
-.matriz { border-collapse:collapse; width:100%; }
-.matriz th, .matriz td { border:1px solid #e5e7eb; padding:6px 8px; }
-.matriz thead th { background:#f3f4f6; }
-.matriz .sep { border-left-width:3px; }
-.matriz .loja { white-space:nowrap; }
-.matriz .tam { font-weight:600; font-size:12px; text-align:center; }
-.num { text-align:right; }
-.total-col { background:#f9fafb; font-weight:700; }
-.btn { padding:8px 12px; border-radius:8px; border:1px solid #111827; background:#111827; color:#fff; cursor:pointer; }
-.btn:hover { filter:brightness(1.06); }
+/* Campo de busca na toolbar */
+.actions input {
+  min-width: 280px;            /* Largura mínima do input → ajuste para caber melhor no seu layout */
+  padding: 8px 10px;           /* Tamanho interno do campo */
+  border: 1px solid #f7f5f5;   /* Contorno do input (cor/espessura) */
+  border-radius: 8px;          /* Arredondamento dos cantos do input */
+}
+
+/* =========================================
+   MENSAGENS DE ESTADO
+   ========================================= */
+
+/* Alerta de erro (faixa vermelha clara) */
+.alert.error {
+  background: #fef2f2;         /* Fundo da faixa de erro */
+  color: #991b1b;              /* Texto do erro */
+  border: 1px solid #fecaca;   /* Borda do alerta (mude para mais/menos contraste) */
+  padding: 8px 10px;           /* Espaçamento interno */
+  border-radius: 8px;          /* Cantos arredondados */
+}
+
+/* Texto “carregando”/informativo discreto */
+.loading {
+  color: #072a72;              /* Cinza médio (ajuste para mais/menos contraste) */
+}
+
+/* =========================================
+   CARTÃO/SEÇÃO (BLOCOS BRANCOS)
+   ========================================= */
+
+/* Cartões brancos que envolvem resumos e tabelas */
+.card {
+  background: #fff;            /* Fundo do cartão */
+  border: 5px solid #4c72be;   /* Contorno do cartão (espessura/cor) */
+  border-radius: 12px;         /* Raio dos cantos → mais alto = mais arredondado */
+  padding: 12px;               /* Respiro interno do cartão */
+}
+
+/* =========================================
+   RESUMO (KPIs)
+   ========================================= */
+
+/* Grade de 3 colunas para KPIs de estoque/reserva/disponível */
+.resumo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 colunas iguais; altere p/ 2 ou 4 se quiser */
+  gap: 10px;                              /* Espaço entre os cards de KPI */
+  margin-bottom: 12px;                    /* Espaço abaixo do bloco de KPIs */
+}
+
+/* Cartão individual de KPI */
+.kpi {
+  background: #f9fafb;         /* Fundo do KPI */
+  border: 5px solid #571aca;   /* Contorno do KPI */
+  border-radius: 10px;         /* Cantos */
+  padding: 10px;               /* Respiro interno */
+  text-align: center;          /* Centraliza os números/títulos */
+}
+
+/* Título do KPI (legenda) */
+.kpi-title {
+  color: #265fd3;              /* Cor do título (cinza) */
+  font-size: 12px;             /* Tamanho do texto da legenda */
+}
+
+/* Valor do KPI (número grande) */
+.kpi-value {
+  font-size: 20px;             /* Tamanho do número principal */
+  font-weight: 700;            /* Negrito para destaque */
+}
+
+/* =========================================
+   TABELA “MATRIZ” (LOJAS x CORES x TAMANHOS)
+   ========================================= */
+
+/* Contêiner com rolagem para a tabela (evita “quebrar” layout quando tem muitas colunas) */
+.table-wrapper {
+  overflow: auto;              /* Mostra barra de rolagem quando necessário */
+}
+
+/* Tabela principal */
+.matriz {
+  border-collapse: collapse;   /* Une as bordas das células para um visual “único” */
+  width: 100%;                 /* Ocupa toda a largura disponível */
+  background: #f9fafb;   
+  border: 2px solid #571aca; 
+}
+
+/* Células (cabeçalho e corpo) */
+.matriz th,
+.matriz td {
+  border: 2px solid #284275;   /* Linhas divisórias (cor/espessura) */
+  padding: 6px 8px;            /* Espaçamento interno das células */
+}
+
+/* Cabeçalho (linha do topo) */
+.matriz thead th {
+  background: #69c2eb;         /* Cor de fundo do cabeçalho da tabela */
+}
+
+/* Separador visual mais forte (use em colunas-chave) */
+.matriz .sep {
+  border-left-width: 3px;      /* Deixa a borda esquerda mais grossa p/ marcar seção/total */
+}
+
+/* Coluna com nome da loja (impede quebra de linha) */
+.matriz .loja {
+  white-space: nowrap;         /* Mantém o nome em uma linha; remova para permitir quebra */
+  background: #69c2eb;         /* Cor de fundo do cabeçalho da tabela */
+}
+
+/* Cabeçalho de tamanho (texto centralizado e mais “firme”) */
+.matriz .tam {
+  font-weight: 600;            /* Semi-negrito para dar ênfase aos tamanhos */
+  font-size: 12px;             /* Tamanho do rótulo do tamanho */
+  text-align: center;          /* Centraliza o texto na célula */
+}
+
+/* Alinhamento numérico à direita (estoques, totais) */
+.num {
+  text-align: right;           /* Números ficam alinhados à direita */
+}
+
+/* Coluna de totais (fundo diferenciado e peso no texto) */
+.total-col {
+  background: #13b5eb;         /* Fundo ligeiramente diferente para destacar total */
+  font-weight: 700;            /* Traz o número para frente visualmente */
+}
+
+/* =========================================
+   BOTÕES
+   ========================================= */
+
+/* Botão padrão */
+.btn {
+  padding: 8px 12px;           /* Tamanho do botão */
+  border-radius: 8px;          /* Cantos arredondados */
+  border: 1px solid #111827;   /* Contorno do botão (mude a cor/espessura aqui) */
+  background: #111827;         /* Fundo do botão (cor principal) */
+  color: #fff;                 /* Cor do texto do botão */
+  cursor: pointer;             /* Cursor “mãozinha” */
+}
+
+/* Efeito hover sutil (clareia um pouco) */
+.btn:hover {
+  filter: brightness(1.06);    /* Aumente p/ efeito mais forte, diminua p/ mais sutil */
+}

@@ -76,4 +76,18 @@ export class ConsultaReferenciaComponent {
   totalGeral(): number {
     return this.data?.matriz?.totais?.geral ?? 0;
   }
+
+  /** Soma por tamanho DENTRO de uma cor específica (varre por loja). */
+  totalPorTamanhoDaCor(cid: number, tid: number): number {
+    const porLoja = this.data?.matriz?.por_loja || [];
+    let soma = 0;
+    for (const l of porLoja) {
+      const cor = (l.cores || []).find((c: any) => c.cor_id === cid);
+      if (!cor) continue;
+      const v = cor.tamanhos?.[String(tid)];
+      if (typeof v === 'number') soma += v;
+    }
+    return soma;
+  }
+
 }

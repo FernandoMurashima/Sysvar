@@ -64,7 +64,7 @@
             <th>Total</th>
             <ng-container *ngFor="let cor of cores">
               <ng-container *ngFor="let t of tamanhos">
-                <th class="num">{{ totalPorTamanho(t.id) }}</th>
+                <th class="num">{{ totalPorTamanhoDaCor(cor.id, t.id) }}</th>
               </ng-container>
               <th class="num total-col">{{ totalPorCor(cor.id) }}</th>
             </ng-container>
