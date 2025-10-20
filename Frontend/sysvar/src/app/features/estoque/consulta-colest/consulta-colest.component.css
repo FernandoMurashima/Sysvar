@@ -1,0 +1,131 @@
+/* container/scroll */
+.colest-wrapper {
+  width: 100%;
+  overflow: auto;
+}
+
+/* legenda */
+.colest-legend {
+  margin-bottom: 8px;
+  font-size: 10px;
+  color: #64748b; /* slate-500 */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.colest-legend .legend-box {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #e5e7eb; /* gray-200 */
+  display: inline-block;
+}
+
+/* tabela base */
+.colest-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px; /* compacta */
+  color: #0f172a; /* slate-900 */
+}
+
+/* cabeçalho */
+.colest-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #ffffff;
+  border: 1px solid #e5e7eb; /* gray-200 */
+  text-align: center;
+  padding: 8px;
+  font-weight: 600;
+}
+
+/* primeira coluna (sticky) */
+.first-col {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background: #ffffff;
+  text-align: left;
+}
+.first-col-body {
+  font-weight: 500;
+}
+.first-col-foot {
+  background: #f8fafc; /* slate-50 */
+}
+
+/* corpo */
+.colest-table tbody td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  vertical-align: middle;
+  background: #ffffff;
+}
+
+/* rodapé */
+.colest-table tfoot th,
+.colest-table tfoot td {
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  background: #f8fafc; /* leve destaque */
+}
+
+/* títulos do cabeçalho */
+.th-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  margin: 0 auto;
+  line-height: 1.2;
+}
+.th-sub {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+/* par Itens | Valor */
+.cell-pair {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* números alinhados bonitos */
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+  -moz-font-feature-settings: "tnum", "lnum";
+  -webkit-font-feature-settings: "tnum", "lnum";
+  font-feature-settings: "tnum", "lnum";
+}
+
+/* totais (peso visual) */
+.cell-total-row {
+  font-weight: 600;
+}
+.cell-total-col {
+  font-weight: 600;
+}
+.cell-total-grand {
+  font-weight: 700;
+}
+
+/* zebra opcional (descomente se quiser) */
+/*
+.colest-table tbody tr:nth-child(odd) td:not(.first-col) {
+  background: #fcfcfd;
+}
+*/
+
+/* responsividade mínima: deixar as colunas respirarem */
+@media (max-width: 1200px) {
+  .th-title { max-width: 140px; }
+}
+@media (max-width: 900px) {
+  .th-title { max-width: 120px; }
+}

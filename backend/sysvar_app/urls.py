@@ -8,7 +8,7 @@ from sysvar_app.views import (
     GradeViewSet, TamanhoViewSet, CorViewSet, ColecaoViewSet, FamiliaViewSet,
     UnidadeViewSet, GrupoViewSet, SubgrupoViewSet, CodigosViewSet, TabelaprecoViewSet,
     NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet, 
-    health, register, login_view, me, logout_view, NatLancamentoViewSet, ModeloDocumentoFiscalViewSet
+    health, register, login_view, me, logout_view, NatLancamentoViewSet, ModeloDocumentoFiscalViewSet,MatrizColEstView
 )
 
 from auditoria.views import AuditoriaLogViewSet
@@ -50,10 +50,13 @@ urlpatterns = [
     path('api/login/', login_view),
     path('api/me/', me),
     path('api/auth/logout/', logout_view),
-    path('api/', include(router.urls)),
 
-    # rotas do pacote pedido_compra
+    # 💡 Rotas específicas ANTES do include do router
+    path('api/estoques/matriz-referencia/', EstoqueViewSet.as_view({'get': 'matriz_referencia'}), name='estoques-matriz-referencia'),
+    path('api/estoques/matriz-colest/', MatrizColEstView.as_view(), name='estoques-matriz-colest'),
+
+    # includes e router depois
+    path('api/', include(router.urls)),
     path('api/', include('sysvar_app.pedido_compra.pedido_compra_urls')),
     path('api/', include('sysvar_app.forma_pagamentos.forma_pagamentos_urls')),
-    path('api/estoques/matriz-referencia/', EstoqueViewSet.as_view({'get': 'matriz_referencia'}), name='estoques-matriz-referencia'),
 ]

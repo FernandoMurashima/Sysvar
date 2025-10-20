@@ -14,3 +14,4 @@ Backend/db.sqlite3
 .idea/
 .DS_Store
 "@ | Out-File -Encoding utf8 .gitignore
+/_export_sysvar

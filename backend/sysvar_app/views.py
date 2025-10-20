@@ -1,3 +1,4 @@
+# views.py
 from decimal import Decimal
 from xml.etree import ElementTree as ET
 
@@ -7,37 +8,35 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
-from django.db import transaction
+from django.db import transaction, connection
 from django.utils import timezone
-
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
-
-from django.db.models import Sum, Value, IntegerField, Subquery, OuterRef, F
-from django.db.models.functions import Coalesce
-
-
-
+from django.db.models import (
+    F, Value, Subquery, OuterRef, IntegerField, DecimalField, CharField,
+    Case, When, Sum, Aggregate, Func, fields, Q
+)
+from django.db.models.functions import Coalesce, Cast
+from collections import defaultdict
+from typing import Dict, Tuple
+from django.db import connection
+from rest_framework.views import APIView
 
 # >>> AUDITORIA <<<
 from auditoria.utils import write_audit, snapshot_instance
 
 from .models import (
-    Loja, Cliente, Produto, ProdutoDetalhe, Estoque,
-    Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
-    Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm,
-    TabelaPrecoItem,
+    Loja, Cliente, Produto, ProdutoDetalhe, Estoque, Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
+    Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm, TabelaPrecoItem,
     # modelos fiscais / compras
     NFeEntrada, NFeItem, FornecedorSkuMap, MovimentacaoProdutos, Nat_Lancamento, ModeloDocumentoFiscal
 )
 from .serializers import (
-    UserSerializer,
-    LojaSerializer, ClienteSerializer, ProdutoSerializer, ProdutoDetalheSerializer, EstoqueSerializer,
-    FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer,
-    CorSerializer, ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer,
-    SubgrupoSerializer, CodigosSerializer, TabelaprecoSerializer, NcmSerializer,
-    NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer, TabelaPrecoItemSerializer,
-    NatLancamentoSerializer, ModeloDocumentoFiscalSerializer
+    UserSerializer, LojaSerializer, ClienteSerializer, ProdutoSerializer, ProdutoDetalheSerializer, EstoqueSerializer,
+    FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer, CorSerializer,
+    ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer, SubgrupoSerializer, CodigosSerializer,
+    TabelaprecoSerializer, NcmSerializer, NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer,
+    TabelaPrecoItemSerializer, NatLancamentoSerializer, ModeloDocumentoFiscalSerializer
 )
 
 try:
@@ -57,6 +56,7 @@ except Exception:
         except Exception:
             pass
 
+
 # -------------------------
 # Health Check (público)
 # -------------------------
@@ -64,6 +64,7 @@ except Exception:
 @permission_classes([AllowAny])
 def health(request):
     return JsonResponse({'status': 'ok', 'app': 'sysvar'})
+
 
 # -------------------------
 # Register (público)
@@ -74,24 +75,22 @@ def register(request):
     User = get_user_model()
     data = request.data
 
-    username   = (data.get('username') or '').strip()
-    password   = (data.get('password') or '').strip()
-    email      = (data.get('email') or '').strip()
+    username = (data.get('username') or '').strip()
+    password = (data.get('password') or '').strip()
+    email = (data.get('email') or '').strip()
     first_name = (data.get('first_name') or '').strip()
-    last_name  = (data.get('last_name') or '').strip()
-    user_type  = (data.get('type') or 'Regular').strip()
+    last_name = (data.get('last_name') or '').strip()
+    user_type = (data.get('type') or 'Regular').strip()
 
     if not username or not password:
-        return Response({'error': 'username e password são obrigatórios.'},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'username e password são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
 
     allowed_types = {'Regular', 'Caixa', 'Gerente', 'Admin', 'Auxiliar', 'Assistente'}
     if user_type not in allowed_types:
         user_type = 'Regular'
 
     if User.objects.filter(username=username).exists():
-        return Response({'error': 'username já existe.'},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'username já existe.'}, status=status.HTTP_400_BAD_REQUEST)
 
     user = User(
         username=username,
@@ -130,6 +129,7 @@ def register(request):
         'token': token.key
     }, status=status.HTTP_201_CREATED)
 
+
 # -------------------------
 # Login (público) → retorna token
 # -------------------------
@@ -137,8 +137,10 @@ def register(request):
 @permission_classes([AllowAny])
 def login_view(request):
     from django.contrib.auth import authenticate
+
     username = (request.data.get('username') or '').strip()
     password = (request.data.get('password') or '').strip()
+
     if not username or not password:
         return Response({'detail': 'username e password são obrigatórios.'}, status=400)
 
@@ -151,6 +153,7 @@ def login_view(request):
         'token': token.key,
         'user': UserSerializer(user).data
     }, status=200)
+
 
 # -------------------------
 # /api/me (requer auth)
@@ -172,6 +175,7 @@ def me(request):
         'loja_nome': loja_nome,
     })
 
+
 # -------------------------
 # /api/auth/logout
 # -------------------------
@@ -180,15 +184,15 @@ def me(request):
 def logout_view(request):
     token = getattr(request, 'auth', None)
     if token is None:
-        return Response({'detail': 'Nenhum token ativo para revogar.'},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Nenhum token ativo para revogar.'}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
         token.delete()
     except Exception:
-        return Response({'detail': 'Não foi possível revogar o token.'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    return Response({'detail': 'Logout efetuado. Token revogado.'},
-                    status=status.HTTP_200_OK)
+        return Response({'detail': 'Não foi possível revogar o token.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({'detail': 'Logout efetuado. Token revogado.'}, status=status.HTTP_200_OK)
+
 
 # -------------------------
 # Users ViewSet
@@ -197,9 +201,11 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
     queryset = get_user_model().objects.all().order_by('-date_joined')
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['username', 'email', 'first_name', 'last_name', 'type']
     ordering_fields = ['date_joined', 'username', 'email', 'first_name', 'last_name', 'type']
+
 
 # -------------------------
 # ViewSets principais
@@ -208,6 +214,7 @@ class LojaViewSet(viewsets.ModelViewSet):
     queryset = Loja.objects.all().order_by('-data_cadastro')
     serializer_class = LojaSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nome_loja', 'Apelido_loja', 'cnpj']
     ordering_fields = ['data_cadastro', 'nome_loja']
@@ -217,14 +224,17 @@ class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all().order_by('-data_cadastro')
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Nome_cliente', 'Apelido', 'cpf', 'email']
     ordering_fields = ['data_cadastro', 'Nome_cliente']
+
 
 class ProdutoViewSet(viewsets.ModelViewSet):
     queryset = Produto.objects.all().order_by('-data_cadastro')
     serializer_class = ProdutoSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'referencia', 'grupo', 'subgrupo', 'colecao']
     ordering_fields = ['data_cadastro', 'Descricao', 'referencia']
@@ -233,12 +243,16 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     # ---------- helpers internos ----------
     @staticmethod
     def _to_bool(v):
-        if isinstance(v, bool): return v
-        if isinstance(v, (int, float)): return bool(int(v))
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, (int, float)):
+            return bool(int(v))
         if isinstance(v, str):
             s = v.strip().lower()
-            if s in {'1','true','ativo','active','sim','yes'}: return True
-            if s in {'0','false','inativo','inactive','não','nao','no'}: return False
+            if s in {'1', 'true', 'ativo', 'active', 'sim', 'yes'}:
+                return True
+            if s in {'0', 'false', 'inativo', 'inactive', 'não', 'nao', 'no'}:
+                return False
         return None
 
     @staticmethod
@@ -280,8 +294,8 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     def inativar(self, request, pk=None):
         produto = self.get_object()
         old_status = bool(produto.Ativo)
-
         motivo = self._get_reason(request)
+
         if not motivo or len(motivo) < 3:
             return Response(
                 {'detail': 'Informe o motivo da inativação (mín. 3 caracteres).'},
@@ -302,7 +316,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
                 produto.inativado_por = request.user if request.user.is_authenticated else None
             except Exception:
                 produto.inativado_por = None
-            produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
+            produto.save(update_fields=['Ativo', 'inativado_em', 'inativado_por'])
 
             # cascata: desativar SKUs
             ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=True).update(Ativo=False)
@@ -322,8 +336,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             produto.Ativo = True
             produto.inativado_em = None
             produto.inativado_por = None
-            produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
-
+            produto.save(update_fields=['Ativo', 'inativado_em', 'inativado_por'])
             self._audit_status_change(request, produto, False, True, motivo, verb='ativar')
 
         return Response({'Ativo': bool(produto.Ativo)}, status=200)
@@ -412,7 +425,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         if not ref:
             return Response({'detail': 'Campo "referencia" é obrigatório.'}, status=400)
 
-        reativar_skus = str(request.data.get('reativar_skus') or '').lower() in {'1','true','sim'}
+        reativar_skus = str(request.data.get('reativar_skus') or '').lower() in {'1', 'true', 'sim'}
 
         try:
             produto = Produto.objects.get(referencia=ref)
@@ -426,7 +439,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         produto.Ativo = True
         produto.inativado_em = None
         produto.inativado_por = None
-        produto.save(update_fields=['Ativo','inativado_em','inativado_por'])
+        produto.save(update_fields=['Ativo', 'inativado_em', 'inativado_por'])
 
         if reativar_skus:
             ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=False).update(Ativo=True)
@@ -474,7 +487,6 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
         if 'Ativo' in data and data['Ativo'] not in (None, ''):
             new_status = self._to_bool(data.get('Ativo'))
-
         if new_status is None:
             for k in aliases:
                 if k in data and data[k] not in (None, ''):
@@ -483,10 +495,12 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
         if new_status is not None:
             data['Ativo'] = new_status
-        for k in aliases:
-            if k in data:
-                try: data.pop(k)
-                except Exception: pass
+            for k in aliases:
+                if k in data:
+                    try:
+                        data.pop(k)
+                    except Exception:
+                        pass
 
         # motivo + senha obrigatórios se for desativar
         if new_status is not None and old_status and not new_status:
@@ -530,6 +544,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         except Exception:
             instance = serializer.save()
             return
+
         with transaction.atomic():
             instance = serializer.save()
             after = snapshot_instance(instance)
@@ -552,12 +567,15 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         except Exception:
             serializer.save()
             return
+
         with transaction.atomic():
             # snapshot antes
             inst_before = serializer.instance
             before = snapshot_instance(inst_before)
+
             instance = serializer.save()
             after = snapshot_instance(instance)
+
             try:
                 write_audit(
                     request=self.request,
@@ -596,73 +614,6 @@ class ProdutoViewSet(viewsets.ModelViewSet):
                 pass
             return resp
 
-    # ProdutoViewSet  >>> adicione este método
-@action(detail=False, methods=['post'], url_path='ativar-por-referencia')
-def ativar_por_referencia(self, request):
-    """
-    Reativa um produto (e opcionalmente seus SKUs) informando a referência.
-    Não exige senha (somente desativar exige).
-    """
-    ref = (request.data.get('referencia') or request.data.get('ref') or '').strip()
-    reativar_skus = str(request.data.get('reativar_skus') or '').lower() in {'1', 'true', 'sim'}
-
-    if not ref:
-        return Response({'detail': 'Informe "referencia".'}, status=400)
-
-    # ignorar o filtro padrão de list: buscamos no queryset base do model
-    try:
-        produto = Produto.objects.get(referencia=ref)
-    except Produto.DoesNotExist:
-        return Response({'detail': 'Referência não encontrada.'}, status=404)
-
-    if produto.Ativo:
-        return Response({
-            'id': produto.Idproduto,
-            'referencia': produto.referencia,
-            'Ativo': True,
-            'skus_reativados': False,
-            'detail': 'Produto já estava ativo.'
-        }, status=200)
-
-    # reativar
-    produto.Ativo = True
-    produto.inativado_em = None
-    produto.inativado_por = None
-    produto.save(update_fields=['Ativo', 'inativado_em', 'inativado_por'])
-
-    # reativar SKUs, se pedido
-    skus_reat = False
-    if reativar_skus:
-        from .models import ProdutoDetalhe
-        ProdutoDetalhe.objects.filter(Idproduto=produto, Ativo=False).update(Ativo=True)
-        skus_reat = True
-
-    # auditoria (best-effort, se existir)
-    try:
-        from auditoria.utils import write_audit, snapshot_instance
-        after = snapshot_instance(produto)
-        write_audit(
-            request=request,
-            model_name="Produto",
-            object_id=getattr(produto, "Idproduto", getattr(produto, "pk", None)),
-            action="ativar_por_referencia",
-            before=None,
-            after=after,
-            reason=f"Reativação via API por referência {ref}",
-        )
-    except Exception:
-        pass
-
-    return Response({
-        'id': produto.Idproduto,
-        'referencia': produto.referencia,
-        'Ativo': True,
-        'skus_reativados': skus_reat,
-        'detail': 'Produto reativado com sucesso.'
-    }, status=200)
-    
-
-
 
 class ProdutoDetalheViewSet(viewsets.ModelViewSet):
     queryset = (ProdutoDetalhe.objects
@@ -671,6 +622,7 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                 .order_by('-data_cadastro'))
     serializer_class = ProdutoDetalheSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['CodigodeBarra', 'Codigoproduto', 'Idproduto', 'Ativo']
     search_fields = ['CodigodeBarra', 'Codigoproduto']
@@ -687,12 +639,11 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             return qs
 
         ativo = self.request.query_params.get('ativo')
-        if ativo is None or (isinstance(ativo, str) and ativo.lower() in ('true','1','')):
+        if ativo is None or (isinstance(ativo, str) and ativo.lower() in ('true', '1', '')):
             return qs.filter(Ativo=True)
         if isinstance(ativo, str) and ativo.lower() == 'all':
             return qs
         return qs.filter(Ativo=False)
-
 
     # --- AUDITORIA >> create/update/partial_update/destroy ---
     def perform_create(self, serializer):
@@ -735,11 +686,7 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             pass
 
     def partial_update(self, request, *args, **kwargs):
-        """
-        Mantém o comportamento padrão do DRF e adiciona auditoria.
-        Se o campo 'Ativo' mudar, registramos um evento específico (nota humana)
-        e também um write_audit genérico.
-        """
+        """ Mantém o comportamento padrão do DRF e adiciona auditoria. """
         instance = self.get_object()
         old_active = bool(getattr(instance, "Ativo", False))
         old_snap = {
@@ -799,7 +746,9 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             "CodigodeBarra": getattr(instance, "CodigodeBarra", None),
             "Codigoproduto": getattr(instance, "Codigoproduto", None),
         }
+
         resp = super().destroy(request, *args, **kwargs)
+
         try:
             write_audit(
                 request=request,
@@ -811,6 +760,7 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
             )
         except Exception:
             pass
+
         return resp
 
     # criação em lote de SKUs
@@ -826,6 +776,7 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
         if not product_id or not tabela_preco_id or preco_padrao is None:
             return Response({'detail': 'product_id, tabela_preco_id e preco_padrao são obrigatórios.'},
                             status=status.HTTP_400_BAD_REQUEST)
+
         if not isinstance(itens, list) or not itens:
             return Response({'detail': 'itens deve ser uma lista não vazia.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -905,21 +856,27 @@ class ProdutoDetalheViewSet(viewsets.ModelViewSet):
                         'Ativo': True,
                     }
                 )
+
                 if not created_pd:
                     changed = False
                     if pd.Idproduto_id != produto.pk:
-                        pd.Idproduto = produto; changed = True
+                        pd.Idproduto = produto
+                        changed = True
                     if pd.Idcor_id != cor.pk:
-                        pd.Idcor = cor; changed = True
+                        pd.Idcor = cor
+                        changed = True
                     if pd.Idtamanho_id != tamanho.pk:
-                        pd.Idtamanho = tamanho; changed = True
+                        pd.Idtamanho = tamanho
+                        changed = True
                     if pd.Codigoproduto != cod_prod:
-                        pd.Codigoproduto = cod_prod; changed = True
+                        pd.Codigoproduto = cod_prod
+                        changed = True
                     if not pd.Ativo:
-                        pd.Ativo = True; changed = True
+                        pd.Ativo = True
+                        changed = True
                     if changed:
                         pd.save()
-                    updated += 1
+                        updated += 1
                 else:
                     created += 1
 
@@ -956,6 +913,7 @@ class EstoqueViewSet(viewsets.ModelViewSet):
     queryset = Estoque.objects.select_related('Idloja').all().order_by('CodigodeBarra')
     serializer_class = EstoqueSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['Idloja', 'CodigodeBarra', 'codigoproduto']
     search_fields = ['CodigodeBarra', 'codigoproduto']
@@ -976,7 +934,7 @@ class EstoqueViewSet(viewsets.ModelViewSet):
             except ValueError:
                 return Response({'detail': 'Parâmetro "lojas" inválido (use IDs separados por vírgula).'}, status=400)
 
-        incluir_inativos = (str(request.query_params.get('incluir_inativos') or '').lower() in {'1','true','sim'})
+        incluir_inativos = (str(request.query_params.get('incluir_inativos') or '').lower() in {'1', 'true', 'sim'})
 
         # PRE-CHECK: Se a referência existe em Produto e está inativa, bloquear consulta
         prod = Produto.objects.filter(referencia=ref).only('Idproduto', 'Ativo').first()
@@ -1002,13 +960,13 @@ class EstoqueViewSet(viewsets.ModelViewSet):
             rows_base.annotate(
                 cor_id=Subquery(
                     ProdutoDetalhe.objects
-                        .filter(CodigodeBarra=OuterRef('CodigodeBarra'))
-                        .values('Idcor')[:1]
+                    .filter(CodigodeBarra=OuterRef('CodigodeBarra'))
+                    .values('Idcor')[:1]
                 ),
                 tam_id=Subquery(
                     ProdutoDetalhe.objects
-                        .filter(CodigodeBarra=OuterRef('CodigodeBarra'))
-                        .values('Idtamanho')[:1]
+                    .filter(CodigodeBarra=OuterRef('CodigodeBarra'))
+                    .values('Idtamanho')[:1]
                 ),
             )
             .exclude(cor_id__isnull=True)
@@ -1020,29 +978,28 @@ class EstoqueViewSet(viewsets.ModelViewSet):
 
         agg = (
             rows.values('Idloja_id', 'cor_id', 'tam_id')
-                .annotate(
-                    estoque=Coalesce(Sum('Estoque'), Value(0)),
-                    reserva=Coalesce(Sum('reserva'), Value(0))
-                )
+            .annotate(estoque=Coalesce(Sum('Estoque'), Value(0)),
+                      reserva=Coalesce(Sum('reserva'), Value(0)))
         )
 
         # 3) Eixos (lojas/cores/tamanhos)
         loja_ids_set = set(agg.values_list('Idloja_id', flat=True))
-        cor_ids_set  = set(agg.values_list('cor_id',    flat=True))
-        tam_ids_set  = set(agg.values_list('tam_id',    flat=True))
+        cor_ids_set = set(agg.values_list('cor_id', flat=True))
+        tam_ids_set = set(agg.values_list('tam_id', flat=True))
 
-        lojas = list(Loja.objects.filter(pk__in=loja_ids_set).values('Idloja','nome_loja'))
-        cores = list(Cor.objects.filter(pk__in=cor_ids_set).values('Idcor','Descricao'))
-        tams  = list(Tamanho.objects.filter(pk__in=tam_ids_set).values('Idtamanho','Tamanho','Descricao'))
+        lojas = list(Loja.objects.filter(pk__in=loja_ids_set).values('Idloja', 'nome_loja'))
+        cores = list(Cor.objects.filter(pk__in=cor_ids_set).values('Idcor', 'Descricao'))
+        tams = list(Tamanho.objects.filter(pk__in=tam_ids_set).values('Idtamanho', 'Tamanho', 'Descricao'))
 
-        ordem_tam = {'PP':1,'P':2,'M':3,'G':4,'GG':5}
+        ordem_tam = {'PP': 1, 'P': 2, 'M': 3, 'G': 4, 'GG': 5}
+
         def tam_key(t):
             sigla = (t.get('Tamanho') or t.get('Descricao') or '').upper()
             return (ordem_tam.get(sigla, 999), sigla)
 
-        lojas_sorted = sorted(lojas, key=lambda l:(l.get('nome_loja') or '').upper())
-        cores_sorted = sorted(cores, key=lambda c:(c.get('Descricao') or '').upper())
-        tams_sorted  = sorted(tams,  key=tam_key)
+        lojas_sorted = sorted(lojas, key=lambda l: (l.get('nome_loja') or '').upper())
+        cores_sorted = sorted(cores, key=lambda c: (c.get('Descricao') or '').upper())
+        tams_sorted = sorted(tams, key=tam_key)
 
         tam_ids_sorted = [t['Idtamanho'] for t in tams_sorted]
         cor_ids_sorted = [c['Idcor'] for c in cores_sorted]
@@ -1054,8 +1011,11 @@ class EstoqueViewSet(viewsets.ModelViewSet):
         total_geral_reserva = 0
 
         for row in agg:
-            lid = row['Idloja_id']; cid = row['cor_id']; tid = row['tam_id']
-            est = int(row['estoque'] or 0); res = int(row['reserva'] or 0)
+            lid = row['Idloja_id']
+            cid = row['cor_id']
+            tid = row['tam_id']
+            est = int(row['estoque'] or 0)
+            res = int(row['reserva'] or 0)
 
             if lid not in por_loja:
                 por_loja[lid] = {'cores': {}, 'total_loja': 0, 'total_loja_reserva': 0}
@@ -1065,7 +1025,6 @@ class EstoqueViewSet(viewsets.ModelViewSet):
             por_loja[lid]['cores'][cid]['tamanhos'][str(tid)] += est
             por_loja[lid]['cores'][cid]['total_cor'] += est
             por_loja[lid]['cores'][cid]['total_cor_reserva'] += res
-
             por_loja[lid]['total_loja'] += est
             por_loja[lid]['total_loja_reserva'] += res
 
@@ -1074,6 +1033,7 @@ class EstoqueViewSet(viewsets.ModelViewSet):
 
         totals_por_cor = {str(cid): 0 for cid in cor_ids_sorted}
         totals_por_tam = {str(tid): 0 for tid in tam_ids_sorted}
+
         for loja in por_loja.values():
             for cid, cdata in loja['cores'].items():
                 totals_por_cor[str(cid)] += cdata['total_cor']
@@ -1099,7 +1059,10 @@ class EstoqueViewSet(viewsets.ModelViewSet):
                         "cores": [
                             {
                                 "cor_id": cid,
-                                "tamanhos": { str(tid): por_loja[lid]['cores'][cid]['tamanhos'].get(str(tid), 0) for tid in tam_ids_sorted },
+                                "tamanhos": {
+                                    str(tid): por_loja[lid]['cores'][cid]['tamanhos'].get(str(tid), 0)
+                                    for tid in tam_ids_sorted
+                                },
                                 "total_cor": por_loja[lid]['cores'][cid]['total_cor'],
                             }
                             for cid in cor_ids_sorted if cid in por_loja[lid]['cores']
@@ -1109,8 +1072,8 @@ class EstoqueViewSet(viewsets.ModelViewSet):
                     for lid in [l['Idloja'] for l in lojas_sorted] if lid in por_loja
                 ],
                 "totais": {
-                    "por_cor": { str(cid): totals_por_cor[str(cid)] for cid in cor_ids_sorted },
-                    "por_tamanho": { str(tid): totals_por_tam[str(tid)] for tid in tam_ids_sorted },
+                    "por_cor": {str(cid): totals_por_cor[str(cid)] for cid in cor_ids_sorted},
+                    "por_tamanho": {str(tid): totals_por_tam[str(tid)] for tid in tam_ids_sorted},
                     "geral": int(total_geral_estoque),
                 }
             }
@@ -1122,6 +1085,7 @@ class FornecedorViewSet(viewsets.ModelViewSet):
     queryset = Fornecedor.objects.all().order_by('-data_cadastro')
     serializer_class = FornecedorSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Nome_fornecedor', 'Apelido', 'Cnpj', 'email', 'Cidade']
     ordering_fields = ['data_cadastro', 'Nome_fornecedor']
@@ -1131,6 +1095,7 @@ class VendedorViewSet(viewsets.ModelViewSet):
     queryset = Vendedor.objects.all().order_by('-data_cadastro')
     serializer_class = VendedorSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nomevendedor', 'apelido', 'cpf']
     ordering_fields = ['data_cadastro', 'nomevendedor']
@@ -1140,6 +1105,7 @@ class FuncionariosViewSet(viewsets.ModelViewSet):
     queryset = Funcionarios.objects.all().order_by('-data_cadastro')
     serializer_class = FuncionariosSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nomefuncionario', 'apelido', 'cpf', 'categoria']
     ordering_fields = ['data_cadastro', 'nomefuncionario']
@@ -1149,6 +1115,7 @@ class GradeViewSet(viewsets.ModelViewSet):
     queryset = Grade.objects.all().order_by('-data_cadastro')
     serializer_class = GradeSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'Status']
     ordering_fields = ['data_cadastro', 'Descricao']
@@ -1158,6 +1125,7 @@ class TamanhoViewSet(viewsets.ModelViewSet):
     queryset = Tamanho.objects.all().order_by('-data_cadastro')
     serializer_class = TamanhoSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['idgrade']
     search_fields = ['Tamanho', 'Descricao']
@@ -1168,6 +1136,7 @@ class CorViewSet(viewsets.ModelViewSet):
     queryset = Cor.objects.all().order_by('-data_cadastro')
     serializer_class = CorSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'Codigo', 'Cor', 'Status']
     ordering_fields = ['data_cadastro', 'Descricao', 'Codigo']
@@ -1177,6 +1146,7 @@ class ColecaoViewSet(viewsets.ModelViewSet):
     queryset = Colecao.objects.all().order_by('-data_cadastro')
     serializer_class = ColecaoSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'Codigo', 'Estacao', 'Status']
     ordering_fields = ['data_cadastro', 'Descricao', 'Codigo', 'Estacao']
@@ -1186,6 +1156,7 @@ class FamiliaViewSet(viewsets.ModelViewSet):
     queryset = Familia.objects.all().order_by('-data_cadastro')
     serializer_class = FamiliaSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'Codigo']
     ordering_fields = ['data_cadastro', 'Descricao', 'Codigo']
@@ -1195,33 +1166,40 @@ class UnidadeViewSet(viewsets.ModelViewSet):
     queryset = Unidade.objects.all().order_by('-data_cadastro')
     serializer_class = UnidadeSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['Descricao', 'Codigo']
     ordering_fields = ['data_cadastro', 'Descricao', 'Codigo']
+
 
 class NatLancamentoViewSet(viewsets.ModelViewSet):
     queryset = Nat_Lancamento.objects.all().order_by('codigo')
     serializer_class = NatLancamentoSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     # filtros/ordenacoes coerentes com os campos do modelo
     search_fields = ['codigo', 'descricao', 'categoria_principal', 'subcategoria', 'tipo', 'status', 'tipo_natureza']
     ordering_fields = ['codigo', 'descricao', 'categoria_principal', 'subcategoria', 'tipo', 'status', 'tipo_natureza']
     filterset_fields = ['tipo', 'status', 'tipo_natureza']
 
+
 class ModeloDocumentoFiscalViewSet(viewsets.ModelViewSet):
     queryset = ModeloDocumentoFiscal.objects.all().order_by('codigo')
     serializer_class = ModeloDocumentoFiscalSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['codigo', 'descricao']
     ordering_fields = ['codigo', 'descricao', 'data_inicial', 'data_final', 'ativo']
     filterset_fields = ['ativo', 'data_inicial', 'data_final']
 
+
 class CodigosViewSet(viewsets.ModelViewSet):
     queryset = Codigos.objects.all().order_by('colecao', 'estacao')
     serializer_class = CodigosSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['colecao', 'estacao']
     search_fields = ['colecao', 'estacao', 'valor_var']
@@ -1258,6 +1236,7 @@ class GrupoViewSet(viewsets.ModelViewSet):
     queryset = Grupo.objects.all().order_by('Descricao')
     serializer_class = GrupoSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['Codigo']
     search_fields = ['Descricao', 'Codigo']
@@ -1268,6 +1247,7 @@ class SubgrupoViewSet(viewsets.ModelViewSet):
     queryset = Subgrupo.objects.select_related('Idgrupo').all().order_by('Descricao')
     serializer_class = SubgrupoSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['Idgrupo']
     search_fields = ['Descricao', 'Idgrupo__Descricao']
@@ -1285,6 +1265,7 @@ class TabelaprecoViewSet(viewsets.ModelViewSet):
     queryset = Tabelapreco.objects.all().order_by('-data_cadastro')
     serializer_class = TabelaprecoSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['NomeTabela', 'Promocao']
     ordering_fields = ['data_cadastro', 'NomeTabela', 'DataInicio', 'DataFim']
@@ -1294,6 +1275,7 @@ class NcmViewSet(viewsets.ModelViewSet):
     queryset = Ncm.objects.all().order_by('ncm')
     serializer_class = NcmSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['ncm', 'descricao', 'aliquota', 'campo1']
     ordering_fields = ['ncm', 'descricao']
@@ -1313,6 +1295,7 @@ class TabelaPrecoItemFilter(FilterSet):
         model = TabelaPrecoItem
         fields = ['idtabela_id', 'codigodebarra']
 
+
 class TabelaPrecoItemViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = TabelaPrecoItem.objects.all()
     serializer_class = TabelaPrecoItemSerializer
@@ -1329,11 +1312,255 @@ class FornecedorSkuMapViewSet(viewsets.ModelViewSet):
     queryset = FornecedorSkuMap.objects.select_related('Idfornecedor', 'Idprodutodetalhe', 'Idproduto').all().order_by('-data_cadastro')
     serializer_class = FornecedorSkuMapSerializer
     permission_classes = [IsAuthenticated]
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['Idfornecedor']
     search_fields = ['cprod_fornecedor']
     ordering_fields = ['data_cadastro', 'cprod_fornecedor']
 
+class SumInt(Func):
+    function = 'SUM'
+    arity = 1
+    output_field = IntegerField()
+
+class SumDec(Func):
+    function = 'SUM'
+    arity = 1
+    output_field = DecimalField(max_digits=24, decimal_places=6)
+
+# src/backend/sysvar_app/views.py  (apenas a classe abaixo foi alterada)
 
 
+class MatrizColEstView(APIView):
+    """
+    Matriz de Estoque por (Coleção + Estação) x Loja, agrupando por Idcolecao.
 
+    Parâmetros:
+      - colecoes: lista (OBRIGATÓRIO) -> ?colecoes=25,26
+      - lojas:    lista de IDs (opcional) -> ?lojas=1,3,5
+      - tabela_preco_id: int (OBRIGATÓRIO)
+      - ativo: true|false|all (default true)
+
+    Lógica:
+      - Coleção marcada por código (ex.: '25') traz TODOS os Idcolecao desse código (máx. 4 estações).
+      - Agrupamento é por Idcolecao.
+      - Rótulo/coluna usa a Descricao da Colecao (que já inclui a estação).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # --- 1) Query params ---
+        colecoes = self._split_list(request.query_params.get('colecoes'))
+        lojas = self._split_int_list(request.query_params.get('lojas'))
+        tabela_preco_id = request.query_params.get('tabela_preco_id')
+
+        if not tabela_preco_id:
+            return Response({'detail': 'Parâmetro "tabela_preco_id" é obrigatório.'}, status=400)
+        if not colecoes:
+            return Response({'detail': 'Parâmetro "colecoes" é obrigatório (ex.: ?colecoes=25,26).'}, status=400)
+
+        ativo = (request.query_params.get('ativo') or 'true').strip().lower()
+        ativo_where = ''
+        if ativo in {'true', '1', ''}:
+            ativo_where = 'AND p.Ativo = 1'
+            ativo_out = 'true'
+        elif ativo in {'false', '0'}:
+            ativo_where = 'AND p.Ativo = 0'
+            ativo_out = 'false'
+        else:
+            ativo_out = 'all'
+
+        # --- 2) SQL dinâmico (com sysvar_app_* e GROUP BY por Idcolecao) ---
+        params = []
+        sql = [
+            "SELECT",
+            "  e.Idloja_id                               AS loja_id,",
+            "  COALESCE(l.nome_loja, l.Apelido_loja, CONCAT('Loja ', e.Idloja_id)) AS loja_nome,",
+            "  c.Idcolecao                               AS colecao_id,",
+            "  c.Codigo                                  AS colecao_codigo,",
+            "  c.Descricao                               AS colecao_descricao,",
+            "  c.Estacao                                 AS colecao_estacao,",
+            "  CAST(SUM(e.Estoque) AS DECIMAL(18,6))     AS itens,",
+            "  CAST(SUM(e.Estoque * COALESCE(tpi.preco, 0)) AS DECIMAL(24,6)) AS valor",
+            "FROM sysvar_app_estoque e",
+            "JOIN sysvar_app_produtodetalhe pd",
+            "  ON pd.CodigodeBarra = e.CodigodeBarra",
+            "JOIN sysvar_app_produto p",
+            "  ON p.Idproduto = pd.Idproduto_id",
+            "JOIN sysvar_app_colecao c",
+            "  ON c.Codigo = p.colecao",
+            "LEFT JOIN sysvar_app_tabelaprecoitem tpi",
+            "  ON tpi.codigodebarra = e.CodigodeBarra AND tpi.idtabela_id = %s",
+            "JOIN sysvar_app_loja l",
+            "  ON l.Idloja = e.Idloja_id",
+            "WHERE c.Codigo IN (" + ", ".join(["%s"] * len(colecoes)) + ")",
+        ]
+        params.append(int(tabela_preco_id))
+        params.extend(colecoes)
+
+        if ativo_where:
+            sql.append(ativo_where)
+        if lojas:
+            sql.append("AND e.Idloja_id IN (" + ", ".join(["%s"] * len(lojas)) + ")")
+            params.extend(lojas)
+
+        sql.extend([
+            "GROUP BY e.Idloja_id, c.Idcolecao",
+            "ORDER BY e.Idloja_id, c.Codigo, c.Estacao"
+        ])
+        sql = "\n".join(sql)
+
+        # --- 3) Executa e carrega em memória ---
+        with connection.cursor() as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+
+        if not rows:
+            return self._empty_response(colecoes, tabela_preco_id, ativo_out)
+
+        # Índices do SELECT
+        IDX_LOJA_ID = 0
+        IDX_LOJA_NOME = 1
+        IDX_COLECAO_ID = 2
+        IDX_COLECAO_CODIGO = 3
+        IDX_COLECAO_DESC = 4
+        IDX_COLECAO_EST = 5
+        IDX_ITENS = 6
+        IDX_VALOR = 7
+
+        # --- 4) Montagem da matriz ---
+        lojas_ordem = []
+        loja_set = set()
+        colest_cols_map = {}  # key = colecao_id
+        por_loja = {}         # loja_id -> { 'nome':..., 'colest': {colecao_id: {itens, valor}}, totals... }
+        total_por_colest = {} # colecao_id -> {itens, valor}
+        geral_itens = 0
+        geral_valor = 0.0
+
+        for r in rows:
+            loja_id = int(r[IDX_LOJA_ID])
+            loja_nome = r[IDX_LOJA_NOME] or f"Loja {loja_id}"
+            colecao_id = int(r[IDX_COLECAO_ID])
+            colecao_codigo = str(r[IDX_COLECAO_CODIGO])
+            colecao_desc = r[IDX_COLECAO_DESC]
+            colecao_est = str(r[IDX_COLECAO_EST]) if r[IDX_COLECAO_EST] is not None else None
+            itens = float(r[IDX_ITENS] or 0)
+            valor = float(r[IDX_VALOR] or 0)
+
+            if loja_id not in loja_set:
+                loja_set.add(loja_id)
+                lojas_ordem.append((loja_id, loja_nome))
+                por_loja[loja_id] = {
+                    "nome": loja_nome,
+                    "colest": {},
+                    "total_itens": 0.0,
+                    "total_valor": 0.0,
+                }
+
+            # coluna (agora é Idcolecao)
+            if colecao_id not in colest_cols_map:
+                rotulo = colecao_desc or f"Código {colecao_codigo}"
+                colest_cols_map[colecao_id] = {
+                    "colecao_id": colecao_id,
+                    "codigo": colecao_codigo,
+                    "estacao": colecao_est,
+                    "rotulo": rotulo,
+                    "key": str(colecao_id),
+                }
+
+            # acumula por loja/coluna
+            slot = por_loja[loja_id]["colest"].get(colecao_id)
+            if slot:
+                slot["itens"] += itens
+                slot["valor"] += valor
+            else:
+                por_loja[loja_id]["colest"][colecao_id] = {"itens": itens, "valor": valor}
+
+            por_loja[loja_id]["total_itens"] += itens
+            por_loja[loja_id]["total_valor"] += valor
+
+            tcol = total_por_colest.get(colecao_id)
+            if tcol:
+                tcol["itens"] += itens
+                tcol["valor"] += valor
+            else:
+                total_por_colest[colecao_id] = {"itens": itens, "valor": valor}
+
+            geral_itens += itens
+            geral_valor += valor
+
+        # --- 5) Eixos/labels ---
+        lojas_axis = [{"id": lid, "nome": nome} for (lid, nome) in sorted(lojas_ordem, key=lambda x: x[0])]
+        colest_axis = [colest_cols_map[k] for k in sorted(colest_cols_map.keys())]
+
+        # --- 6) Saída formatada ---
+        por_loja_list = []
+        for lid, nome in sorted(lojas_ordem, key=lambda x: x[0]):
+            colest_fmt = {str(cid): {
+                "itens": round(v["itens"], 0),
+                "valor": round(v["valor"], 2),
+            } for cid, v in por_loja[lid]["colest"].items()}
+            por_loja_list.append({
+                "loja_id": lid,
+                "loja_nome": nome,
+                "colest": colest_fmt,  # chave = Idcolecao em string
+                "total_itens": round(por_loja[lid]["total_itens"], 0),
+                "total_valor": round(por_loja[lid]["total_valor"], 2),
+            })
+
+        totais_por_colest_fmt = {str(cid): {
+            "itens": round(v["itens"], 0),
+            "valor": round(v["valor"], 2),
+        } for cid, v in total_por_colest.items()}
+
+        out = {
+            "meta": {
+                "colecoes": colecoes,
+                "tabela_preco_id": int(tabela_preco_id),
+                "ativo": ativo_out,
+                "moeda": "BRL",
+            },
+            "eixos": {
+                "lojas": lojas_axis,
+                "colest": colest_axis,  # cada item tem {colecao_id, codigo, estacao, rotulo, key}
+            },
+            "matriz": {
+                "por_loja": por_loja_list,
+                "totais": {
+                    "por_colest": totais_por_colest_fmt,
+                    "geral": {"itens": round(geral_itens, 0), "valor": round(geral_valor, 2)},
+                }
+            }
+        }
+        return Response(out, status=200)
+
+    # --------- helpers ---------
+    def _split_list(self, s: str):
+        if not s:
+            return []
+        return [x.strip() for x in s.split(',') if x.strip()]
+
+    def _split_int_list(self, s: str):
+        if not s:
+            return []
+        out = []
+        for x in s.split(','):
+            x = x.strip()
+            if x.isdigit():
+                out.append(int(x))
+        return out
+
+    def _empty_response(self, colecoes, tabela_preco_id, ativo_out):
+        return Response({
+            "meta": {
+                "colecoes": colecoes,
+                "tabela_preco_id": int(tabela_preco_id),
+                "ativo": ativo_out,
+                "moeda": "BRL",
+            },
+            "eixos": {"lojas": [], "colest": []},
+            "matriz": {
+                "por_loja": [],
+                "totais": {"por_colest": {}, "geral": {"itens": 0, "valor": 0.00}}
+            }
+        }, status=200)

@@ -1,0 +1,132 @@
+<h1>Consulta de Estoque — Coleção/Estação</h1>
+
+<form [formGroup]="form" (ngSubmit)="onBuscar()" class="flex flex-col gap-3">
+
+  <!-- COLEÇÕES -->
+  <div>
+    <strong>Coleções</strong>
+    <div class="flex gap-4 flex-wrap">
+      <label *ngFor="let c of colecoesDisponiveis" class="inline-flex items-center gap-2">
+        <input
+          #cb type="checkbox"
+          [checked]="isColecaoMarcada(c.value)"
+          (change)="toggleColecao(c.value, cb.checked)" />
+        {{ c.label }} ({{ c.value }})
+      </label>
+    </div>
+  </div>
+
+  <!-- LOJAS -->
+  <div>
+    <strong>Lojas</strong>
+    <div class="mb-2">
+      <label class="inline-flex items-center gap-2">
+        <input
+          #cbTodas
+          type="checkbox"
+          [checked]="form.controls.todasLojas.value"
+          (change)="onToggleTodas(cbTodas.checked)" />
+        Todas as lojas
+      </label>
+    </div>
+
+    <div class="flex gap-4 flex-wrap" *ngIf="!form.controls.todasLojas.value">
+      <label *ngFor="let l of lojasDisponiveis" class="inline-flex items-center gap-2">
+        <input
+          #cbLoja
+          type="checkbox"
+          [checked]="isLojaMarcada(l.id)"
+          (change)="toggleLoja(l.id, cbLoja.checked)" />
+        {{ l.nome }} ({{ l.id }})
+      </label>
+    </div>
+  </div>
+
+  <!-- TABELA / ATIVO / MOEDA -->
+  <div class="flex gap-4 flex-wrap items-center">
+    <label class="inline-flex items-center gap-2">
+      Tabela:
+      <select [formControl]="form.controls.tabela_preco_id">
+        <option [value]="1">Padrão (1)</option>
+      </select>
+    </label>
+
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" [formControl]="form.controls.ativo" />
+      Somente ativos
+    </label>
+
+    <label class="inline-flex items-center gap-2">
+      Moeda:
+      <select [formControl]="form.controls.moeda">
+        <option value="BRL">BRL</option>
+      </select>
+    </label>
+
+    <button type="submit">Buscar</button>
+  </div>
+</form>
+
+<!-- FEEDBACK -->
+<div *ngIf="loading">Carregando…</div>
+<div *ngIf="!loading && errorMsg" style="color:#b91c1c; background:#fee2e2; padding:.5rem; border-radius:.25rem;">
+  {{ errorMsg }}
+</div>
+
+<!-- TABELA -->
+<div *ngIf="!loading && data">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="text-align:left; padding:.5rem; border-bottom:1px solid #ddd;">Loja</th>
+
+        <th *ngFor="let ce of data?.eixos?.colest"
+            style="text-align:center; padding:.5rem; border-bottom:1px solid #ddd;">
+          {{ ce.rotulo }}
+        </th>
+
+        <th style="text-align:center; padding:.5rem; border-bottom:1px solid #ddd;">Total Itens</th>
+        <th style="text-align:center; padding:.5rem; border-bottom:1px solid #ddd;">Total Valor</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr *ngFor="let l of data?.matriz?.por_loja">
+        <td style="padding:.5rem; border-bottom:1px solid #eee;">{{ l.loja_nome }}</td>
+
+        <td *ngFor="let ce of data?.eixos?.colest"
+            style="text-align:center; padding:.5rem; border-bottom:1px solid #eee;">
+          <div><b>{{ itensLojaColest(l, ce.key) | number:'1.0-0' }}</b> un</div>
+          <div>
+            {{ valorLojaColest(l, ce.key) | currency:form.controls.moeda.value:'symbol':'1.0-0' }}
+          </div>
+        </td>
+
+        <td style="text-align:center; padding:.5rem; border-bottom:1px solid #eee;">
+          <b>{{ l.total_itens | number:'1.0-0' }}</b>
+        </td>
+        <td style="text-align:center; padding:.5rem; border-bottom:1px solid #eee;">
+          <b>{{ l.total_valor | currency:form.controls.moeda.value:'symbol':'1.0-0' }}</b>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="padding:.75rem; font-weight:700;">Totais</td>
+
+        <td *ngFor="let ce of data?.eixos?.colest" style="text-align:center; padding:.75rem;">
+          <div><b>{{ totalColestItens(ce.key) | number:'1.0-0' }}</b> un</div>
+          <div>
+            {{ totalColestValor(ce.key) | currency:form.controls.moeda.value:'symbol':'1.0-0' }}
+          </div>
+        </td>
+
+        <td style="text-align:center; padding:.75rem;">
+          <b>{{ totalGeralItens() | number:'1.0-0' }}</b>
+        </td>
+        <td style="text-align:center; padding:.75rem;">
+          <b>{{ totalGeralValor() | currency:form.controls.moeda.value:'symbol':'1.0-0' }}</b>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

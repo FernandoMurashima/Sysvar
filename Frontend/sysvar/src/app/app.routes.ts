@@ -58,9 +58,7 @@ export const routes: Routes = [
       { path: 'config/contas',  component: NaturezaLancamentoComponent},
       { path: 'config/modelos', component: ModeloDocumentoComponent},
       { path: 'estoque/consulta-referencia', component: ConsultaReferenciaComponent },
-
-
-      
+      { path: 'estoque/consulta-colest', loadComponent: () => import('./features/estoque/consulta-colest/consulta-colest.component') .then(m => m.ConsultaColestComponent)},      
       { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
 
 

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 export interface Estoque {
   Idestoque?: number;
@@ -13,7 +14,6 @@ export interface Estoque {
   valorestoque?: string | null;
 }
 
-/** Tipos opcionais para a consulta de matriz por referência (podem ser ajustados depois, se quiser) */
 export interface MatrizReferenciaResponse {
   referencia: string;
   resumo: { estoque: number; reserva: number; disponivel: number };
@@ -43,10 +43,9 @@ export interface MatrizReferenciaResponse {
 @Injectable({ providedIn: 'root' })
 export class EstoquesService {
   private http = inject(HttpClient);
-  // ajuste se seu endpoint tiver outro nome
-  private base = '/api/estoques/';
+  private base = `${environment.apiBaseUrl}/estoques/`;
 
-  /** LISTAGEM CRUD padrao */
+  /** CRUD básico */
   list(params?: any): Observable<Estoque[]> {
     return this.http.get<Estoque[]>(this.base, { params });
   }
@@ -90,7 +89,7 @@ export class EstoquesService {
   }
 
   /**
-   * >>> NOVO: Consulta de Estoque — Matriz por Referência
+   * Matriz por Referência
    * GET /api/estoques/matriz-referencia/?ref=<REF>&lojas=1,2&incluir_inativos=false
    */
   matrizReferencia(
@@ -102,4 +101,33 @@ export class EstoquesService {
     if (opts?.incluir_inativos) params = params.set('incluir_inativos', 'true');
     return this.http.get<MatrizReferenciaResponse>(`${this.base}matriz-referencia/`, { params });
   }
+
+  /**
+   * Coleção + Estação (Col/Est) por loja
+   * GET /api/estoques/matriz-colest/
+   */
+
+  getMatrizColEst(
+  colecoes: string[],
+  tabelaPrecoId: number,
+  lojas?: number[],
+  ativos: boolean = true,
+  moeda: string = 'BRL'
+) {
+  let params = new HttpParams()
+    .set('colecoes', (colecoes || []).join(','))
+    .set('tabela_preco_id', String(tabelaPrecoId))
+    .set('ativo', String(ativos))
+    .set('moeda', moeda)
+    // >>> força todas as estações
+    .set('estacoes', 'ALL');
+
+  if (lojas && lojas.length) {
+    params = params.set('lojas', lojas.join(','));
+  }
+
+  return this.http.get<any>('/api/estoques/matriz-colest/', { params });
+}
+
+
 }

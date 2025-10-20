@@ -55,6 +55,8 @@ export class ShellComponent {
       label: 'Consultas', icon: 'bi bi-search', roles: ['Regular'],
       children: [
         { label: 'Por Referência', link: '/estoque/consulta-referencia', icon: 'bi bi-dot', roles: ['Regular'] },
+        { label: 'Consulta por Coleção/Estação', link: '/estoque/consulta-colest', icon: 'bi bi-columns-gap', roles: ['Regular'] },
+
         // adicione outras consultas aqui:
         // { label: 'Por EAN',       link: '/estoque/consulta-ean',         icon: 'bi bi-dot', roles: ['Regular'] },
         // { label: 'Por Loja',      link: '/estoque/consulta-loja',        icon: 'bi bi-dot', roles: ['Regular'] },
