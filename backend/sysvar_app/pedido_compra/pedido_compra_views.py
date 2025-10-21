@@ -14,6 +14,9 @@ from ..models import (
     PedidoCompraItem,
     PedidoCompraEntrega,
     PedidoCompraParcela,  # ⬅️ NOVO
+    Produto,
+    ProdutoDetalhe,
+    Pack,
 )
 
 # Importa formas de pagamento para aplicar na action
@@ -60,7 +63,6 @@ class PedidoCompraFilter(django_filters.FilterSet):
       - ordering= -Datapedido,Idpedidocompra  (qualquer campo de listagem/detalhe)
     """
     status = django_filters.CharFilter(field_name="Status", lookup_expr="exact")
-    # <— adicionado: filtro por enum do modelo
     tipo_pedido = django_filters.CharFilter(field_name="tipo_pedido", lookup_expr="exact")
 
     emissao_de = django_filters.DateFilter(field_name="Datapedido", lookup_expr="gte")
@@ -86,7 +88,7 @@ class PedidoCompraFilter(django_filters.FilterSet):
 
     class Meta:
         model = PedidoCompra
-        fields = []  # mantido conforme seu arquivo original
+        fields = []
 
     def filter_q_fornecedor(self, queryset, name, value):
         if not value:
@@ -112,8 +114,8 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     queryset = PedidoCompra.objects.all().select_related("Idfornecedor", "Idloja")
     serializer_class = PedidoCompraDetailSerializer
-    filterset_class = PedidoCompraFilter  # <<— ativa os filtros acima
-    search_fields = []  # mantemos vazio por enquanto
+    filterset_class = PedidoCompraFilter
+    search_fields = []
     ordering_fields = ["Datapedido", "Dataentrega", "Idpedidocompra", "Valorpedido"]
     ordering = ["-Datapedido", "Idpedidocompra"]
 
@@ -136,7 +138,7 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     @action(detail=True, methods=["post"])
     def aprovar(self, request, pk=None):
-        from .pedido_compra_serializers import PedidoCompraDetailSerializer  # evitar confusão de import circular
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer
 
         pedido: PedidoCompra = self.get_object()
 
@@ -148,10 +150,7 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
 
         tem_itens = PedidoCompraItem.objects.filter(Idpedidocompra=pedido).exists()
         if not tem_itens:
-            return Response(
-                {"detail": "Não é possível aprovar um pedido sem itens."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"detail": "Não é possível aprovar um pedido sem itens."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not pedido.Datapedido:
             pedido.Datapedido = self._agora_data()
@@ -221,6 +220,10 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
             Chave=None,
             tolerancia_qtd_percent=pedido.tolerancia_qtd_percent,
             tolerancia_preco_percent=pedido.tolerancia_preco_percent,
+            tipo_pedido=pedido.tipo_pedido,
+            condicao_pagamento=pedido.condicao_pagamento,
+            condicao_pagamento_detalhe=pedido.condicao_pagamento_detalhe,
+            parcelas=pedido.parcelas,
         )
 
         itens = PedidoCompraItem.objects.filter(Idpedidocompra=pedido).values(
@@ -231,6 +234,9 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
             "unid_compra",
             "fator_conv",
             "Idprodutodetalhe_id",
+            "pack_id",
+            "n_packs",
+            "qtd_total_pack",
         )
 
         novos_itens = []
@@ -255,6 +261,9 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
                     unid_compra=it.get("unid_compra"),
                     fator_conv=it.get("fator_conv") or Decimal("1"),
                     Idprodutodetalhe_id=it.get("Idprodutodetalhe_id"),
+                    pack_id=it.get("pack_id"),
+                    n_packs=it.get("n_packs"),
+                    qtd_total_pack=it.get("qtd_total_pack"),
                 )
             )
             total += total_item
@@ -275,20 +284,15 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
         """
         Sincroniza cabeçalho e gera PedidoCompraParcela a partir da FormaPagamentoParcela.
         """
-        # Atualiza cabeçalho
         pedido.condicao_pagamento = forma.codigo
         pedido.condicao_pagamento_detalhe = forma.descricao
         pedido.parcelas = forma.num_parcelas
         pedido.save(update_fields=["condicao_pagamento", "condicao_pagamento_detalhe", "parcelas"])
 
-        # Limpa parcelas antigas
         PedidoCompraParcela.objects.filter(pedido=pedido).delete()
 
-        # Base para cálculo
         total = pedido.Valorpedido or Decimal("0")
         base_dt = pedido.Datapedido or self._agora_data()
-
-        linhas = []
 
         defs = list(
             FormaPagamentoParcela.objects
@@ -297,11 +301,9 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
             .values("ordem", "dias", "percentual", "valor_fixo")
         )
 
-        # Se não existir definição de parcelas, cria 1 parcela à vista
         if not defs:
             defs = [{"ordem": 1, "dias": 0, "percentual": Decimal("100"), "valor_fixo": Decimal("0")}]
 
-        # primeiro passa: calcula valores por percentual/fixo
         valores = []
         for d in defs:
             perc = Decimal(str(d.get("percentual") or "0"))
@@ -314,12 +316,11 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
                 val = Decimal("0.00")
             valores.append(val)
 
-        # Ajuste da última parcela para fechar com total (se total > 0)
         if total > 0 and valores:
             diff = self._quantize(total - sum(valores))
             valores[-1] = self._quantize(valores[-1] + diff)
 
-        # monta linhas
+        linhas = []
         for i, d in enumerate(defs):
             prazo = int(d.get("dias") or 0)
             venc = base_dt + timedelta(days=prazo)
@@ -336,9 +337,6 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
         if linhas:
             PedidoCompraParcela.objects.bulk_create(linhas)
 
-    # ------------------------------
-    # Action: aplicar forma por código ou id
-    # ------------------------------
     @transaction.atomic
     @action(detail=True, methods=["post"], url_path="set-forma-pagamento")
     def set_forma_pagamento(self, request, pk=None):
@@ -347,7 +345,7 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
           {"codigo": "99"}  ou  {"Idformapagamento": 15}
         Aplica forma no pedido, atualiza cabeçalho e gera parcelas.
         """
-        from .pedido_compra_serializers import PedidoCompraDetailSerializer  # local para evitar ciclos
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer
 
         pedido: PedidoCompra = self.get_object()
         data = request.data or {}
@@ -374,14 +372,54 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
 
         self._aplicar_forma_pagamento(pedido, forma)
 
-        # retorna detalhe completo (com parcelas)
         ser = PedidoCompraDetailSerializer(pedido, context={"request": request})
         return Response(ser.data, status=status.HTTP_200_OK)
 
 
+# =========================
+# Endpoints auxiliares para a tela de Revenda
+# =========================
+class ProdutoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Endpoints de apoio (cores e packs) para montar os ListViews da tela de Revenda.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = Produto.objects.all()
+
+    @action(detail=True, methods=["get"])
+    def cores(self, request, pk=None):
+        prod = self.get_object()
+        qs = (
+            ProdutoDetalhe.objects
+            .filter(Idproduto=prod)
+            .values("Idcor_id", "Idcor__Descricao")
+            .distinct()
+        )
+        data = [{"id": r["Idcor_id"], "descricao": r["Idcor__Descricao"]} for r in qs]
+        return Response(data)
+
+    @action(detail=True, methods=["get"])
+    def packs(self, request, pk=None):
+        prod = self.get_object()
+        # Tenta inferir a grade por qualquer SKU do produto
+        grade_id = (
+            ProdutoDetalhe.objects
+            .filter(Idproduto=prod)
+            .values_list("Idtamanho__idgrade_id", flat=True)
+            .first()
+        )
+        if not grade_id:
+            return Response([])
+        packs = Pack.objects.filter(grade_id=grade_id, ativo=True).values("id", "nome")
+        return Response(list(packs))
+
+
+# =========================
+# ViewSets de Itens e Entregas (re-incluídos)
+# =========================
 class PedidoCompraItemViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
-    queryset = PedidoCompraItem.objects.select_related("Idpedidocompra", "Idproduto")
+    queryset = PedidoCompraItem.objects.select_related("Idpedidocompra", "Idproduto", "pack")
     serializer_class = PedidoCompraItemSerializer
 
     def get_queryset(self):
