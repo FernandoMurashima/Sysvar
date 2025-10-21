@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Produto
+from .models import Produto, Pack, PackItem, Grade, Tamanho
 
 @admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
@@ -30,3 +30,37 @@ class ProdutoAdmin(admin.ModelAdmin):
             'fields': ('data_cadastro',),
         }),
     )
+
+
+# --- Suportes para autocomplete ---
+
+@admin.register(Grade)
+class GradeAdmin(admin.ModelAdmin):
+    list_display = ("Idgrade", "Descricao", "Status")
+    search_fields = ("Descricao",)
+    ordering = ("Descricao",)
+
+@admin.register(Tamanho)
+class TamanhoAdmin(admin.ModelAdmin):
+    list_display = ("Idtamanho", "Tamanho", "Descricao", "idgrade")
+    list_filter = ("idgrade",)
+    search_fields = ("Tamanho", "Descricao", "idgrade__Descricao")
+    autocomplete_fields = ("idgrade",)
+
+# --- Pack / PackItem ---
+
+class PackItemInline(admin.TabularInline):
+    model = PackItem
+    extra = 1
+    min_num = 1
+    fields = ("tamanho", "qtd")
+    autocomplete_fields = ("tamanho",)
+
+@admin.register(Pack)
+class PackAdmin(admin.ModelAdmin):
+    list_display = ("id", "nome", "grade", "ativo", "data_cadastro", "atualizado_em")
+    list_filter = ("ativo", "grade")
+    search_fields = ("nome", "grade__Descricao")
+    autocomplete_fields = ("grade",)
+    inlines = [PackItemInline]
+

@@ -640,16 +640,18 @@ class PedidoCompra(models.Model):
     def __str__(self):
         return self.Documento or f'PC-{self.Idpedidocompra}'
 
-
 class PedidoCompraItem(models.Model):
     Idpedidocompraitem = models.BigAutoField(primary_key=True)
     Idpedidocompra = models.ForeignKey(PedidoCompra, on_delete=models.CASCADE)
     Idproduto = models.ForeignKey(Produto, on_delete=models.CASCADE)
+
+    # Quantidades / valores
     Qtp_pc = models.IntegerField()
     valorunitario = models.DecimalField(max_digits=18, decimal_places=2)
     Desconto = models.DecimalField(max_digits=18, decimal_places=2)
     Total_item = models.DecimalField(max_digits=18, decimal_places=2)
-    # --- Recebimento & especificações de compra ---
+
+    # Recebimento & especificações de compra
     Qtd_recebida = models.IntegerField(default=0)
     unid_compra = models.CharField(max_length=10, blank=True, null=True)
     fator_conv = models.DecimalField(max_digits=18, decimal_places=6, default=1)
@@ -658,10 +660,40 @@ class PedidoCompraItem(models.Model):
     # Novo: entrega prevista por item (opcional)
     data_entrega_prevista = models.DateField(null=True, blank=True)
 
+    # --------- NOVO: integração com Pack (opcional) ---------
+    pack = models.ForeignKey(
+        'Pack',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='pedido_itens',
+        db_index=True,
+        help_text='Pack aplicado a este item (opcional).'
+    )
+
+    n_packs = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Multiplicador de packs neste item.'
+    )
+
+    qtd_total_pack = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Quantidade total derivada do pack (n_packs × soma dos tamanhos do pack).'
+    )
+    # --------------------------------------------------------
+
     data_cadastro = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f'{self.Idpedidocompra} - {self.Total_item}'
+
+    # Helper opcional (não persiste nada; apenas calcula em memória)
+    def calcular_qtd_total_pack(self) -> int:
+        if not self.pack or not self.n_packs:
+            return 0
+        soma_pack = sum(pi.qtd for pi in self.pack.itens.all())
+        return soma_pack * int(self.n_packs)
+
+
 
 
 class PedidoCompraEntrega(models.Model):
@@ -1094,3 +1126,63 @@ class FormaPagamentoParcela(models.Model):
 
     def __str__(self):
         return f"{self.forma.codigo} - Parcela {self.ordem} ({self.dias} dias)"
+
+# =========================
+# Pack
+# =========================
+
+# --- NOVAS TABELAS ---
+
+class Pack(models.Model):
+    # Identificação
+    nome = models.CharField(max_length=80, null=True, blank=True)
+    # Pack é sempre para uma grade específica
+    grade = models.ForeignKey('Grade', on_delete=models.PROTECT, related_name='packs')
+    ativo = models.BooleanField(default=True)
+
+    data_cadastro = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sysvar_app_pack'
+        # Não exige nome único global; evita duplicidade de "nome" dentro da mesma grade
+        constraints = [
+            models.UniqueConstraint(
+                fields=['grade', 'nome'],
+                name='uq_pack_grade_nome',
+                
+            )
+        ]
+        indexes = [
+            models.Index(fields=['grade'], name='ix_pack_grade'),
+            models.Index(fields=['ativo'], name='ix_pack_ativo'),
+        ]
+
+    def __str__(self):
+        return self.nome or f'Pack #{self.pk}'
+
+
+class PackItem(models.Model):
+    pack = models.ForeignKey('Pack', on_delete=models.CASCADE, related_name='itens')
+    tamanho = models.ForeignKey('Tamanho', on_delete=models.PROTECT, related_name='packs_itens')
+    qtd = models.PositiveIntegerField()
+
+    class Meta:
+        db_table = 'sysvar_app_pack_item'
+        # Impede repetir o mesmo tamanho dentro do mesmo pack
+        constraints = [
+            models.UniqueConstraint(
+                fields=['pack', 'tamanho'],
+                name='uq_packitem_pack_tamanho',
+                
+            )
+        ]
+        indexes = [
+            models.Index(fields=['pack'], name='ix_packitem_pack'),
+            models.Index(fields=['tamanho'], name='ix_packitem_tamanho'),
+        ]
+
+    def __str__(self):
+        return f'{self.pack_id} · {self.tamanho_id} · {self.qtd}'
+
+

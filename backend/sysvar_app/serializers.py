@@ -10,7 +10,7 @@ from .models import (
     Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
     Colecao, Familia, Grupo, Subgrupo, Unidade, Codigos, Tabelapreco, Ncm,
     TabelaPrecoItem,
-    NFeEntrada, NFeItem, FornecedorSkuMap, Nat_Lancamento, ModeloDocumentoFiscal)
+    NFeEntrada, NFeItem, FornecedorSkuMap, Nat_Lancamento, ModeloDocumentoFiscal, Pack, PackItem)
 
 # =============================
 # USER (para /api/users/)
@@ -377,3 +377,85 @@ class TabelaPrecoItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = TabelaPrecoItem
         fields = '__all__'
+
+
+# --- NOVOS: Pack / PackItem ---
+
+class PackItemSerializer(serializers.ModelSerializer):
+    # aceita/enviar apenas o PK do tamanho
+    tamanho = serializers.PrimaryKeyRelatedField(queryset=Tamanho.objects.all())
+
+    class Meta:
+        model = PackItem
+        fields = ("id", "tamanho", "qtd")
+
+
+class PackSerializer(serializers.ModelSerializer):
+    itens = PackItemSerializer(many=True)
+
+    class Meta:
+        model = Pack
+        fields = ("id", "nome", "grade", "ativo", "data_cadastro", "atualizado_em", "itens")
+        read_only_fields = ("data_cadastro", "atualizado_em")
+
+    def _pk(self, obj_or_pk):
+        return getattr(obj_or_pk, "pk", obj_or_pk)
+
+    def validate(self, data):
+        grade = data.get("grade") or getattr(self.instance, "grade", None)
+        if not grade:
+            return data
+        grade_pk = int(self._pk(grade))
+
+        itens_payload = self.initial_data.get("itens", []) or []
+        tamanhos_ids = []
+        for it in itens_payload:
+            t = it.get("tamanho")
+            if t is not None:
+                tamanhos_ids.append(int(self._pk(t)))
+
+        if tamanhos_ids:
+            grades = list(
+                Tamanho.objects.filter(Idtamanho__in=tamanhos_ids)
+                               .values_list("idgrade_id", flat=True)
+                               .distinct()
+            )
+            if len(grades) != 1 or int(grades[0]) != grade_pk:
+                raise serializers.ValidationError(
+                    {"itens": "Todos os tamanhos do Pack devem pertencer à grade selecionada."}
+                )
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        itens_data = validated_data.pop("itens", [])
+        pack = Pack.objects.create(**validated_data)
+
+        seen = set()
+        for it in itens_data:
+            tid = int(self._pk(it.get("tamanho")))
+            if tid in seen:
+                continue
+            seen.add(tid)
+            PackItem.objects.create(pack=pack, tamanho_id=tid, qtd=it.get("qtd", 0))
+        return pack
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        itens_data = validated_data.pop("itens", None)
+
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+
+        if itens_data is not None:
+            instance.itens.all().delete()
+            seen = set()
+            for it in itens_data:
+                tid = int(self._pk(it.get("tamanho")))
+                if tid in seen:
+                    continue
+                seen.add(tid)
+                PackItem.objects.create(pack=instance, tamanho_id=tid, qtd=it.get("qtd", 0))
+
+        return instance

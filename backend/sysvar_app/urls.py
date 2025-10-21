@@ -8,7 +8,7 @@ from sysvar_app.views import (
     GradeViewSet, TamanhoViewSet, CorViewSet, ColecaoViewSet, FamiliaViewSet,
     UnidadeViewSet, GrupoViewSet, SubgrupoViewSet, CodigosViewSet, TabelaprecoViewSet,
     NcmViewSet, TabelaPrecoItemViewSet, FornecedorSkuMapViewSet, 
-    health, register, login_view, me, logout_view, NatLancamentoViewSet, ModeloDocumentoFiscalViewSet,MatrizColEstView
+    health, register, login_view, me, logout_view, NatLancamentoViewSet, ModeloDocumentoFiscalViewSet,MatrizColEstView, PackViewSet
 )
 
 from auditoria.views import AuditoriaLogViewSet
@@ -32,6 +32,7 @@ router.register(r'unidades', UnidadeViewSet, basename='unidades')
 router.register(r'grupos', GrupoViewSet, basename='grupos')
 router.register(r'subgrupos', SubgrupoViewSet, basename='subgrupos')
 router.register(r'codigos', CodigosViewSet, basename='codigos')
+router.register(r'packs', PackViewSet, basename='packs')
 
 # ROTAS DE TABELA DE PREÇO
 router.register(r'tabelaprecos', TabelaprecoViewSet, basename='tabelaprecos')      # existente (mantida)

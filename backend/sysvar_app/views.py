@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filters as df
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, filters, status, permissions
 from rest_framework.response import Response
 from django.db import transaction, connection
 from django.utils import timezone
@@ -29,14 +29,14 @@ from .models import (
     Loja, Cliente, Produto, ProdutoDetalhe, Estoque, Fornecedor, Vendedor, Funcionarios, Grade, Tamanho, Cor,
     Colecao, Familia, Unidade, Grupo, Subgrupo, Codigos, Tabelapreco, Ncm, TabelaPrecoItem,
     # modelos fiscais / compras
-    NFeEntrada, NFeItem, FornecedorSkuMap, MovimentacaoProdutos, Nat_Lancamento, ModeloDocumentoFiscal
+    NFeEntrada, NFeItem, FornecedorSkuMap, MovimentacaoProdutos, Nat_Lancamento, ModeloDocumentoFiscal, Pack, PackItem
 )
 from .serializers import (
     UserSerializer, LojaSerializer, ClienteSerializer, ProdutoSerializer, ProdutoDetalheSerializer, EstoqueSerializer,
     FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer, CorSerializer,
     ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer, SubgrupoSerializer, CodigosSerializer,
     TabelaprecoSerializer, NcmSerializer, NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer,
-    TabelaPrecoItemSerializer, NatLancamentoSerializer, ModeloDocumentoFiscalSerializer
+    TabelaPrecoItemSerializer, NatLancamentoSerializer, ModeloDocumentoFiscalSerializer, PackSerializer, PackItemSerializer
 )
 
 try:
@@ -1564,3 +1564,28 @@ class MatrizColEstView(APIView):
                 "totais": {"por_colest": {}, "geral": {"itens": 0, "valor": 0.00}}
             }
         }, status=200)
+
+# --- NOVO: PackViewSet ---
+
+class IsPackWriteForStaff(permissions.BasePermission):
+    """Leitura para autenticados; escrita só para staff/superuser."""
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return request.user and request.user.is_authenticated
+        return request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)
+
+class PackViewSet(viewsets.ModelViewSet):
+    queryset = (
+        Pack.objects
+            .select_related("grade")
+            .prefetch_related("itens__tamanho")
+            .all()
+    )
+    serializer_class = PackSerializer
+    permission_classes = [IsPackWriteForStaff]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["grade", "ativo"]
+    search_fields = ["nome", "grade__Descricao", "itens__tamanho__Descricao", "itens__tamanho__Tamanho"]
+    ordering_fields = ["id", "nome", "data_cadastro", "atualizado_em"]
+    ordering = ["-id"]
+

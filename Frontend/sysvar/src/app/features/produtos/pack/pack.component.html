@@ -1,0 +1,193 @@
+<div class="packs-page">
+  <!-- TOOLBAR -->
+  <header class="toolbar">
+    <h2>Packs</h2>
+    <div class="toolbar-actions">
+      <input
+        type="text"
+        placeholder="Buscar por nome..."
+        [(ngModel)]="search"
+        (keyup)="onSearchKeyup($event)"
+      />
+      <button class="btn primary" (click)="doSearch()">Buscar</button>
+      <button class="btn primary" (click)="clearSearch()">Limpar</button>
+      <button class="btn primary" (click)="novo()">Novo</button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMsg" class="alert error">{{ errorMsg }}</div>
+  <div *ngIf="successMsg" class="alert success">{{ successMsg }}</div>
+
+  <!-- Placeholder -->
+  <section class="card form-placeholder" *ngIf="formMode === null && !submitted">
+    <div class="placeholder-inner">
+      <p>Para cadastrar um <strong>Pack</strong>, clique em <strong>Novo</strong>.</p>
+      <p>Para editar, localize na lista e clique em <strong>Editar</strong>.</p>
+    </div>
+  </section>
+
+  <div class="content">
+    <!-- FORM -->
+    <section class="card form" *ngIf="formMode !== null || submitted">
+      <h3>{{ formMode === 'edit' ? 'Editar Pack' : 'Novo Pack' }}</h3>
+
+      <form [formGroup]="form" (ngSubmit)="salvar()">
+        <div class="grid-10">
+          <label id="nome-box">
+            Nome (opcional)
+            <input type="text" formControlName="nome" maxlength="80" />
+          </label>
+
+          <label id="grade-box">
+            Grade*
+            <select
+              formControlName="grade"
+              [attr.aria-invalid]="fieldInvalid('grade')"
+              (change)="onGradeChange(form.get('grade')?.value ?? null)"
+            >
+              <option [ngValue]="null">Selecione...</option>
+              <option *ngFor="let g of grades" [ngValue]="g.Idgrade">
+                {{ g.Descricao }} ({{ g.Idgrade }})
+              </option>
+            </select>
+            <span class="field-error" *ngIf="fieldInvalid('grade')">Selecione a grade.</span>
+          </label>
+
+          <label id="ativo-box" class="align-end">
+            <span>Ativo</span>
+            <input type="checkbox" formControlName="ativo" />
+          </label>
+        </div>
+
+        <h4 style="margin:12px 0 6px;">Itens do Pack</h4>
+        <div class="itens-table-wrapper">
+          <table class="table itens">
+            <thead>
+              <tr>
+                <th style="width: 60%;">Tamanho</th>
+                <th style="width: 30%;">Quantidade</th>
+                <th style="width: 10%;">Ações</th>
+              </tr>
+            </thead>
+
+            <!-- Usa formArrayName + formGroupName -->
+            <tbody formArrayName="itens">
+              <tr *ngFor="let _ of itensFA.controls; let i = index; trackBy: trackRow" [formGroupName]="i">
+                <td>
+                  <select
+                    formControlName="tamanho"
+                    [disabled]="loadingTamanhos || !tamanhosDaGrade.length">
+                    <option [ngValue]="null">Selecione...</option>
+                    <option *ngFor="let t of tamanhosDaGrade" [ngValue]="t.Idtamanho">
+                      {{ t.Tamanho || t.Descricao }} — {{ t.Descricao }}
+                    </option>
+                  </select>
+                  <small *ngIf="loadingTamanhos" class="muted">Carregando tamanhos…</small>
+                </td>
+                <td>
+                  <!-- nome correto: 'qtd' -->
+                  <input type="number" min="1" formControlName="qtd" />
+                </td>
+                <td class="actions">
+                  <button type="button" class="btn sm danger" (click)="rmItem(i)">Remover</button>
+                </td>
+              </tr>
+
+              <tr *ngIf="itensFA.length === 0">
+                <td colspan="3" class="empty-hint">Nenhuma linha. Clique em “Adicionar item”.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="actions-form">
+            <button type="button" class="btn sm" (click)="addItem()">Adicionar item</button>
+          </div>
+        </div>
+
+        <div class="actions-form">
+          <button class="btn primary" type="submit" [disabled]="saving || (form.invalid && submitted)">
+            {{ formMode === 'edit' ? 'Salvar alterações' : 'Salvar' }}
+          </button>
+          <button class="btn ghost" type="button" (click)="cancelarEdicao()">Cancelar</button>
+        </div>
+
+        <!-- Overlay simples de validação -->
+        <div class="overlay" *ngIf="submitted && form.invalid" role="alertdialog" aria-modal="true">
+          <div class="overlay-card">
+            <h4>Ops, precisamos de atenção</h4>
+            <p>Encontramos {{ getFormErrors().length }} pendência(s):</p>
+            <ul>
+              <li *ngFor="let m of getFormErrors()">{{ m }}</li>
+            </ul>
+            <div class="overlay-actions">
+              <button class="btn primary" type="button" (click)="submitted = false">OK, vou corrigir</button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA -->
+    <section class="card list">
+      <div class="list-header">
+        <div class="list-info"><span>Total: {{ total }}</span></div>
+        <div class="list-controls">
+          <label for="pageSize">Itens por página</label>
+          <select id="pageSize" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="table" *ngIf="packs.length > 0; else emptyTpl">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Grade</th>
+              <th>Ativo</th>
+              <th>Itens</th>
+              <th style="width:140px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of packs">
+              <td>{{ p.nome || '—' }}</td>
+              <td>{{ p.grade }}</td>
+              <td>{{ p.ativo ? 'Sim' : 'Não' }}</td>
+              <td>{{ p.itens.length || 0 }}</td>
+              <td class="actions">
+                <button class="btn sm" (click)="editar(p)">Editar</button>
+                <button class="btn sm danger" (click)="excluir(p)">Excluir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #emptyTpl>
+          <div class="empty-hint" *ngIf="!loading">Nenhum Pack encontrado.</div>
+          <div class="loading" *ngIf="loading">Carregando...</div>
+        </ng-template>
+      </div>
+
+      <!-- Pager -->
+      <div class="pager" *ngIf="total > 0">
+        <div class="left">
+          <button class="btn" (click)="firstPage()" [disabled]="page === 1">« Primeira</button>
+          <button class="btn" (click)="prevPage()"  [disabled]="page === 1">‹ Anterior</button>
+        </div>
+        <div class="center">
+          Página {{ page }} de {{ totalPages }}
+          <span class="range">
+            — Mostrando {{ (page-1)*pageSize+1 }} –
+            {{ (page*pageSize) < total ? (page*pageSize) : total }}
+            de {{ total }}
+          </span>
+        </div>
+        <div class="right">
+          <button class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Próxima ›</button>
+          <button class="btn" (click)="lastPage()" [disabled]="page >= totalPages">Última »</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

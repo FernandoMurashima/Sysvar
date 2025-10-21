@@ -45,6 +45,7 @@ export class ShellComponent {
         { label: 'Grades',     link: '/grades',     icon: 'bi bi-grid',          roles: ['Regular'] },
         { label: 'Coleções',   link: '/colecoes',   icon: 'bi bi-layers',        roles: ['Regular'] },
         { label: 'Unidades',   link: '/unidades',   icon: 'bi bi-bounding-box',  roles: ['Regular'] },
+        { label: 'Pack'    ,   link: '/pack'    ,   icon: 'bi bi-bounding-box',  roles: ['Regular'] },
       ]
     },
 

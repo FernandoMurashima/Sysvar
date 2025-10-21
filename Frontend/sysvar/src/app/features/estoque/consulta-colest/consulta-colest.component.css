@@ -1,131 +1,133 @@
-/* container/scroll */
-.colest-wrapper {
-  width: 100%;
-  overflow: auto;
+:root{
+  --fs-base: 11px;      /* tamanho geral da fonte */
+  --fs-head: 13px;      /* fonte do cabeçalho */
+  --fs-sub:  11px;      /* “Itens | Valor” */
+  --pad-x:   64px;      /* padding horizontal das células */
+  --pad-y:   8px;       /* padding vertical das células */
+  --gap-pair:50px;      /* espaço entre Itens e Valor */
+  --min-col: 170px;     /* largura mínima das colunas de coleção */
+  --loja-w:  390px;     /* largura da 1ª coluna (Loja) */
 }
 
-/* legenda */
-.colest-legend {
-  margin-bottom: 8px;
-  font-size: 10px;
-  color: #64748b; /* slate-500 */
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.colest-legend .legend-box {
-  width: 12px;
-  height: 12px;
-  border: 1px solid #e5e7eb; /* gray-200 */
-  display: inline-block;
+.info-inline { margin-top:.5rem; color:#334155; }
+.alert-erro  { color:#b91c1c; background:#fee2e2; padding:.5rem .75rem; border-radius:.25rem; }
+
+.colest-wrapper{
+  margin-top:12px; width:100%; overflow-x:auto; padding-bottom:6px;
 }
 
-/* tabela base */
-.colest-table {
-  width: 100%;
+.colest-table{
+  width:100%;
+  min-width: calc(var(--loja-w) + 4*var(--min-col)); /* evita esmagar */
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 12px; /* compacta */
-  color: #0f172a; /* slate-900 */
+  font-size: var(--fs-base);
+  color:#0f172a;
 }
 
-/* cabeçalho */
-.colest-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #ffffff;
-  border: 1px solid #e5e7eb; /* gray-200 */
-  text-align: center;
-  padding: 8px;
-  font-weight: 600;
+.colest-table thead th{
+  position:sticky; top:0; z-index:5; background:#fff;
+  border-bottom:2px solid #e5e7eb;
+  text-align:center;
+  padding: calc(var(--pad-y) + 2px) var(--pad-x);
+  font-size: var(--fs-head);
 }
 
-/* primeira coluna (sticky) */
-.first-col {
-  position: sticky;
-  left: 0;
-  z-index: 20;
-  background: #ffffff;
-  text-align: left;
+.th-title{
+  white-space: normal;     /* permite quebra em 2 linhas */
+  word-break: keep-all;
+  line-height:1.2;
+  font-weight:700;
+  max-width: var(--min-col);
+  margin:0 auto;
 }
-.first-col-body {
-  font-weight: 500;
+.th-sub{ margin-top:4px; font-size:var(--fs-sub); color:#64748b; }
+
+.first-col{
+  position:sticky; left:0; z-index:10; background:#fff; text-align:left;
+  min-width: var(--loja-w);
+  border-right:1px solid #e5e7eb;
 }
-.first-col-foot {
-  background: #f8fafc; /* slate-50 */
+.first-col-body{ font-weight:600; }
+.first-col-foot{ background:#f8fafc; }
+
+.colest-table tbody td{
+  padding: var(--pad-y) var(--pad-x);
+  border-bottom:1px solid #eef2f7;
+  background:#fff;
+}
+.colest-table tbody tr:nth-child(even) td{ background:#fcfcff; }
+
+.colest-table tfoot td{
+  padding: var(--pad-y) var(--pad-x);
+  background:#f8fafc;
+  border-top:2px solid #e5e7eb;
 }
 
-/* corpo */
-.colest-table tbody td {
-  border: 1px solid #e5e7eb;
-  padding: 6px 8px;
-  vertical-align: middle;
-  background: #ffffff;
+.cell-pair{
+  display:inline-flex; align-items:baseline;
+  gap: var(--gap-pair);
 }
+.pair-sep{ color:#94a3b8; }
 
-/* rodapé */
-.colest-table tfoot th,
-.colest-table tfoot td {
-  border: 1px solid #e5e7eb;
-  padding: 8px;
-  background: #f8fafc; /* leve destaque */
-}
-
-/* títulos do cabeçalho */
-.th-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
-  margin: 0 auto;
-  line-height: 1.2;
-}
-.th-sub {
-  margin-top: 4px;
-  font-size: 10px;
-  color: #64748b;
-}
-
-/* par Itens | Valor */
-.cell-pair {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-/* números alinhados bonitos */
-.num {
+.num{
+  text-align:right;
   font-variant-numeric: tabular-nums lining-nums;
-  -moz-font-feature-settings: "tnum", "lnum";
-  -webkit-font-feature-settings: "tnum", "lnum";
-  font-feature-settings: "tnum", "lnum";
+  -moz-font-feature-settings:"tnum","lnum";
+  -webkit-font-feature-settings:"tnum","lnum";
+  font-feature-settings:"tnum","lnum";
+  white-space:nowrap;
 }
 
-/* totais (peso visual) */
-.cell-total-row {
-  font-weight: 600;
-}
-.cell-total-col {
-  font-weight: 600;
-}
-.cell-total-grand {
-  font-weight: 700;
+.cell-total-row{   font-weight:600; }
+.cell-total-col{   font-weight:600; }
+.cell-total-grand{ font-weight:700; }
+
+.vazio{ margin-top:12px; color:#64748b; }
+
+/* responsivo: afunila as colunas de coleção um pouco */
+@media (max-width:1200px){ :root{ --min-col:160px; } }
+@media (max-width: 960px){ :root{ --min-col:140px; --fs-base:12px; } }
+
+
+/* Mais “respiro” horizontal nas células */
+.colest-table th,
+.colest-table td {
+  padding: 10px 16px;          /* ↑ aumenta o espaçamento horizontal */
+  line-height: 1.35;           /* melhora a leitura quando quebra linha */
 }
 
-/* zebra opcional (descomente se quiser) */
-/*
-.colest-table tbody tr:nth-child(odd) td:not(.first-col) {
-  background: #fcfcfd;
+/* Largura mínima das colunas de Coleção/Estação (entre 1ª e as 2 últimas) */
+.colest-table thead th:nth-child(n+2):nth-last-child(n+3),
+.colest-table tbody td:nth-child(n+2):nth-last-child(n+3),
+.colest-table tfoot td:nth-child(n+2):nth-last-child(n+3) {
+  min-width: 180px;            /* ↑ aumente/diminua pra espaçar mais/menos */
 }
-*/
 
-/* responsividade mínima: deixar as colunas respirarem */
-@media (max-width: 1200px) {
-  .th-title { max-width: 140px; }
+/* “Loja” (1ª coluna) um pouco mais larga, e Totais compactos */
+.colest-table thead th:first-child,
+.colest-table tbody td:first-child,
+.colest-table tfoot td:first-child {
+  min-width: 180px;
 }
-@media (max-width: 900px) {
-  .th-title { max-width: 120px; }
+
+.colest-table thead th:last-child,
+.colest-table thead th:nth-last-child(2),
+.colest-table tbody td:last-child,
+.colest-table tbody td:nth-last-child(2),
+.colest-table tfoot td:last-child,
+.colest-table tfoot td:nth-last-child(2) {
+  min-width: 120px;            /* Totais */
+  text-align: center;
+}
+
+/* Evita tudo ficar espremido quando a tela for menor */
+.colest-wrapper { overflow: auto; }
+.colest-table   { table-layout: fixed; }
+
+/* Títulos das colunas com respiro entre “Itens | Valor” */
+.th-sub {
+  margin-top: 6px;
+  letter-spacing: 0.2px;
 }

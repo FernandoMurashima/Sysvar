@@ -60,8 +60,7 @@ export const routes: Routes = [
       { path: 'estoque/consulta-referencia', component: ConsultaReferenciaComponent },
       { path: 'estoque/consulta-colest', loadComponent: () => import('./features/estoque/consulta-colest/consulta-colest.component') .then(m => m.ConsultaColestComponent)},      
       { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
-
-
+      { path: 'pack', loadComponent: () => import('./features/produtos/pack/pack.component').then(m => m.PackComponent)},
 
 
       { path: '', pathMatch: 'full', redirectTo: 'home' }
