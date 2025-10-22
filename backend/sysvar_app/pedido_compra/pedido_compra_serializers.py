@@ -1,8 +1,9 @@
 # sysvar_app/pedido_compra/pedido_compra_serializers.py
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
 from django.db.models import Sum, F
+from django.utils import timezone
 from rest_framework import serializers
 
 from ..models import (
@@ -11,8 +12,8 @@ from ..models import (
     PedidoCompraEntrega,
     Produto,
     PedidoCompraParcela,
-    ProdutoDetalhe,
-    Pack,
+    FormaPagamento,
+    FormaPagamentoParcela,
 )
 
 ZERO = Decimal("0")
@@ -25,24 +26,6 @@ def _safe_dec(v, default=ZERO):
     if isinstance(v, (int, float, str)):
         return Decimal(str(v))
     return v
-
-
-# =========================
-# Mapeamento flexível de códigos
-# =========================
-PEDIDO_REV_VALUES = {"revenda", "rev", "r", "v"}
-PEDIDO_CON_VALUES = {"consumo", "uso/consumo", "cons", "c", "u"}
-
-PROD_REV_VALUES = {"R", "V", "1", "REV", "REVENDA"}
-PROD_CON_VALUES = {"C", "U", "2", "CON", "CONSUMO"}
-
-
-def _norm_pedido_tipo(v: str) -> str:
-    return (v or "").strip().lower()
-
-
-def _norm_prod_tipo(v: str) -> str:
-    return (v or "").strip().upper()
 
 
 class PedidoCompraListSerializer(serializers.ModelSerializer):
@@ -71,10 +54,6 @@ class PedidoCompraListSerializer(serializers.ModelSerializer):
 
 class PedidoCompraItemSerializer(serializers.ModelSerializer):
     produto_desc = serializers.CharField(source="Idproduto.Descricao", read_only=True)
-    # pack
-    pack = serializers.PrimaryKeyRelatedField(queryset=Pack.objects.all(), required=False, allow_null=True)
-    n_packs = serializers.IntegerField(required=False, allow_null=True)
-    qtd_total_pack = serializers.IntegerField(required=False, allow_null=True, read_only=True)
 
     class Meta:
         model = PedidoCompraItem
@@ -91,15 +70,27 @@ class PedidoCompraItemSerializer(serializers.ModelSerializer):
             "unid_compra",
             "fator_conv",
             "Idprodutodetalhe",
-            "data_cadastro",
             "pack",
             "n_packs",
             "qtd_total_pack",
-            "data_entrega_prevista",
+            "data_cadastro",
         ]
-        read_only_fields = ["Total_item", "data_cadastro", "qtd_total_pack"]
+        read_only_fields = ["Total_item", "qtd_total_pack", "data_cadastro"]
+        # Em REVENDA o servidor calcula Qtp_pc
+        extra_kwargs = {"Qtp_pc": {"required": False}}
 
-    # ---- validações básicas
+    # ---------------------------
+    # VALIDATIONS
+    # ---------------------------
+    def _assert_pedido_aberto(self, pedido: PedidoCompra):
+        """Bloqueia criação/edição de item se o pedido não estiver AB (Aberto)."""
+        if not pedido:
+            raise serializers.ValidationError({"Idpedidocompra": "Pedido obrigatório."})
+        if pedido.Status and pedido.Status != PedidoCompra.StatusChoices.AB:
+            raise serializers.ValidationError(
+                {"Idpedidocompra": f"Pedido em estado '{pedido.Status}': edição de itens bloqueada."}
+            )
+
     def validate_Qtp_pc(self, v):
         if v is None:
             return v
@@ -124,115 +115,189 @@ class PedidoCompraItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Fator de conversão deve ser > 0.")
         return v
 
-    # ---- helpers
-    def _calc_total(self, q, pu, desc):
-        q = _safe_dec(q or ZERO)
-        pu = _safe_dec(pu or ZERO)
-        desc = _safe_dec(desc or ZERO)
-        total = q * pu - desc
-        return total if total > ZERO else ZERO
-
-    def _refresh_header_total(self, pedido_id):
-        total = (
-            PedidoCompraItem.objects.filter(Idpedidocompra_id=pedido_id)
-            .aggregate(s=Sum(F("Qtp_pc") * F("valorunitario") - F("Desconto")))["s"] or ZERO
-        )
-        PedidoCompra.objects.filter(pk=pedido_id).update(Valorpedido=total)
-
-    def _calc_pack_qty(self, pack_obj: Pack, n_packs: int) -> int:
-        if not pack_obj or not n_packs:
-            return 0
-        soma_pack = sum(pi.qtd for pi in pack_obj.itens.all())
-        return int(soma_pack) * int(n_packs)
-
-    def _validar_tipo_produto_vs_pedido(self, pedido: PedidoCompra, produto: Produto):
-        """
-        - Pedido 'revenda' => Produto em PROD_REV_VALUES
-        - Pedido 'consumo' => Produto em PROD_CON_VALUES
-        """
-        tipo_pc = _norm_pedido_tipo(pedido.tipo_pedido)
-        tipo_prod = _norm_prod_tipo(produto.Tipoproduto)
-
-        if tipo_pc in PEDIDO_REV_VALUES:
-            if tipo_prod not in PROD_REV_VALUES:
-                raise serializers.ValidationError(
-                    {"Idproduto": f"Produto incompatível com pedido REV. Tipoproduto='{produto.Tipoproduto}'"}
-                )
-        elif tipo_pc in PEDIDO_CON_VALUES:
-            if tipo_prod not in PROD_CON_VALUES:
-                raise serializers.ValidationError(
-                    {"Idproduto": f"Produto incompatível com pedido CONSUMO. Tipoproduto='{produto.Tipoproduto}'"}
-                )
-        # se vier vazio/desconhecido, consideramos inválido
-        else:
-            raise serializers.ValidationError({"Idpedidocompra": "tipo_pedido inválido no cabeçalho do pedido."})
-
-    # ---- validação cruzada
     def validate(self, attrs):
-        pedido = attrs.get("Idpedidocompra") or getattr(self.instance, "Idpedidocompra", None)
-        if not isinstance(pedido, PedidoCompra) and pedido:
-            try:
-                pedido = PedidoCompra.objects.get(pk=pedido)
-                attrs["Idpedidocompra"] = pedido
-            except PedidoCompra.DoesNotExist:
-                raise serializers.ValidationError({"Idpedidocompra": "Pedido não encontrado."})
-
         prod = attrs.get("Idproduto") or getattr(self.instance, "Idproduto", None)
-        if not isinstance(prod, Produto) and prod:
-            try:
-                prod = Produto.objects.get(pk=prod)
-                attrs["Idproduto"] = prod
-            except Produto.DoesNotExist:
-                raise serializers.ValidationError({"Idproduto": "Produto não encontrado."})
+        if not isinstance(prod, Produto):
+            if prod is None and self.initial_data.get("Idproduto"):
+                try:
+                    prod = Produto.objects.get(pk=self.initial_data.get("Idproduto"))
+                    attrs["Idproduto"] = prod
+                except Produto.DoesNotExist:
+                    raise serializers.ValidationError({"Idproduto": "Produto não encontrado."})
 
         if prod and hasattr(prod, "Ativo") and prod.Ativo is False:
             raise serializers.ValidationError({"Idproduto": "Produto inativo."})
 
-        if pedido and prod:
-            self._validar_tipo_produto_vs_pedido(pedido, prod)
+        pedido = attrs.get("Idpedidocompra") or getattr(self.instance, "Idpedidocompra", None)
 
-        # SKU pertence ao produto (se informado)
+        # 🔒 Lock por status
+        if pedido:
+            self._assert_pedido_aberto(pedido)
+
+        # --- Regra revenda/consumo + obrigatoriedades
+        if pedido and prod:
+            # ATENÇÃO: Tipoproduto = '1' revenda | '2' consumo
+            tipo_prod = (prod.Tipoproduto or "").strip()
+            tipo_ped = (pedido.tipo_pedido or "").strip().lower()
+
+            if tipo_ped == PedidoCompra.TipoPedido.REVENDA and tipo_prod != "1":
+                raise serializers.ValidationError({"Idproduto": "Somente produtos de REVenda neste pedido."})
+            if tipo_ped == PedidoCompra.TipoPedido.CONSUMO and tipo_prod != "2":
+                raise serializers.ValidationError({"Idproduto": "Somente produtos de USO/CONSUMO neste pedido."})
+
+            if tipo_ped == PedidoCompra.TipoPedido.REVENDA:
+                pack = attrs.get("pack", getattr(self.instance, "pack", None))
+                n_packs = attrs.get("n_packs", getattr(self.instance, "n_packs", None))
+                if not pack:
+                    raise serializers.ValidationError({"pack": "Pack é obrigatório para pedido de revenda."})
+                if not n_packs or int(n_packs) <= 0:
+                    raise serializers.ValidationError({"n_packs": "Número de packs deve ser > 0 para revenda."})
+            else:
+                q_in = attrs.get("Qtp_pc", getattr(self.instance, "Qtp_pc", None))
+                if q_in is None or int(q_in) <= 0:
+                    raise serializers.ValidationError({"Qtp_pc": "Quantidade é obrigatória para uso/consumo."})
+
+        # Desconto x bruto (se houver dados)
+        q = attrs.get("Qtp_pc", getattr(self.instance, "Qtp_pc", 0)) or 0
+        pu = _safe_dec(attrs.get("valorunitario", getattr(self.instance, "valorunitario", ZERO)))
+        desc = _safe_dec(attrs.get("Desconto", getattr(self.instance, "Desconto", ZERO)))
+        bruto = _safe_dec(q) * _safe_dec(pu)
+        if desc > bruto and bruto > ZERO:
+            raise serializers.ValidationError({"Desconto": "Desconto não pode exceder o total bruto do item."})
+
+        # SKU pertence ao produto
         sku = attrs.get("Idprodutodetalhe", getattr(self.instance, "Idprodutodetalhe", None))
         if sku and prod and getattr(sku, "Idproduto_id", None) and sku.Idproduto_id != prod.Idproduto:
             raise serializers.ValidationError({"Idprodutodetalhe": "SKU não pertence ao Produto informado."})
 
-        # Desconto não pode exceder o bruto
-        q = attrs.get("Qtp_pc", getattr(self.instance, "Qtp_pc", None))
-        pu = _safe_dec(attrs.get("valorunitario", getattr(self.instance, "valorunitario", None)))
-        desc = _safe_dec(attrs.get("Desconto", getattr(self.instance, "Desconto", ZERO)))
-        bruto = _safe_dec(q) * _safe_dec(pu)
-        if desc > bruto:
-            raise serializers.ValidationError({"Desconto": "Desconto não pode exceder o total bruto do item."})
-
         return attrs
 
-    # ---- create/update com pack
+    # ---------------------------
+    # CÁLCULOS + PARCELAS AUTO
+    # ---------------------------
+    def _quantize(self, v: Decimal) -> Decimal:
+        return (v or ZERO).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def _calc_total(self, q, pu, desc):
+        q = _safe_dec(q)
+        pu = _safe_dec(pu)
+        desc = _safe_dec(desc)
+        total = q * pu - desc
+        return total if total > ZERO else ZERO
+
+    def _calc_qty_from_pack(self, pack, n_packs: int) -> int:
+        if not pack or not n_packs:
+            return None
+        soma_pack = sum(pi.qtd for pi in pack.itens.all())
+        return int(soma_pack) * int(n_packs)
+
+    def _regen_parcelas_if_needed(self, pedido: PedidoCompra):
+        if not pedido or pedido.Status != PedidoCompra.StatusChoices.AB:
+            return
+        if not pedido.condicao_pagamento:
+            return
+        try:
+            forma = FormaPagamento.objects.get(codigo=pedido.condicao_pagamento)
+        except FormaPagamento.DoesNotExist:
+            return
+
+        PedidoCompraParcela.objects.filter(pedido=pedido).delete()
+
+        total = pedido.Valorpedido or ZERO
+        base_dt = pedido.Datapedido or timezone.localdate()
+
+        defs = list(
+            FormaPagamentoParcela.objects.filter(forma=forma)
+            .order_by("ordem")
+            .values("ordem", "dias", "percentual", "valor_fixo")
+        )
+        if not defs:
+            defs = [{"ordem": 1, "dias": 0, "percentual": Decimal("100"), "valor_fixo": Decimal("0")}]
+
+        valores = []
+        for d in defs:
+            perc = Decimal(str(d.get("percentual") or "0"))
+            fixo = Decimal(str(d.get("valor_fixo") or "0"))
+            if perc > 0:
+                val = self._quantize(total * (perc / Decimal("100")))
+            elif fixo > 0:
+                val = self._quantize(fixo)
+            else:
+                val = ZERO
+            valores.append(val)
+
+        if total > ZERO and valores:
+            diff = self._quantize(total - sum(valores))
+            valores[-1] = self._quantize(valores[-1] + diff)
+
+        linhas = []
+        for i, d in enumerate(defs):
+            prazo = int(d.get("dias") or 0)
+            venc = base_dt + timezone.timedelta(days=prazo)
+            linhas.append(PedidoCompraParcela(
+                pedido=pedido,
+                parcela=int(d.get("ordem") or (i + 1)),
+                prazo_dias=prazo,
+                vencimento=venc,
+                valor=valores[i],
+                forma=forma.codigo,
+                observacao=None,
+            ))
+
+        if linhas:
+            PedidoCompraParcela.objects.bulk_create(linhas)
+
+        pedido.parcelas = len(linhas)
+        pedido.condicao_pagamento_detalhe = forma.descricao
+        pedido.save(update_fields=["parcelas", "condicao_pagamento_detalhe"])
+
+    def _refresh_header_total_and_parcelas(self, pedido_id):
+        total = (
+            PedidoCompraItem.objects.filter(Idpedidocompra_id=pedido_id)
+            .aggregate(s=Sum(F("Qtp_pc") * F("valorunitario") - F("Desconto")))["s"] or ZERO
+        )
+        from ..models import PedidoCompra as PC
+        PC.objects.filter(pk=pedido_id).update(Valorpedido=total)
+
+        pedido = PC.objects.select_related().get(pk=pedido_id)
+        self._regen_parcelas_if_needed(pedido)
+
     @transaction.atomic
     def create(self, validated_data):
-        pack_obj = validated_data.get("pack", None)
-        n_packs = validated_data.get("n_packs", None)
-        if pack_obj and n_packs:
-            qty = self._calc_pack_qty(pack_obj, n_packs)
-            validated_data["Qtp_pc"] = qty
-            validated_data["qtd_total_pack"] = qty
+        pedido = validated_data["Idpedidocompra"]
+        # 🔒 Lock ao criar item
+        self._assert_pedido_aberto(pedido)
+
+        if pedido.tipo_pedido == PedidoCompra.TipoPedido.REVENDA:
+            pack = validated_data.get("pack")
+            n_packs = validated_data.get("n_packs")
+            if pack and n_packs:
+                q_calc = self._calc_qty_from_pack(pack, n_packs)
+                validated_data["Qtp_pc"] = q_calc
+                validated_data["qtd_total_pack"] = q_calc
 
         q = validated_data.get("Qtp_pc")
-        pu = validated_data.get("valorunitario")
+        pu = validated_data["valorunitario"]
         desc = validated_data.get("Desconto") or ZERO
         validated_data["Total_item"] = self._calc_total(q, pu, desc)
 
         obj = super().create(validated_data)
-        self._refresh_header_total(obj.Idpedidocompra_id)
+        self._refresh_header_total_and_parcelas(obj.Idpedidocompra_id)
         return obj
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        pack_obj = validated_data.get("pack", getattr(instance, "pack", None))
-        n_packs = validated_data.get("n_packs", getattr(instance, "n_packs", None))
-        if pack_obj and n_packs:
-            qty = self._calc_pack_qty(pack_obj, n_packs)
-            validated_data["Qtp_pc"] = qty
-            validated_data["qtd_total_pack"] = qty
+        pedido = instance.Idpedidocompra
+        # 🔒 Lock ao editar item
+        self._assert_pedido_aberto(pedido)
+
+        if pedido.tipo_pedido == PedidoCompra.TipoPedido.REVENDA:
+            pack = validated_data.get("pack", instance.pack)
+            n_packs = validated_data.get("n_packs", instance.n_packs)
+            if pack and n_packs:
+                q_calc = self._calc_qty_from_pack(pack, n_packs)
+                validated_data["Qtp_pc"] = q_calc
+                validated_data["qtd_total_pack"] = q_calc
 
         q = validated_data.get("Qtp_pc", instance.Qtp_pc)
         pu = validated_data.get("valorunitario", instance.valorunitario)
@@ -240,7 +305,7 @@ class PedidoCompraItemSerializer(serializers.ModelSerializer):
         validated_data["Total_item"] = self._calc_total(q, pu, desc)
 
         obj = super().update(instance, validated_data)
-        self._refresh_header_total(obj.Idpedidocompra_id)
+        self._refresh_header_total_and_parcelas(obj.Idpedidocompra_id)
         return obj
 
 

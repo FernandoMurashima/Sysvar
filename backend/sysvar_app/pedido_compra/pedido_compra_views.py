@@ -1,9 +1,11 @@
+# sysvar_app/pedido_compra/pedido_compra_views.py
+
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum, F
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,15 +16,10 @@ from ..models import (
     PedidoCompraItem,
     PedidoCompraEntrega,
     PedidoCompraParcela,  # ⬅️ NOVO
-    Produto,
-    ProdutoDetalhe,
-    Pack,
+    FormaPagamento,
+    FormaPagamentoParcela,
 )
 
-# Importa formas de pagamento para aplicar na action
-from sysvar_app.models import FormaPagamento, FormaPagamentoParcela
-
-# NOTE: mantemos o nome do módulo conforme seu projeto
 from .pedido_compra_serializers import (
     PedidoCompraListSerializer,
     PedidoCompraDetailSerializer,
@@ -37,7 +34,6 @@ STATUS_CANCELADO = "CA"
 STATUS_ATENDIDO = "AT"
 STATUS_PARCIAL_ABERTO = "PA"
 STATUS_PARCIAL_ENCERRADO = "PE"
-
 
 # Mapa simples de transições permitidas
 TRANSICOES = {
@@ -56,11 +52,11 @@ class PedidoCompraFilter(django_filters.FilterSet):
       - emissao_ate=YYYY-MM-DD
       - entrega_de=YYYY-MM-DD
       - entrega_ate=YYYY-MM-DD
-      - fornecedor=<id>  (filtra por Idfornecedor_id)
-      - q_fornecedor=<texto> (icontains em Nome_fornecedor)
-      - loja=<id>  (filtra por Idloja_id)
-      - q_loja=<texto> (icontains em nome_loja)
-      - ordering= -Datapedido,Idpedidocompra  (qualquer campo de listagem/detalhe)
+      - fornecedor=<id>
+      - q_fornecedor=<texto>
+      - loja=<id>
+      - q_loja=<texto>
+      - ordering= -Datapedido,Idpedidocompra
     """
     status = django_filters.CharFilter(field_name="Status", lookup_expr="exact")
     tipo_pedido = django_filters.CharFilter(field_name="tipo_pedido", lookup_expr="exact")
@@ -106,10 +102,10 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     CRUD + ações de fluxo para Pedido de Compra.
     Ações extras (POST):
       - /pedidos-compra/{id}/aprovar/
-      - /pedidos-compra/{id}/cancelar/   (body opcional: {"motivo": "..."} — somente informativo por ora)
+      - /pedidos-compra/{id}/cancelar/
       - /pedidos-compra/{id}/reabrir/
-      - /pedidos-compra/{id}/duplicar/   (cria novo pedido com mesmos itens)
-      - /pedidos-compra/{id}/set-forma-pagamento/  (aplica forma por código ou Id e gera parcelas)
+      - /pedidos-compra/{id}/duplicar/
+      - /pedidos-compra/{id}/set-forma-pagamento/
     """
     permission_classes = [permissions.IsAuthenticated]
     queryset = PedidoCompra.objects.all().select_related("Idfornecedor", "Idloja")
@@ -135,6 +131,85 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
     def _quantize(self, v: Decimal) -> Decimal:
         return (v or Decimal("0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    # ------------------------------
+    # Helpers de forma de pagamento
+    # ------------------------------
+    def _aplicar_forma_pagamento(self, pedido: PedidoCompra, forma: FormaPagamento):
+        """
+        Sincroniza cabeçalho e gera PedidoCompraParcela a partir da FormaPagamentoParcela.
+        """
+        pedido.condicao_pagamento = forma.codigo
+        pedido.condicao_pagamento_detalhe = forma.descricao
+        pedido.parcelas = forma.num_parcelas
+        pedido.save(update_fields=["condicao_pagamento", "condicao_pagamento_detalhe", "parcelas"])
+
+        PedidoCompraParcela.objects.filter(pedido=pedido).delete()
+
+        total = pedido.Valorpedido or Decimal("0")
+        base_dt = pedido.Datapedido or self._agora_data()
+
+        defs = list(
+            FormaPagamentoParcela.objects
+            .filter(forma=forma)
+            .order_by("ordem")
+            .values("ordem", "dias", "percentual", "valor_fixo")
+        )
+
+        if not defs:
+            defs = [{"ordem": 1, "dias": 0, "percentual": Decimal("100"), "valor_fixo": Decimal("0")}]
+
+        valores = []
+        for d in defs:
+            perc = Decimal(str(d.get("percentual") or "0"))
+            fixo = Decimal(str(d.get("valor_fixo") or "0"))
+            if perc > 0:
+                val = self._quantize(total * (perc / Decimal("100")))
+            elif fixo > 0:
+                val = self._quantize(fixo)
+            else:
+                val = Decimal("0.00")
+            valores.append(val)
+
+        if total > 0 and valores:
+            diff = self._quantize(total - sum(valores))
+            valores[-1] = self._quantize(valores[-1] + diff)
+
+        linhas = []
+        for i, d in enumerate(defs):
+            prazo = int(d.get("dias") or 0)
+            venc = base_dt + timedelta(days=prazo)
+            linhas.append(PedidoCompraParcela(
+                pedido=pedido,
+                parcela=int(d.get("ordem") or (i + 1)),
+                prazo_dias=prazo,
+                vencimento=venc,
+                valor=valores[i],
+                forma=forma.codigo,
+                observacao=None,
+            ))
+
+        if linhas:
+            PedidoCompraParcela.objects.bulk_create(linhas)
+
+    def _regen_parcelas_if_needed(self, pedido: PedidoCompra):
+        """
+        Item 5: Regeneração automática de parcelas
+        (pedido ABERTO + já possui condicao_pagamento)
+        """
+        if not pedido or pedido.Status != PedidoCompra.StatusChoices.AB:
+            return
+        if not pedido.condicao_pagamento:
+            return
+        try:
+            forma = FormaPagamento.objects.get(codigo=pedido.condicao_pagamento)
+        except FormaPagamento.DoesNotExist:
+            return
+        # usa o mesmo helper para garantir cálculo/ajuste idênticos
+        self._aplicar_forma_pagamento(pedido, forma)
+
+    # ------------------------------
+    # Ações de fluxo
+    # ------------------------------
     @transaction.atomic
     @action(detail=True, methods=["post"])
     def aprovar(self, request, pk=None):
@@ -150,7 +225,15 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
 
         tem_itens = PedidoCompraItem.objects.filter(Idpedidocompra=pedido).exists()
         if not tem_itens:
-            return Response({"detail": "Não é possível aprovar um pedido sem itens."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Não é possível aprovar um pedido sem itens."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Item 4: exigir forma de pagamento na aprovação (já aplicado)
+        if not pedido.condicao_pagamento:
+            return Response({"detail": "Defina a forma de pagamento antes de aprovar."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         if not pedido.Datapedido:
             pedido.Datapedido = self._agora_data()
@@ -221,30 +304,16 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
             tolerancia_qtd_percent=pedido.tolerancia_qtd_percent,
             tolerancia_preco_percent=pedido.tolerancia_preco_percent,
             tipo_pedido=pedido.tipo_pedido,
-            condicao_pagamento=pedido.condicao_pagamento,
-            condicao_pagamento_detalhe=pedido.condicao_pagamento_detalhe,
-            parcelas=pedido.parcelas,
         )
 
-        itens = PedidoCompraItem.objects.filter(Idpedidocompra=pedido).values(
-            "Idproduto_id",
-            "Qtp_pc",
-            "valorunitario",
-            "Desconto",
-            "unid_compra",
-            "fator_conv",
-            "Idprodutodetalhe_id",
-            "pack_id",
-            "n_packs",
-            "qtd_total_pack",
-        )
+        itens = PedidoCompraItem.objects.filter(Idpedidocompra=pedido)
 
         novos_itens = []
         total = Decimal("0.00")
-        for it in itens:
-            q = it["Qtp_pc"]
-            pu = it["valorunitario"]
-            desc = it.get("Desconto") or Decimal("0")
+        for src in itens:
+            q = src.Qtp_pc
+            pu = src.valorunitario
+            desc = src.Desconto or Decimal("0")
             total_item = q * pu - desc
             if total_item < 0:
                 total_item = Decimal("0.00")
@@ -252,18 +321,20 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
             novos_itens.append(
                 PedidoCompraItem(
                     Idpedidocompra=novo,
-                    Idproduto_id=it["Idproduto_id"],
+                    Idproduto=src.Idproduto,
                     Qtp_pc=q,
                     valorunitario=pu,
                     Desconto=desc,
                     Total_item=total_item,
                     Qtd_recebida=0,
-                    unid_compra=it.get("unid_compra"),
-                    fator_conv=it.get("fator_conv") or Decimal("1"),
-                    Idprodutodetalhe_id=it.get("Idprodutodetalhe_id"),
-                    pack_id=it.get("pack_id"),
-                    n_packs=it.get("n_packs"),
-                    qtd_total_pack=it.get("qtd_total_pack"),
+                    unid_compra=src.unid_compra,
+                    fator_conv=src.fator_conv or Decimal("1"),
+                    Idprodutodetalhe=src.Idprodutodetalhe,
+                    # manter pack/n_packs/qtd_total_pack
+                    pack=src.pack,
+                    n_packs=src.n_packs,
+                    qtd_total_pack=src.qtd_total_pack,
+                    data_entrega_prevista=src.data_entrega_prevista,
                 )
             )
             total += total_item
@@ -278,21 +349,73 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
         return Response(ser.data, status=status.HTTP_201_CREATED)
 
     # ------------------------------
-    # Helpers de forma de pagamento
+    # Action: aplicar forma por código ou id
     # ------------------------------
-    def _aplicar_forma_pagamento(self, pedido: PedidoCompra, forma: FormaPagamento):
-        """
-        Sincroniza cabeçalho e gera PedidoCompraParcela a partir da FormaPagamentoParcela.
-        """
-        pedido.condicao_pagamento = forma.codigo
-        pedido.condicao_pagamento_detalhe = forma.descricao
-        pedido.parcelas = forma.num_parcelas
-        pedido.save(update_fields=["condicao_pagamento", "condicao_pagamento_detalhe", "parcelas"])
+    @transaction.atomic
+    @action(detail=True, methods=["post"], url_path="set-forma-pagamento")
+    def set_forma_pagamento(self, request, pk=None):
+        from .pedido_compra_serializers import PedidoCompraDetailSerializer
 
+        pedido: PedidoCompra = self.get_object()
+        data = request.data or {}
+
+        forma = None
+        codigo = data.get("codigo")
+        forma_id = data.get("Idformapagamento")
+
+        if codigo:
+            try:
+                forma = FormaPagamento.objects.get(codigo=codigo)
+            except FormaPagamento.DoesNotExist:
+                return Response({"detail": f"Forma com código '{codigo}' não encontrada."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        elif forma_id:
+            try:
+                forma = FormaPagamento.objects.get(pk=forma_id)
+            except FormaPagamento.DoesNotExist:
+                return Response({"detail": f"Forma com ID {forma_id} não encontrada."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"detail": "Informe 'codigo' ou 'Idformapagamento'."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        self._aplicar_forma_pagamento(pedido, forma)
+
+        ser = PedidoCompraDetailSerializer(pedido, context={"request": request})
+        return Response(ser.data, status=status.HTTP_200_OK)
+
+
+class PedidoCompraItemViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = PedidoCompraItem.objects.select_related("Idpedidocompra", "Idproduto", "pack")
+    serializer_class = PedidoCompraItemSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        pedido_id = self.request.query_params.get("pedido")
+        if pedido_id:
+            qs = qs.filter(Idpedidocompra_id=pedido_id)
+        return qs
+
+    # Helpers locais para regenerar parcelas após exclusão/edição em pedido AB
+    def _quantize(self, v: Decimal) -> Decimal:
+        return (v or Decimal("0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def _regen_parcelas_if_needed(self, pedido: PedidoCompra):
+        if not pedido or pedido.Status != PedidoCompra.StatusChoices.AB:
+            return
+        if not pedido.condicao_pagamento:
+            return
+        try:
+            forma = FormaPagamento.objects.get(codigo=pedido.condicao_pagamento)
+        except FormaPagamento.DoesNotExist:
+            return
+
+        # espelha o cálculo do ViewSet principal
         PedidoCompraParcela.objects.filter(pedido=pedido).delete()
 
         total = pedido.Valorpedido or Decimal("0")
-        base_dt = pedido.Datapedido or self._agora_data()
+        base_dt = pedido.Datapedido or timezone.localdate()
 
         defs = list(
             FormaPagamentoParcela.objects
@@ -300,7 +423,6 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
             .order_by("ordem")
             .values("ordem", "dias", "percentual", "valor_fixo")
         )
-
         if not defs:
             defs = [{"ordem": 1, "dias": 0, "percentual": Decimal("100"), "valor_fixo": Decimal("0")}]
 
@@ -333,101 +455,46 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
                 forma=forma.codigo,
                 observacao=None,
             ))
-
         if linhas:
             PedidoCompraParcela.objects.bulk_create(linhas)
 
+        pedido.parcelas = len(linhas)
+        pedido.condicao_pagamento_detalhe = forma.descricao
+        pedido.save(update_fields=["parcelas", "condicao_pagamento_detalhe"])
+
     @transaction.atomic
-    @action(detail=True, methods=["post"], url_path="set-forma-pagamento")
-    def set_forma_pagamento(self, request, pk=None):
+    def destroy(self, request, *args, **kwargs):
         """
-        Body aceito:
-          {"codigo": "99"}  ou  {"Idformapagamento": 15}
-        Aplica forma no pedido, atualiza cabeçalho e gera parcelas.
+        Não permite excluir itens quando o pedido não estiver ABERTO.
+        Em caso de exclusão válida, recalcula Valorpedido e (se aplicável) regenera parcelas.
         """
-        from .pedido_compra_serializers import PedidoCompraDetailSerializer
+        instance: PedidoCompraItem = self.get_object()
+        pedido = instance.Idpedidocompra
 
-        pedido: PedidoCompra = self.get_object()
-        data = request.data or {}
+        if pedido.Status != STATUS_ABERTO:
+            return Response(
+                {"detail": "Não é permitido excluir itens após aprovação do pedido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        forma = None
-        codigo = data.get("codigo")
-        forma_id = data.get("Idformapagamento")
+        pedido_id = pedido.pk
+        response = super().destroy(request, *args, **kwargs)
 
-        if codigo:
-            try:
-                forma = FormaPagamento.objects.get(codigo=codigo)
-            except FormaPagamento.DoesNotExist:
-                return Response({"detail": f"Forma com código '{codigo}' não encontrada."},
-                                status=status.HTTP_400_BAD_REQUEST)
-        elif forma_id:
-            try:
-                forma = FormaPagamento.objects.get(pk=forma_id)
-            except FormaPagamento.DoesNotExist:
-                return Response({"detail": f"Forma com ID {forma_id} não encontrada."},
-                                status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response({"detail": "Informe 'codigo' ou 'Idformapagamento'."},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        self._aplicar_forma_pagamento(pedido, forma)
-
-        ser = PedidoCompraDetailSerializer(pedido, context={"request": request})
-        return Response(ser.data, status=status.HTTP_200_OK)
-
-
-# =========================
-# Endpoints auxiliares para a tela de Revenda
-# =========================
-class ProdutoViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Endpoints de apoio (cores e packs) para montar os ListViews da tela de Revenda.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    queryset = Produto.objects.all()
-
-    @action(detail=True, methods=["get"])
-    def cores(self, request, pk=None):
-        prod = self.get_object()
-        qs = (
-            ProdutoDetalhe.objects
-            .filter(Idproduto=prod)
-            .values("Idcor_id", "Idcor__Descricao")
-            .distinct()
+        # Recalcula total do cabeçalho
+        total = (
+            PedidoCompraItem.objects.filter(Idpedidocompra_id=pedido_id)
+            .aggregate(s=Sum(F("Qtp_pc") * F("valorunitario") - F("Desconto")))["s"] or Decimal("0.00")
         )
-        data = [{"id": r["Idcor_id"], "descricao": r["Idcor__Descricao"]} for r in qs]
-        return Response(data)
+        PedidoCompra.objects.filter(pk=pedido_id).update(Valorpedido=total)
 
-    @action(detail=True, methods=["get"])
-    def packs(self, request, pk=None):
-        prod = self.get_object()
-        # Tenta inferir a grade por qualquer SKU do produto
-        grade_id = (
-            ProdutoDetalhe.objects
-            .filter(Idproduto=prod)
-            .values_list("Idtamanho__idgrade_id", flat=True)
-            .first()
-        )
-        if not grade_id:
-            return Response([])
-        packs = Pack.objects.filter(grade_id=grade_id, ativo=True).values("id", "nome")
-        return Response(list(packs))
+        # Regenera parcelas se necessário
+        try:
+            pedido = PedidoCompra.objects.get(pk=pedido_id)
+            self._regen_parcelas_if_needed(pedido)
+        except PedidoCompra.DoesNotExist:
+            pass
 
-
-# =========================
-# ViewSets de Itens e Entregas (re-incluídos)
-# =========================
-class PedidoCompraItemViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-    queryset = PedidoCompraItem.objects.select_related("Idpedidocompra", "Idproduto", "pack")
-    serializer_class = PedidoCompraItemSerializer
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        pedido_id = self.request.query_params.get("pedido")
-        if pedido_id:
-            qs = qs.filter(Idpedidocompra_id=pedido_id)
-        return qs
+        return response
 
 
 class PedidoCompraEntregaViewSet(viewsets.ModelViewSet):
