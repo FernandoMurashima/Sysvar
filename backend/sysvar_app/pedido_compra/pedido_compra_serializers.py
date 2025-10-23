@@ -431,3 +431,25 @@ class PedidoCompraDetailSerializer(serializers.ModelSerializer):
         obj = super().update(instance, validated_data)
         self._recalc_valorpedido(obj)
         return obj
+
+
+
+
+
+class PedidoCompraParcelaSerializer(serializers.ModelSerializer):
+    # Alguns modelos do projeto não usam "id" como PK. Mapeamos para expor "id" no JSON.
+    id = serializers.IntegerField(source="Idpedidocompraparcela", read_only=True)
+
+    class Meta:
+        model = PedidoCompraParcela
+        fields = [
+            "id",          # ← aparece no JSON
+            "pedido",
+            "parcela",
+            "prazo_dias",
+            "vencimento",
+            "valor",
+            "forma",
+            "observacao",
+        ]
+        read_only_fields = fields
