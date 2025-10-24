@@ -1,22 +1,19 @@
+
 // src/app/core/services/pedidos-compra.service.ts
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 
-// ---------- Tipos expostos para o componente ----------
 export interface PedidoCompraRow {
   Idpedidocompra: number;
   Documento: string | null;
   Datapedido: string | null;
   Dataentrega: string | null;
-  // ⬇️ inclui novos status: AT (Atendido), PA (Parcial Aberto), PE (Parcial Encerrado)
   Status: 'AB' | 'AP' | 'CA' | 'AT' | 'PA' | 'PE';
   Valorpedido: number | string;
   fornecedor_nome: string;
   loja_nome: string;
-  /** Tipo do pedido (se o backend retornar na listagem) */
   tipo_pedido?: 'revenda' | 'consumo' | string;
-  // (opcional) se o backend expõe na lista:
   condicao_pagamento?: string | null;
 }
 
@@ -40,7 +37,6 @@ export interface PedidoCompraCreateDTO {
   Idloja: number;
   Datapedido: string | null;
   Dataentrega: string | null;
-  // ⬇️ ADICIONADO
   tipo_pedido: 'revenda' | 'consumo';
 }
 
@@ -67,7 +63,7 @@ export interface PedidoParcela {
   pedido: number;
   parcela: number;
   prazo_dias: number | null;
-  vencimento: string | null;   // ISO date
+  vencimento: string | null;
   valor: number | string;
   forma: string | null;
   observacao: string | null;
@@ -79,25 +75,21 @@ export interface PedidoCompraDetail {
   Documento: string | null;
   Datapedido: string | null;
   Dataentrega: string | null;
-  // ⬇️ mesmos status no detalhe
   Status: 'AB' | 'AP' | 'CA' | 'AT' | 'PA' | 'PE';
   Valorpedido: number | string;
   Idfornecedor: number;
   Idloja: number;
   fornecedor_nome: string;
   loja_nome: string;
-
-  condicao_pagamento?: string | null;           // ex.: "01"
-  condicao_pagamento_detalhe?: string | null;   // ex.: "30 dias"
+  condicao_pagamento?: string | null;
+  condicao_pagamento_detalhe?: string | null;
   parcelas?: PedidoParcela[];
-
   itens: PedidoItemDetail[];
 }
 
-// payload aceito pela ação set-forma-pagamento
 export type SetFormaPagamentoPayload = {
-  codigo?: string;              // ex.: "01"
-  Idformapagamento?: number;    // ex.: 15
+  codigo?: string;
+  Idformapagamento?: number;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -105,7 +97,6 @@ export class PedidosCompraService {
   private http = inject(HttpClient);
   private base = '/api';
 
-  // --------- Lista + filtro ----------
   listar(f: PedidoCompraFiltro): Observable<PedidoCompraRow[]> {
     let params = new HttpParams();
     const add = (k: string, v: any) => {
@@ -113,19 +104,13 @@ export class PedidosCompraService {
         params = params.set(k, String(v));
       }
     };
-
     add('ordering', f.ordering);
     add('status', f.status);
-
-    // --- fornecedor ---
     add('fornecedor', f.fornecedor);
-    add('Idfornecedor', f.fornecedor);   // ✅ alguns back-ends esperam esse nome
+    add('Idfornecedor', f.fornecedor);
     add('q_fornecedor', f.q_fornecedor);
-
-    // --- loja ---
     add('loja', f.loja);
-    add('Idloja', f.loja);               // ✅ idem para loja
-
+    add('Idloja', f.loja);
     add('emissao_de', f.emissao_de);
     add('emissao_ate', f.emissao_ate);
     add('entrega_de', f.entrega_de);
@@ -133,16 +118,13 @@ export class PedidosCompraService {
     add('tipo_pedido', f.tipo_pedido);
     add('total_min', f.total_min);
     add('total_max', f.total_max);
-
     return this.http.get<PedidoCompraRow[]>(`${this.base}/pedidos-compra/`, { params });
   }
 
-  // --------- Detalhe ----------
   getById(id: number): Observable<PedidoCompraDetail> {
     return this.http.get<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/`);
   }
 
-  // --------- Criar pedido + itens ----------
   createHeader(dto: PedidoCompraCreateDTO): Observable<PedidoCompraDetail> {
     return this.http.post<PedidoCompraDetail>(`${this.base}/pedidos-compra/`, dto);
   }
@@ -154,7 +136,6 @@ export class PedidosCompraService {
   async createWithItems(header: PedidoCompraCreateDTO, itens: PedidoItemDTO[]): Promise<PedidoCompraDetail> {
     const created = await this.createHeader(header).toPromise();
     if (!created?.Idpedidocompra) return created as PedidoCompraDetail;
-
     for (const it of itens) {
       await this.createItem({
         Idpedidocompra: created.Idpedidocompra,
@@ -168,50 +149,60 @@ export class PedidosCompraService {
     return await this.getById(created.Idpedidocompra).toPromise() as PedidoCompraDetail;
   }
 
-  // --------- Atualizações ----------
   updateHeader(id: number, patch: Partial<PedidoCompraCreateDTO & { Dataentrega: string | null }>) {
     return this.http.patch<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/`, patch);
   }
-
   updateItem(idItem: number, patch: Partial<PedidoItemDTO>) {
     return this.http.patch<PedidoItemDetail>(`${this.base}/pedidos-compra-itens/${idItem}/`, patch);
   }
 
-  // --------- Ações de fluxo ----------
-  aprovar(id: number) {
-    return this.http.post(`${this.base}/pedidos-compra/${id}/aprovar/`, {});
-  }
-  cancelar(id: number) {
-    return this.http.post(`${this.base}/pedidos-compra/${id}/cancelar/`, {});
-  }
-  reabrir(id: number) {
-    return this.http.post(`${this.base}/pedidos-compra/${id}/reabrir/`, {});
-  }
-  duplicar(id: number) {
-    return this.http.post<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/duplicar/`, {});
-  }
+  aprovar(id: number) { return this.http.post(`${this.base}/pedidos-compra/${id}/aprovar/`, {}); }
+  cancelar(id: number) { return this.http.post(`${this.base}/pedidos-compra/${id}/cancelar/`, {}); }
+  reabrir(id: number) { return this.http.post(`${this.base}/pedidos-compra/${id}/reabrir/`, {}); }
+  duplicar(id: number) { return this.http.post<PedidoCompraDetail>(`${this.base}/pedidos-compra/${id}/duplicar/`, {}); }
 
-  // --------- Forma de Pagamento no Pedido (CORRIGIDO) ----------
-  /**
-   * Aplica forma de pagamento no cabeçalho do pedido.
-   * Envie:
-   *   { codigo: '01' }  OU  { Idformapagamento: 15 }
-   */
   setFormaPagamento(pedidoId: number, payload: SetFormaPagamentoPayload) {
     return this.http.post<PedidoCompraDetail>(
-      `${this.base}/pedidos-compra/${pedidoId}/set-forma-pagamento/`,
-      payload
-    );
+      `${this.base}/pedidos-compra/${pedidoId}/set-forma-pagamento/`, payload);
   }
 
-  // --------- Apoio (lookups) ----------
-  getProdutoById(id: number) {
-    return this.http.get<any>(`${this.base}/produtos/${id}/`);
+  // --- Lookups já existentes no seu backend ---
+  getProdutoById(id: number) { return this.http.get<any>(`${this.base}/produtos/${id}/`); }
+  getFornecedorById(id: number) { return this.http.get<any>(`${this.base}/fornecedores/${id}/`); }
+  listLojas() { return this.http.get<any[]>(`${this.base}/lojas/`); }
+
+  // === ProdutoDetalhe para descobrir cores disponíveis por produto ===
+  listProdutoDetalhes(Idproduto: number) {
+    const params = new HttpParams().set('Idproduto', String(Idproduto)).set('page_size', '1000');
+    // endpoints típicos: /api/produtos-detalhes/ ou /api/produtodetalhes/
+    return this.http.get<any>(`${this.base}/produtos-detalhes/`, { params });
   }
-  getFornecedorById(id: number) {
-    return this.http.get<any>(`${this.base}/fornecedores/${id}/`);
+
+  // ===== ADIÇÕES: forma de pagamento por código + loja por ID =====
+  async getFormaByCodigo(codigo: string): Promise<{ codigo: string; descricao: string } | null> {
+    if (!codigo) return null;
+    let params = new HttpParams().set('codigo', codigo);
+    const res1: any = await firstValueFrom(this.http.get(`${this.base}/forma-pagamentos/`, { params }).pipe());
+    const arr1 = (res1?.results ?? res1) as any[];
+    if (Array.isArray(arr1) && arr1.length) {
+      const it = arr1[0];
+      return { codigo: it.codigo, descricao: it.descricao ?? it.nome ?? it.detalhe ?? '' };
+    }
+    params = new HttpParams().set('search', codigo);
+    const res2: any = await firstValueFrom(this.http.get(`${this.base}/forma-pagamentos/`, { params }).pipe());
+    const arr2 = (res2?.results ?? res2) as any[];
+    if (Array.isArray(arr2) && arr2.length) {
+      const it = arr2[0];
+      return { codigo: it.codigo, descricao: it.descricao ?? it.nome ?? it.detalhe ?? '' };
+    }
+    return null;
   }
-  listLojas() {
-    return this.http.get<any[]>(`${this.base}/lojas/`);
+
+  async getLojaNomeById(id: number): Promise<string | null> {
+    if (!id) return null;
+    const all = await firstValueFrom(this.listLojas());
+    const list = (all as any)?.results ?? (all as any);
+    const found = Array.isArray(list) ? list.find((x: any) => Number(x.id ?? x.Idloja) === Number(id)) : null;
+    return found ? (found.nome ?? found.loja_nome ?? found.descricao ?? String(id)) : null;
   }
 }

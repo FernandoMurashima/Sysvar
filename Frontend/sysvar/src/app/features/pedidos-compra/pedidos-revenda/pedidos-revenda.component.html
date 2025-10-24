@@ -1,0 +1,171 @@
+<div class="container">
+
+  <!-- toolbar topo -->
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="m-0">Pedido de Compra — Revenda</h5>
+    <button type="button" class="btn btn-light" (click)="goHome()">Voltar</button>
+  </div>
+
+  <!-- CABEÇALHO -->
+  <form [formGroup]="headerFG" class="card p-3 mb-3">
+    <div class="hdr-grid">
+
+      <!-- linha 1 -->
+      <div class="fi f-codforn">
+        <label class="form-label tiny">Código fornecedor</label>
+        <input type="number" class="form-control w-xxs" formControlName="Idfornecedor" (blur)="onFornecedorBlur()">
+      </div>
+
+      <div class="fi f-forn">
+        <label class="form-label">Fornecedor</label>
+        <input type="text" class="form-control" formControlName="fornecedor_nome" readonly>
+      </div>
+
+      <div class="fi f-loja">
+        <label class="form-label">Loja</label>
+        <select class="form-select" formControlName="Idloja" (change)="onLojaChange()">
+          <option [ngValue]="null">Selecione...</option>
+          <option *ngFor="let l of lojasOptions" [ngValue]="l.id">{{ l.nome }}</option>
+        </select>
+      </div>
+
+      <div class="fi f-lojanome">
+        <label class="form-label">Loja (nome)</label>
+        <input type="text" class="form-control" formControlName="loja_nome" readonly>
+      </div>
+
+      <div class="fi f-tipo">
+        <label class="form-label">Tipo</label>
+        <select class="form-select" formControlName="tipo_pedido">
+          <option [ngValue]="'revenda'">Revenda</option>
+        </select>
+      </div>
+
+      <!-- linha 2 -->
+      <div class="fi f-emissao">
+        <label class="form-label">Emissão</label>
+        <input type="date" class="form-control" formControlName="Datapedido">
+      </div>
+
+      <div class="fi f-entrega">
+        <label class="form-label">Entrega</label>
+        <input type="date" class="form-control" formControlName="Dataentrega">
+      </div>
+
+      <div class="fi f-codforma">
+        <label class="form-label tiny">Código da forma de pagamento</label>
+        <input type="text" class="form-control w-xxs" formControlName="condicao_pagamento" (blur)="onFormaBlur()">
+      </div>
+
+      <div class="fi f-formadesc">
+        <label class="form-label">Descrição da forma</label>
+        <input type="text" class="form-control" formControlName="condicao_pagamento_detalhe" readonly>
+      </div>
+    </div>
+  </form>
+
+  <!-- Botão antigo do cabeçalho (desativado) -->
+<!-- 2 -->
+
+  <!-- ITENS -->
+  <div class="card p-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="m-0">Itens</h6>
+      <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">+ Item</button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th style="width:100px;">COD.PRODUTO</th>
+            <th>Descrição produto</th>
+            <th style="width:140px;">Cor</th>
+            <th style="width:90px;">Pack</th>         <!-- era COD.Pack -->
+            <th>Descrição</th>                        <!-- era Pack -->
+            <th style="width:90px;">Qtd. packs</th>
+            <th style="width:100px;">Preço</th>
+            <th style="width:80px;">Desc.</th>
+            <th style="width:80px;">Qtd</th>
+            <th style="width:120px;">Total</th>
+            <th style="width:40px;"></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let g of itemGroups; let i = index" [formGroup]="g">
+            <!-- COD.PRODUTO -->
+            <td>
+              <input type="number" class="form-control form-control-sm w-xxs"
+                     formControlName="Idproduto" (blur)="onProdutoBlur(g)">
+            </td>
+
+            <!-- Descrição produto -->
+            <td>
+              <input type="text" class="form-control form-control-sm" formControlName="produto_nome" readonly>
+            </td>
+
+            <!-- Cor (1 por cor; value = SKU) -->
+            <td>
+              <select class="form-select form-select-sm w-sm" formControlName="Idcor" (change)="onCorChange(g)">
+                <option [ngValue]="null">Selecione...</option>
+                <option *ngFor="let c of coresOptions" [ngValue]="c.id">{{ c.nome }}</option>
+              </select>
+            </td>
+
+            <!-- Pack (código) -->
+            <td>
+              <input type="number" class="form-control form-control-sm w-xxxs"
+                     formControlName="pack_id" (blur)="onPackBlur(g)">
+            </td>
+
+            <!-- Descrição do pack -->
+            <td>
+              <input type="text" class="form-control form-control-sm" formControlName="pack_nome" readonly>
+            </td>
+
+            <!-- Qtd. packs -->
+            <td>
+              <input type="number" class="form-control form-control-sm w-xxs" formControlName="n_packs">
+            </td>
+
+            <!-- Preço -->
+            <td>
+              <input type="number" class="form-control form-control-sm w-xxs" formControlName="preco">
+            </td>
+
+            <!-- Desconto (%) bem pequeno com símbolo -->
+            <td>
+                <div class="input-group input-group-sm w-xxxs">
+                  <input type="number" class="form-control form-control-sm mini" formControlName="desconto">
+                  
+                </div>
+
+            </td>
+
+            <!-- Qtd (calculada) -->
+            <td>
+              <input type="number" class="form-control form-control-sm w-xxs" formControlName="Qtp_pc" readonly>
+            </td>
+
+            <!-- Total (calculado) -->
+            <td>
+              <input type="number" class="form-control form-control-sm w-sm" formControlName="total_item" readonly>
+            </td>
+
+            <td>
+              <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">×</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- BOTÕES FINAIS -->
+    <div class="d-flex justify-content-end gap-2 mt-2">
+      <button type="button" class="btn btn-primary" (click)="salvarPedidoCompleto()">
+        Salvar Pedido (cabeçalho + itens)
+      </button>
+    </div>
+  </div>
+</div>

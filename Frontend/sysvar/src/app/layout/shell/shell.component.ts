@@ -82,12 +82,13 @@ export class ShellComponent {
       label: 'Compras', icon: 'bi bi-receipt', roles: ['Regular'],
       children: [
         
-        { label: 'Pedido de Compra'          , link: '/compras/pedidos'      , icon: 'bi bi-bag-check',              roles: ['Regular'] },
-        { label: 'Devoluções'                  , link: '/compras/devolucoes'   , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
-        { label: 'Cotação de Compras'          , link: '/compras/cotacoes'     , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
-        { label: 'Entrada de Nf-e'             , link: '/compras/nfe/upload'   , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
-        { label: 'Trocas'                      , link: '/compras/trocas'       , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
-        { label: 'Notas Lançadas'              , link: '/compras/notas'        , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Pedido de Compra Uso/Consumo' , link: '/compras/pedidos'      , icon: 'bi bi-bag-check',              roles: ['Regular'] },
+        { label: 'Pedido de Compra Revenda'     , link: '/compras/pedidosrevenda'      , icon: 'bi bi-bag-check',              roles: ['Regular'] },
+        { label: 'Devoluções'                   , link: '/compras/devolucoes'   , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Cotação de Compras'           , link: '/compras/cotacoes'     , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Entrada de Nf-e'              , link: '/compras/nfe/upload'   , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Trocas'                       , link: '/compras/trocas'       , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
+        { label: 'Notas Lançadas'               , link: '/compras/notas'        , icon: 'bi bi-arrow-counterclockwise', roles: ['Regular'] },
 
       ]
     },

@@ -1,0 +1,237 @@
+/* ============================================================================
+   PEDIDOS REVENDA — CSS GUIADO (COMENTADO)
+   ---------------------------------------------------------------------------
+   CHEAT-SHEET RÁPIDO (o que mexe onde):
+   - Largura de inputs pequenos (códigos, preços, qtd, packs):    .w-xxxs / .w-xxs / .w-xs / .w-sm
+   - Largura do código do PACK (coluna “Pack” código):            input com class .w-xxxs (na tabela)
+   - Largura do “COD.PRODUTO”:                                    .w-xxs (pode trocar para .w-xxxs se quiser menor)
+   - Largura do “Qtd. packs”, “Preço”, “Qtd”:                     .w-xxs (ajuste aqui)
+   - Largura do “Total”:                                          .w-sm
+   - Desconto (%) bem pequeno:                                    .input-group.input-group-sm.w-xxxs + .mini
+   - Espaço entre Emissão e Entrega (cabeçalho):                   .hdr-grid column-gap (geral) e .f-entrega { margin-left }
+   - Cabeçalho alinhado por linhas/colunas fixas:                 .hdr-grid + classes .f-*
+   - Altura dos inputs do cabeçalho:                              .hdr-grid .form-control/.form-select (height/padding)
+   ---------------------------------------------------------------------------
+   Dica: para “ver” quem está afetando um input, procure pela classe de largura
+   aplicada no HTML (ex.: w-xxs) ou pela área do cabeçalho (classes .f-...).
+   ============================================================================ */
+
+
+/* ========== CONTAINERS E CARDS BÁSICOS ========== */
+/* Padding geral da página */
+.container { padding: 10px; }
+
+/* Aparência dos blocos (caixas) do cabeçalho e itens */
+.card{
+  background:#98bbd3;             /* fundo azul claro (identidade visual usada no projeto) */
+  border:1px solid #0a0a0a;       /* contorno sutil */
+  border-radius:10px;             /* cantos arredondados */
+  padding:12px;                   /* respiro interno */
+  margin:5px;                     /* respiro externo */
+}
+
+
+/* ========== TIPOGRAFIA E CONTROLES ========== */
+/* Rótulos padrão */
+label{ font-size:14px; margin-bottom:6px; display:block; }
+
+/* Rótulos menores (ex.: “Código fornecedor” e “Código da forma…”) */
+label.tiny{ font-size:12px; }
+
+/* Estilo base para inputs e selects (bordas, radius, etc.) */
+input, select{
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid #e5e7eb;
+  outline:none;
+}
+
+
+/* ========== BOTÕES ========== */
+/* Estilo base dos botões */
+.btn{
+  padding:8px 12px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  border-radius:8px;
+  cursor:pointer;
+}
+.btn:hover{ background:#f8fafc; }
+
+/* Botão de ação principal */
+.btn-primary{
+  background:#111827;
+  color:#fff;
+  border-color:#111827;
+}
+.btn-primary:hover{ filter:brightness(1.06); }
+
+
+/* ========== UTILITÁRIOS DE LARGURA (USE ESTES PARA DIMINUÍR/AUMENTAR CAMPOS) ========== */
+/* MUITO PEQUENO — códigos curtíssimos (ex.: % de desconto, código de pack) */
+.w-xxxs{ width: 70px;  max-width: 100%; }
+
+/* PEQUENO — códigos, qtd, preço, “COD.PRODUTO” (padrão enxuto) */
+.w-xxs { width: 90px;  max-width: 100%; }
+
+/* PEQUENO+ — datas, se precisar um pouquinho maior */
+.w-xs  { width: 110px; max-width: 100%; }
+
+/* MÉDIO PEQUENO — “Total”, selects compactos */
+.w-sm  { width: 140px; max-width: 100%; }
+
+/* MÉDIO (pouco usado aqui; útil p/ nomes curtos) */
+.w-md  { width: 220px; max-width: 100%; }
+
+/* GRANDE — “Descrição da forma” no cabeçalho (se usar) */
+.w-lg  { width: 360px; max-width: 100%; }
+
+/* >>> COMO USAR:
+   No HTML, troque a classe de largura no input para ajustar imediatamente.
+   Ex.: para deixar “Qtd. packs” menor, troque w-xxs -> w-xxxs.
+*/
+
+
+/* ========== CABEÇALHO EM GRID (ALINHADO POR LINHAS) ========== */
+/* Grid do cabeçalho: define as colunas das duas linhas */
+.hdr-grid{
+  display:grid;
+  /* 5 colunas fixas:
+     1) 110px    -> Código fornecedor
+     2) 1fr      -> Fornecedor (nome)
+     3) 160px    -> Loja (select)
+     4) 1fr      -> Loja (nome)
+     5) 120px    -> Tipo (travado em Revenda)
+  */
+  grid-template-columns: 110px 1fr 160px 1fr 120px;
+
+  grid-auto-rows: auto;
+
+  /* Espaço horizontal entre colunas do cabeçalho */
+  column-gap: 18px;
+
+  /* Espaço vertical entre as linhas do cabeçalho */
+  row-gap: 10px;
+}
+
+/* Mapeia cada “fi” (field item) para sua coluna/linha específica */
+.f-codforn   { grid-column: 1; }          /* Código fornecedor (linha 1) */
+.f-forn      { grid-column: 2; }          /* Fornecedor (nome, linha 1) */
+.f-loja      { grid-column: 3; }          /* Loja (select, linha 1) */
+.f-lojanome  { grid-column: 4; }          /* Loja (nome, linha 1) */
+.f-tipo      { grid-column: 5; }          /* Tipo, linha 1 */
+
+/* Linha 2 (segue a mesma grade) */
+.f-emissao   { grid-column: 1; }          /* Emissão */
+.f-entrega   {
+  grid-column: 2;                          /* Entrega */
+  margin-left: 8px;                         /* <<< AFASTA “Entrega” de “Emissão”.
+                                               Aumente/diminua este valor se achar que está “colado”. */
+}
+.f-codforma  { grid-column: 3; }          /* Código da forma de pagamento */
+.f-formadesc { grid-column: 4 / span 2; } /* Descrição da forma ocupa colunas 4 e 5 */
+
+/* Altura/padding uniformes nos inputs do cabeçalho
+   (se quiser mais “baixinho” ou “alto”, ajuste aqui) */
+.hdr-grid .form-control,
+.hdr-grid .form-select{
+  height: 34px;
+  padding: 6px 10px;
+}
+
+
+/* ========== “MINI” INPUTS (DESCONTO %) ========== */
+/* Aplica tamanho de fonte e altura menor no desconto e no sufixo % */
+.mini{
+  height: 28px;
+  padding: 4px 8px;
+  font-size: 12.5px;   /* ~10pt aprox. */
+}
+.input-group-text.mini{
+  font-size: 12.5px;
+  padding: 4px 6px;
+}
+/* Dica: para deixar o campo de desconto ainda menor, combine:
+   <div class="input-group input-group-sm w-xxxs"> + .mini
+   E, se necessário, altere .w-xxxs (70px) acima.
+*/
+
+
+/* ========== TABELA DE ITENS ========== */
+/* Tabela base (largura total e respiros) */
+.table {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+
+/* Cabeçalho da tabela (linha de títulos) */
+.table thead th{
+  background:#a2c4e7;
+  border-bottom:1px solid #e5e7eb;
+  font-weight:600;
+  text-align:left;
+  padding:10px 12px;
+}
+
+/* Células do corpo da tabela */
+.table td{
+  border-bottom:1px solid #f1f5f9;
+  padding:10px 12px;
+  vertical-align:middle;
+}
+
+/* Pequenos respiros entre colunas do cabeçalho (fallback geral) */
+.row.g-2 > [class^="col"] { margin-top: 4px; }
+
+
+/* ========= REFERÊNCIAS RÁPIDAS (QUAL CLASSE ESTÁ EM QUAL COLUNA) =========
+   Colunas dos ITENS (em ordem):
+   1)  COD.PRODUTO    -> input number com .w-xxs        (mude para .w-xxxs para menor)
+   2)  Descrição      -> input text (sem classe de largura -> ocupa o resto)
+   3)  Cor            -> <select> com .w-sm
+   4)  Pack (código)  -> input number com .w-xxxs        (MUITO pequeno)
+   5)  Descrição      -> input text (sem largura fixa)
+   6)  Qtd. packs     -> input number com .w-xxs
+   7)  Preço          -> input number com .w-xxs
+   8)  Desc. (%)      -> input-group com .w-xxxs + .mini
+   9)  Qtd            -> input number com .w-xxs (readonly)
+   10) Total          -> input number com .w-sm (readonly)
+   Para reduzir/aumentar: troque as classes de largura nesses inputs.
+*/
+/* ==== Desconto (%) ultracompacto: impede "invadir" a coluna seguinte ==== */
+/* largura fixa do bloco inteiro (menor que o Pack) */
+.input-group.w-xxxs{
+  width: 64px;          /* ajuste fino aqui (ex.: 60–70px) */
+  min-width: 64px;
+  max-width: 64px;
+}
+
+/* o input NÃO vai "crescer": ocupa só o que sobrar menos o sufixo % */
+.input-group.w-xxxs .form-control{
+  flex: 0 0 auto;                     /* não expandir */
+  width: calc(100% - 18px);           /* 18px ≈ largura do sufixo % (ajuste abaixo) */
+  min-width: 0;                       /* permite encolher */
+  padding-right: 4px;                 /* respiro antes do % */
+}
+
+/* o sufixo % também não cresce */
+.input-group.w-xxxs .input-group-text{
+  flex: 0 0 18px;                     /* largura fixa do sufixo % */
+  padding: 0 4px;
+  justify-content: center;
+}
+
+/* mini altura/tipografia (já existia, replico por clareza) */
+.mini{
+  height: 28px;
+  padding: 4px 6px;
+  font-size: 12.5px;
+}
+.input-group-text.mini{
+  font-size: 12.5px;
+  padding: 4px 6px;
+}
+
+/* (opcional) se alguma célula da tabela estiver deixando o conteúdo "vazar" */
+.table td { overflow: hidden; }

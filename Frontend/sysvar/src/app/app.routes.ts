@@ -26,6 +26,7 @@ import { FormaPagamentosComponent } from './features/forma-pagamentos/forma-paga
 import { NaturezaLancamentoComponent } from './features/natureza-lancamento/natureza-lancamento.component';
 import { ModeloDocumentoComponent } from './features/modelo-documento/modelo-documento.component';
 import { ConsultaReferenciaComponent } from './features/estoque/consulta-referencia/consulta-referencia.component';
+import { PedidosRevendaComponent } from './features/pedidos-compra/pedidos-revenda/pedidos-revenda.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -61,7 +62,7 @@ export const routes: Routes = [
       { path: 'estoque/consulta-colest', loadComponent: () => import('./features/estoque/consulta-colest/consulta-colest.component') .then(m => m.ConsultaColestComponent)},      
       { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
       { path: 'pack', loadComponent: () => import('./features/produtos/pack/pack.component').then(m => m.PackComponent)},
-
+      { path: 'compras/pedidosrevenda', loadComponent: () => import('./features/pedidos-compra/pedidos-revenda/pedidos-revenda.component').then(m => m.PedidosRevendaComponent)},
 
       { path: '', pathMatch: 'full', redirectTo: 'home' }
     ]

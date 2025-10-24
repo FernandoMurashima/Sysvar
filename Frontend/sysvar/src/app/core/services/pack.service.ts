@@ -1,3 +1,4 @@
+//src/app/core/services/pack.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -41,7 +42,6 @@ export class PackService {
 
   // auxiliares
   listGrades(): Observable<{count:number; results:GradeDTO[]}|GradeDTO[]> {
-    // aceita ambos formatos (com/sem paginação)
     return this.http.get<{count:number; results:GradeDTO[]}|GradeDTO[]>(this.gradesUrl, {
       params: new HttpParams().set('page_size', 1000)
     });
