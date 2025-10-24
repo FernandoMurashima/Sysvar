@@ -50,7 +50,7 @@ input, select{
 /* ========== BOTÕES ========== */
 /* Estilo base dos botões */
 .btn{
-  padding:8px 12px;
+  padding:10px 14px;
   border:1px solid #e5e7eb;
   background:#fff;
   border-radius:8px;
@@ -235,3 +235,37 @@ input, select{
 
 /* (opcional) se alguma célula da tabela estiver deixando o conteúdo "vazar" */
 .table td { overflow: hidden; }
+
+/* Barra do título com botão Voltar à direita */
+.header-bar{
+  display:flex;
+  align-items:center;
+  margin: 6px 0 10px;
+}
+.header-bar h5{ margin:0; font-weight:600; }
+/* empurra o botão para a direita */
+.header-bar .btn{ margin-left:auto; }
+
+/* Botão escuro (dark) */
+.btn-dark{
+  background:#111827;      /* bem escuro */
+  color:#fff;
+  border:1px solid #111827;
+}
+.btn-dark:hover{ filter:brightness(1.06); }
+
+
+/* Espaçamento do bloco do botão "Salvar Pedido" */
+.form-actions{
+  /* padding interno do bloco (cima, laterais, baixo) */
+  padding: 14px 8px 10px;
+
+  /* se quiser também afastar do conteúdo de cima, use margin-top junto
+     (ou aumente a classe mt-2 no HTML para mt-3/mt-4) */
+  /* margin-top: 12px; */
+}
+
+/* Se quiser que o botão fique um pouco maior e com mais “respiro” */
+.form-actions .btn{
+  padding: 10px 18px;
+}
