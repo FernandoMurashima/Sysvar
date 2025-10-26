@@ -1,173 +1,373 @@
 <div class="container">
 
-  <!-- toolbar topo -->
-  <!-- barra de título + voltar -->
+  <!-- Barra de título + ações -->
   <div class="header-bar">
-    <h5>Pedido de Compra — Revenda</h5>
+    <h2>Pedido de Compra — Revenda</h2>
+    <div class="toolbar-actions">
+      <button class="btn btn-primary" [class.active]="action==='novo'" (click)="setAction('novo')">Novo</button>
+      <button class="btn btn-primary" [class.active]="action==='consultar'" (click)="setAction('consultar')">Consultar</button>
+      <button class="btn btn-primary" [class.active]="action==='editar'" (click)="setAction('editar')" [disabled]="!editingId">Editar</button>
+    </div>
     <button type="button" class="btn btn-dark btn-sm" (click)="goHome()">Home</button>
   </div>
 
+  <!-- ================= NOVO (Revenda) ================= -->
+  <ng-container *ngIf="action==='novo'">
+    <!-- CABEÇALHO -->
+    <form [formGroup]="headerFG" class="card p-3 mb-3">
+      <div class="hdr-grid">
+        <div class="fi f-codforn">
+          <label class="form-label tiny">Código fornecedor</label>
+          <input type="number" class="form-control w-xxs" formControlName="Idfornecedor" (blur)="onFornecedorBlur()">
+        </div>
 
-  <!-- CABEÇALHO -->
-  <form [formGroup]="headerFG" class="card p-3 mb-3">
-    <div class="hdr-grid">
+        <div class="fi f-forn">
+          <label class="form-label">Fornecedor</label>
+          <input type="text" class="form-control" formControlName="fornecedor_nome" readonly>
+        </div>
 
-      <!-- linha 1 -->
-      <div class="fi f-codforn">
-        <label class="form-label tiny">Código fornecedor</label>
-        <input type="number" class="form-control w-xxs" formControlName="Idfornecedor" (blur)="onFornecedorBlur()">
+        <div class="fi f-loja">
+          <label class="form-label">Loja</label>
+          <select class="form-select" formControlName="Idloja" (change)="onLojaChange()">
+            <option [ngValue]="null">Selecione...</option>
+            <option *ngFor="let l of lojasOptions" [ngValue]="l.id">{{ l.nome }}</option>
+          </select>
+        </div>
+
+        <div class="fi f-lojanome">
+          <label class="form-label">Loja (nome)</label>
+          <input type="text" class="form-control" formControlName="loja_nome" readonly>
+        </div>
+
+        <div class="fi f-tipo">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" formControlName="tipo_pedido">
+            <option [ngValue]="'revenda'">Revenda</option>
+          </select>
+        </div>
+
+        <div class="fi f-emissao">
+          <label class="form-label">Emissão</label>
+          <input type="date" class="form-control" formControlName="Datapedido">
+        </div>
+
+        <div class="fi f-entrega">
+          <label class="form-label">Entrega</label>
+          <input type="date" class="form-control" formControlName="Dataentrega">
+        </div>
+
+        <div class="fi f-codforma">
+          <label class="form-label tiny">Código da forma de pagamento</label>
+          <input type="text" class="form-control w-xxs" formControlName="condicao_pagamento" (blur)="onFormaBlur()">
+        </div>
+
+        <div class="fi f-formadesc">
+          <label class="form-label">Descrição da forma</label>
+          <input type="text" class="form-control" formControlName="condicao_pagamento_detalhe" readonly>
+        </div>
+      </div>
+    </form>
+
+    <!-- ITENS -->
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="m-0">Itens</h6>
+        <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">+ Item</button>
       </div>
 
-      <div class="fi f-forn">
-        <label class="form-label">Fornecedor</label>
-        <input type="text" class="form-control" formControlName="fornecedor_nome" readonly>
-      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th style="width:100px;">COD.PRODUTO</th>
+              <th>Descrição produto</th>
+              <th style="width:140px;">Cor</th>
+              <th style="width:90px;">Pack</th>
+              <th>Descrição</th>
+              <th style="width:90px;">Qtd. packs</th>
+              <th style="width:100px;">Preço</th>
+              <th style="width:80px;">Desc. %</th>
+              <th style="width:80px;">Qtd</th>
+              <th style="width:120px;">Total</th>
+              <th style="width:40px;"></th>
+            </tr>
+          </thead>
 
-      <div class="fi f-loja">
-        <label class="form-label">Loja</label>
-        <select class="form-select" formControlName="Idloja" (change)="onLojaChange()">
-          <option [ngValue]="null">Selecione...</option>
-          <option *ngFor="let l of lojasOptions" [ngValue]="l.id">{{ l.nome }}</option>
-        </select>
-      </div>
-
-      <div class="fi f-lojanome">
-        <label class="form-label">Loja (nome)</label>
-        <input type="text" class="form-control" formControlName="loja_nome" readonly>
-      </div>
-
-      <div class="fi f-tipo">
-        <label class="form-label">Tipo</label>
-        <select class="form-select" formControlName="tipo_pedido">
-          <option [ngValue]="'revenda'">Revenda</option>
-        </select>
-      </div>
-
-      <!-- linha 2 -->
-      <div class="fi f-emissao">
-        <label class="form-label">Emissão</label>
-        <input type="date" class="form-control" formControlName="Datapedido">
-      </div>
-
-      <div class="fi f-entrega">
-        <label class="form-label">Entrega</label>
-        <input type="date" class="form-control" formControlName="Dataentrega">
-      </div>
-
-      <div class="fi f-codforma">
-        <label class="form-label tiny">Código da forma de pagamento</label>
-        <input type="text" class="form-control w-xxs" formControlName="condicao_pagamento" (blur)="onFormaBlur()">
-      </div>
-
-      <div class="fi f-formadesc">
-        <label class="form-label">Descrição da forma</label>
-        <input type="text" class="form-control" formControlName="condicao_pagamento_detalhe" readonly>
-      </div>
-    </div>
-  </form>
-
-  <!-- Botão antigo do cabeçalho (desativado) -->
-<!-- 2 -->
-
-  <!-- ITENS -->
-  <div class="card p-3">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h6 class="m-0">Itens</h6>
-      <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">+ Item</button>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-sm align-middle">
-        <thead>
-          <tr>
-            <th style="width:100px;">COD.PRODUTO</th>
-            <th>Descrição produto</th>
-            <th style="width:140px;">Cor</th>
-            <th style="width:90px;">Pack</th>         <!-- era COD.Pack -->
-            <th>Descrição</th>                        <!-- era Pack -->
-            <th style="width:90px;">Qtd. packs</th>
-            <th style="width:100px;">Preço</th>
-            <th style="width:80px;">Desc. %</th>
-            <th style="width:80px;">Qtd</th>
-            <th style="width:120px;">Total</th>
-            <th style="width:40px;"></th>
-          </tr>
-        </thead>
-
-        <tbody>
-          <tr *ngFor="let g of itemGroups; let i = index" [formGroup]="g">
-            <!-- COD.PRODUTO -->
-            <td>
-              <input type="number" class="form-control form-control-sm w-xxs"
-                     formControlName="Idproduto" (blur)="onProdutoBlur(g)">
-            </td>
-
-            <!-- Descrição produto -->
-            <td>
-              <input type="text" class="form-control form-control-sm" formControlName="produto_nome" readonly>
-            </td>
-
-            <!-- Cor (1 por cor; value = SKU) -->
-            <td>
-              <select class="form-select form-select-sm w-sm" formControlName="Idcor" (change)="onCorChange(g)">
-                <option [ngValue]="null">Selecione...</option>
-                <option *ngFor="let c of coresOptions" [ngValue]="c.id">{{ c.nome }}</option>
-              </select>
-            </td>
-
-            <!-- Pack (código) -->
-            <td>
-              <input type="number" class="form-control form-control-sm w-xxxs"
-                     formControlName="pack_id" (blur)="onPackBlur(g)">
-            </td>
-
-            <!-- Descrição do pack -->
-            <td>
-              <input type="text" class="form-control form-control-sm" formControlName="pack_nome" readonly>
-            </td>
-
-            <!-- Qtd. packs -->
-            <td>
-              <input type="number" class="form-control form-control-sm w-xxs" formControlName="n_packs">
-            </td>
-
-            <!-- Preço -->
-            <td>
-              <input type="number" class="form-control form-control-sm w-xxs" formControlName="preco">
-            </td>
-
-            <!-- Desconto (%) bem pequeno com símbolo -->
-            <td>
+          <tbody>
+            <tr *ngFor="let g of itemGroups; let i = index" [formGroup]="g">
+              <td><input type="number" class="form-control form-control-sm w-xxs" formControlName="Idproduto" (blur)="onProdutoBlur(g)"></td>
+              <td><input type="text" class="form-control form-control-sm" formControlName="produto_nome" readonly></td>
+              <td>
+                <select class="form-select form-select-sm w-sm" formControlName="Idcor" (change)="onCorChange(g)">
+                  <option [ngValue]="null">Selecione...</option>
+                  <option *ngFor="let c of coresOptions" [ngValue]="c.id">{{ c.nome }}</option>
+                </select>
+              </td>
+              <td><input type="number" class="form-control form-control-sm w-xxxs" formControlName="pack_id" (blur)="onPackBlur(g)"></td>
+              <td><input type="text" class="form-control form-control-sm" formControlName="pack_nome" readonly></td>
+              <td><input type="number" class="form-control form-control-sm w-xxs" formControlName="n_packs"></td>
+              <td><input type="number" class="form-control form-control-sm w-xxs" formControlName="preco"></td>
+              <td>
                 <div class="input-group input-group-sm w-xxxs">
                   <input type="number" class="form-control form-control-sm mini" formControlName="desconto">
-                  
                 </div>
+              </td>
+              <td><input type="number" class="form-control form-control-sm w-xxs" formControlName="Qtp_pc" readonly></td>
+              <td><input type="number" class="form-control form-control-sm w-sm" formControlName="total_item" readonly></td>
+              <td><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">×</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-            </td>
+      <div class="form-actions d-flex justify-content-end gap-2 mt-2">
+        <button type="button" class="btn btn-primary" (click)="salvarPedidoCompleto()">Salvar Pedido</button>
+      </div>
+    </div>
+  </ng-container>
 
-            <!-- Qtd (calculada) -->
-            <td>
-              <input type="number" class="form-control form-control-sm w-xxs" formControlName="Qtp_pc" readonly>
-            </td>
+  <!-- ================= CONSULTAR (Revenda) ================= -->
+  <ng-container *ngIf="action==='consultar'">
+    <section class="card">
+      <h3>Consultar</h3>
 
-            <!-- Total (calculado) -->
-            <td>
-              <input type="number" class="form-control form-control-sm w-sm" formControlName="total_item" readonly>
-            </td>
+      <form [formGroup]="filtrosFG" (ngSubmit)="buscar()" class="filters">
+        <!-- 1ª linha: Status | Fornecedor(ID+Nome) | Loja(ID+Nome) -->
+        <div class="field-group1">
+          <div class="fi" id="status">
+            <label>Status:</label>
+            <select formControlName="status">
+              <option value="">(todos)</option>
+              <option value="AB">AB (Aberto)</option>
+              <option value="AP">AP (Aprovado)</option>
+              <option value="CA">CA (Cancelado)</option>
+              <option value="AT">AT (Atendido)</option>
+              <option value="PA">PA (Parcial aberto)</option>
+              <option value="PE">PE (Parcial encerrado)</option>
+            </select>
+          </div>
 
-            <td>
-              <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">×</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+          <div class="fi-pair" id="fornecedor">
+            <label>Fornecedor:</label>
+            <div class="pair">
+              <input class="id" type="number" formControlName="q_fornecedor" placeholder="ID" />
+              <input class="name" type="text" [value]="filtrosFG.get('fornecedor_nome')?.value || ''" placeholder="Nome do fornecedor" readonly />
+            </div>
+          </div>
+
+          <div class="fi-pair" id="loja">
+            <label>Loja:</label>
+            <div class="pair">
+              <input class="id" type="text" formControlName="loja" placeholder="ID" />
+              <input class="name" type="text" [value]="filtrosFG.get('loja_nome')?.value || ''" placeholder="Nome da loja" readonly />
+            </div>
+          </div>
+        </div>
+
+        <!-- 2ª linha: Emissão | Entrega -->
+        <div class="f-row-3">
+          <div class="range-line">
+            <label class="inline">Emissão:</label>
+            <input type="date" formControlName="emissao_de" />
+            <span class="sep">até</span>
+            <input type="date" formControlName="emissao_ate" />
+          </div>
+
+          <div class="range-line">
+            <label class="inline">Entrega:</label>
+            <input type="date" formControlName="entrega_de" />
+            <span class="sep">até</span>
+            <input type="date" formControlName="entrega_ate" />
+          </div>
+        </div>
+
+        <div class="filters-actions">
+          <button class="btn btn-primary" type="submit">Aplicar</button>
+          <button class="btn" type="button" (click)="limparFiltros()">Limpar</button>
+        </div>
+      </form>
+
+      <div class="state" *ngIf="loading">Carregando...</div>
+
+      <div class="table-wrap" *ngIf="!loading && rowsPaged.length">
+        <div class="listview-toolbar">
+          <div class="left">
+            Mostrando <strong>{{ pageStart }}</strong>–<strong>{{ pageEnd }}</strong> de <strong>{{ totalRows }}</strong>
+          </div>
+          <div class="right">
+            Itens por página:
+            <select [(ngModel)]="pageSize" (ngModelChange)="page=1">
+              <option *ngFor="let n of pageSizeOptions" [ngValue]="n">{{ n }}</option>
+            </select>
+          </div>
+        </div>
+
+        <table class="table table-full">
+          <thead>
+            <tr>
+              <th (click)="setOrdenacao('Datapedido')">Data Pedido</th>
+              <th (click)="setOrdenacao('Dataentrega')">Data Entrega</th>
+              <th (click)="setOrdenacao('Idpedidocompra')">Código Compra</th>
+              <th (click)="setOrdenacao('Idfornecedor__Nome_fornecedor')">Nome Fornecedor</th>
+              <th (click)="setOrdenacao('loja_nome')">Loja</th>
+              <th (click)="setOrdenacao('Status')">Status</th>
+              <th (click)="setOrdenacao('Valorpedido')">Valor Pedido</th>
+              <th class="col-actions">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of rowsPaged">
+              <td class="col-date">{{ p.Datapedido | date:'dd/MM/yyyy' }}</td>
+              <td class="col-date">{{ p.Dataentrega | date:'dd/MM/yyyy' }}</td>
+              <td class="col-id">{{ p.Idpedidocompra }}</td>
+              <td class="col-text">{{ p.fornecedor_nome }}</td>
+              <td class="col-loja">{{ p.loja_nome }}</td>
+              <td class="col-status">{{ p.Status }}</td>
+              <td class="col-money">{{ p.Valorpedido | number:'1.2-2' }}</td>
+              <td class="col-actions">
+                <div class="actions-wrap">
+                  <button class="btn btn-primary" *ngIf="p.Status === 'AB'" (click)="aprovarLinha(p)">Aprovar</button>
+                  <button class="btn" *ngIf="p.Status === 'AB'" (click)="editarLinha(p)">Editar</button>
+                  <button class="btn btn-danger" *ngIf="p.Status === 'AB' || p.Status === 'AP'" (click)="cancelarLinha(p)">Cancelar</button>
+                  <button class="btn btn-light" *ngIf="p.Status === 'CA'" (click)="reabrirLinha(p)">Reabrir</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Paginação -->
+        <div class="pagination">
+          <button class="btn" [disabled]="page===1" (click)="goFirst()">«</button>
+          <button class="btn" [disabled]="page===1" (click)="goPrev()">‹</button>
+          <span>Página {{ page }} / {{ totalPages }}</span>
+          <button class="btn" [disabled]="page===totalPages" (click)="goNext()">›</button>
+          <button class="btn" [disabled]="page===totalPages" (click)="goLast()">»</button>
+        </div>
+      </div>
+
+      <div class="state" *ngIf="!loading && !rowsPaged.length">
+        Nenhum pedido encontrado. Ajuste os filtros e clique em <strong>Aplicar</strong>.
+      </div>
+    </section>
+  </ng-container>
+
+  <!-- ================= EDITAR ================= -->
+  <section class="card" *ngIf="action==='editar'">
+    <h3>Edição de Pedido #{{ editingId }}</h3>
+
+    <!-- Cabeçalho (somente leitura) -->
+    <div class="card" style="margin-bottom:8px;">
+      <div class="edit-header-grid">
+        <div><strong>Documento:</strong> {{ editDocumento || '—' }}</div>
+        <div><strong>Status:</strong> {{ editStatus || '—' }}</div>
+        <div><strong>Emissão:</strong> {{ editDatapedido | date:'dd/MM/yyyy' }}</div>
+        <div><strong>Entrega:</strong>
+          <span *ngIf="!(editHeaderForm.get('Dataentrega')?.value)">—</span>
+          <span *ngIf="editHeaderForm.get('Dataentrega')?.value as de">{{ de | date:'dd/MM/yyyy' }}</span>
+        </div>
+        <div><strong>Fornecedor:</strong> {{ editFornecedorNome || '—' }}</div>
+        <div><strong>Loja:</strong> {{ editLojaNome || '—' }}</div>
+      </div>
     </div>
 
-    <!-- BOTÕES FINAIS -->
-    <div class="form-actions d-flex justify-content-end gap-2 mt-2">
-      <button type="button" class="btn btn-primary" (click)="salvarPedidoCompleto()">
-        Salvar Pedido (cabeçalho + itens)
-      </button>
+    <!-- Entrega + Forma de pagamento -->
+    <div class="edit-inline-row" [formGroup]="editHeaderForm">
+      <div class="pair">
+        <label class="inline">Data de Entrega:</label>
+        <input type="date" formControlName="Dataentrega" />
+      </div>
+
+      <div class="pair">
+        <label class="inline">Cód. atual:</label>
+        <input type="text" class="desc-readonly" [value]="fpCodigoAtual || ''" readonly />
+      </div>
+
+      <div class="pair">
+        <label class="inline">Descrição atual:</label>
+        <input type="text" class="desc-readonly" [value]="fpDetalhe || ''" readonly />
+      </div>
+
+      <div class="pair">
+        <label class="inline">Novo código:</label>
+        <input type="text" [formControl]="fpCodigoCtrl" placeholder="Ex.: 01" />
+      </div>
+
+      <div class="pair">
+        <label class="inline">Selecionar:</label>
+        <select [formControl]="fpSelectCtrl">
+          <option [ngValue]="null">(não selecionar)</option>
+          <!-- popular via service se quiser -->
+        </select>
+      </div>
+
+      <div class="pair apply">
+        <button class="btn btn-primary" type="button" (click)="aplicarFormaPagamentoEditar()">
+          Aplicar / Recalcular parcelas
+        </button>
+      </div>
     </div>
-  </div>
+
+    <!-- Parcelas -->
+    <div class="card" style="margin-top:8px;" *ngIf="parcelas?.length">
+      <h4 style="margin:0 0 8px;">Parcelas</h4>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle table-full">
+          <thead>
+            <tr>
+              <th style="width:80px;">Parcela</th>
+              <th style="width:140px;">Vencimento</th>
+              <th style="width:160px;">Valor</th>
+              <th>Forma / Obs.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let par of parcelas">
+              <td>{{ par.parcela }}</td>
+              <td>{{ par.vencimento | date:'dd/MM/yyyy' }}</td>
+              <td>{{ par.valor | number:'1.2-2' }}</td>
+              <td>{{ par.forma || par.observacao || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Itens -->
+    <form [formGroup]="editForm" style="margin-top:12px;">
+      <div class="items">
+        <h4>Itens</h4>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle table-full">
+            <thead>
+              <tr>
+                <th style="width:120px">Produto (ID)</th>
+                <th>Descrição</th>
+                <th style="width:120px">Qtde</th>
+                <th style="width:140px">Preço</th>
+                <th style="width:140px">Desconto</th>
+                <th style="width:140px">Total Item</th>
+              </tr>
+            </thead>
+            <tbody formArrayName="itens">
+              <tr *ngFor="let g of editItensControls; let i = index" [formGroupName]="i">
+                <td><input type="number" formControlName="Idproduto" readonly /></td>
+                <td><input type="text" formControlName="produto_desc" readonly /></td>
+                <td><input type="number" step="0.0001" formControlName="Qtp_pc" (input)="recalcEdit(i)" /></td>
+                <td><input type="number" step="0.01" formControlName="valorunitario" (input)="recalcEdit(i)" /></td>
+                <td><input type="number" step="0.01" formControlName="Desconto" (input)="recalcEdit(i)" /></td>
+                <td><input type="number" formControlName="Total_item" readonly /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </form>
+
+    <div class="actions" style="margin-top:10px;">
+      <button class="btn btn-primary" (click)="salvarEdicao()">Salvar alterações</button>
+      <button class="btn" (click)="cancelarEdicao()">Cancelar</button>
+    </div>
+  </section>
 </div>
+
