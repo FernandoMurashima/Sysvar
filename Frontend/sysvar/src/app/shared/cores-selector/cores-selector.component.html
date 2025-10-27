@@ -1,0 +1,30 @@
+<div class="cs-card">
+  <h3>Selecionar cores</h3>
+  <div class="muted">Marque as cores desejadas.</div>
+
+  <div class="toolbar">
+    <input
+      type="text"
+      placeholder="Filtrar por descrição..."
+      [(ngModel)]="filtro" />
+    <div class="actions">
+      <button type="button" class="btn" (click)="selecionarTodasVisiveis()">Selecionar visíveis</button>
+      <button type="button" class="btn" (click)="limparSelecao()">Limpar</button>
+    </div>
+  </div>
+
+  <!-- Apenas a grade dos itens (sem header/toolbar) para encaixar no modal do pai -->
+<div class="grid">
+  <label class="linha" *ngFor="let c of visiveis(); trackBy: trackById">
+    <input
+      type="checkbox"
+      [checked]="isChecked(c.Idcor)"
+      [disabled]="c.Idcor == null"
+      (change)="toggle(c.Idcor, $any($event.target).checked)" />
+    <span class="name">{{ c.Descricao }}</span>
+  </label>
+</div>
+
+
+
+</div>

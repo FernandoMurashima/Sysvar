@@ -14,6 +14,7 @@ import { GradesService } from '../../core/services/grades.service';
 import { TamanhosService } from '../../core/services/tamanhos.service';
 import { CoresService } from '../../core/services/cores.service';
 import { LojasSelectorComponent } from '../../shared/lojas-selector/lojas-selector.component';
+import { CoresSelectorComponent } from '../../shared/cores-selector/cores-selector.component'; // <-- ADICIONADO
 
 import { ProdutoLookupComponent } from './produto-lookup/produto-lookup.component';
 import { ProdutoBasic } from '../../core/models/produto-basic.model';
@@ -35,7 +36,14 @@ type Ncm = { ncm: string; descricao?: string };
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, LojasSelectorComponent, ProdutoLookupComponent, RouterLink],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LojasSelectorComponent,
+    CoresSelectorComponent,            // <-- ADICIONADO
+    ProdutoLookupComponent,
+    RouterLink
+  ],
   templateUrl: './produtos.component.html',
   styleUrls: ['./produtos.component.css']
 })
@@ -59,7 +67,7 @@ export class ProdutosComponent implements OnInit {
   // CORES / TAMANHOS
   cores: CorModel[] = [];
   corFiltro = '';
-  coresSelecionadas = new Set<number>();
+  coresSelecionadas = new Set<number>(); // mantém como Set, usado em todo o resto
   tamanhosDaGrade: TamanhoModel[] = [];
 
   // mensagens
@@ -284,7 +292,15 @@ export class ProdutosComponent implements OnInit {
     });
   }
 
-  /* ------------ Seletor de cores ------------ */
+  /* ------------ Adaptador p/ o CoresSelector (mantém Set internamente) ------------ */
+  get coresSelecionadasArray(): number[] {
+    return Array.from(this.coresSelecionadas.values());
+  }
+  set coresSelecionadasArray(arr: number[]) {
+    this.coresSelecionadas = new Set<number>(Array.isArray(arr) ? arr : []);
+  }
+
+  /* ------------ Seletor de cores antigo (mantido para compatibilidade) ------------ */
   get coresFiltradas(): CorModel[] {
     const q = (this.corFiltro || '').toLowerCase().trim();
     if (!q) return this.cores;
@@ -293,15 +309,12 @@ export class ProdutosComponent implements OnInit {
       (c.Codigo || '').toLowerCase().includes(q)
     );
   }
-
   selecionarTodasVisiveis(): void {
     for (const c of this.coresFiltradas) {
       if (c.Idcor != null) this.coresSelecionadas.add(c.Idcor);
     }
   }
-
   limparSelecaoCores(): void { this.coresSelecionadas.clear(); }
-
   toggleCor(id: number | null | undefined, checked: boolean): void {
     if (id == null) return;
     if (checked) this.coresSelecionadas.add(id);
@@ -509,7 +522,7 @@ export class ProdutosComponent implements OnInit {
   }
   private resetFotoPreview(): void {
     this.fotoCandidates = [];
-    this.fotoIdx = 0;
+       this.fotoIdx = 0;
     this.fotoSrc = '';
     this.fotoHidden = false;
   }
@@ -565,4 +578,8 @@ export class ProdutosComponent implements OnInit {
   closeCoresDialog(): void { this.coresDialogOpen = false; }
   confirmCoresDialog(): void { this.coresDialogOpen = false; }
   clearCoresSelecionadas(): void { this.limparSelecaoCores(); }
+
+
+
 }
+

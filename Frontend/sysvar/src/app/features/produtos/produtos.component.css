@@ -300,3 +300,139 @@
 }
 .color-card .texts .name{ font-weight: 500; }
 .color-card .texts .code{ font-size: 12px; color: #6b7280; }
+
+/* === MODAL: CORES (consolidado) ========================================== */
+/* Ajuste só este valor para o TAMANHO do checkbox (mantém o que já está bom) */
+:root { --cor-chk-scale: 0.20; } /* Se você já usa outro (ex.: 0.30), troque aqui */
+
+/* Barra de filtro */
+.modal .color-toolbar{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.modal .color-toolbar input[type="text"]{
+  flex: 1 1 auto;
+  height: 34px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+/* Grid semelhante ao de lojas (colunas compactas, borda e padding) */
+.modal .color-grid{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 6px 12px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+/* Cada cor vira uma “linha” compacta com checkbox -> texto (grudadinho) */
+.modal .color-card{
+  display: flex;
+  align-items: center;
+  gap: 4px;                 /* <<< distância entre checkbox e texto */
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  min-height: 24px;
+  line-height: 1.1;
+  cursor: pointer;
+}
+.modal .color-card:hover{ background:#f8fafc; }
+
+/* Checkbox: respeita um único scale configurável (sem margens extras) */
+.modal .color-card input[type="checkbox"]{
+  transform: scale(0.3);
+  transform-origin: center left;
+  margin: 0 41px 0 0;        /* <<< “cola” o texto ao checkbox */
+  vertical-align: middle;
+}
+
+/* Textos: inline e centralizados verticalmente */
+.modal .color-card .texts{
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+.modal .color-card .texts .name{
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Não mostrar o código entre parênteses */
+.modal .color-card .texts .code{ display: none; }
+
+/* (Opcional) swatch de cor, caso volte a usar */
+.modal .color-card .swatch{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #d1d5db;
+  opacity: .95;
+}
+
+/* Responsivo: 2 colunas e depois 1 */
+@media (max-width: 900px){
+  .modal .color-grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+}
+@media (max-width: 560px){
+  .modal .color-grid{ grid-template-columns: 1fr; }
+}
+/* ======================================================================== */
+
+/* === Cores no mesmo estilo do LojasSelector === */
+
+/* Mesmo grid do LojasSelector (auto-fit, 220px, gaps 8x16) */
+.modal .color-grid{
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 8px 16px !important;
+  margin-top: 8px !important;
+}
+
+/* Cada item como a "linha" do LojasSelector: linha simples, centrada */
+.modal .color-card{
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 2px !important;
+  gap: 0 !important;             /* o espaçamento será controlado no + .texts */
+  border: none !important;
+  background: transparent !important;
+  min-height: 24px !important;
+}
+
+/* Mantém o tamanho atual do checkbox (não altero scale), só tiro margens extras */
+.modal .color-card input[type="checkbox"]{
+  margin: 0 !important;
+  vertical-align: middle !important;
+}
+
+/* <<< AQUI está o “truque” igual ao LojasSelector:
+   checkbox + texto com margem curta e previsível */
+.modal .color-card input[type="checkbox"] + .texts{
+  margin-left: 6px !important;   /* ajuste fino: use 4–8px se quiser */
+}
+
+/* Para o texto ficar alinhado com o checkbox (como no span do LojasSelector) */
+.modal .color-card .texts{
+  display: inline-flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+}
+
+/* Opcional: não mostrar código entre parênteses */
+.modal .color-card .texts .code{ display: none !important; }
+
+/* Responsivo como o LojasSelector */
+@media (max-width: 560px){
+  .modal .color-grid{ grid-template-columns: 1fr !important; }
+}

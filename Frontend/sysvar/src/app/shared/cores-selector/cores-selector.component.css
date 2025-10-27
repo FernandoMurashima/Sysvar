@@ -1,0 +1,102 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+/* Card do selector (não interfere na grade de cores) */
+.cs-card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* Título e subtítulo */
+.cs-card h3 {
+  margin: 0 0 6px 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.cs-card .muted {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0 0 10px 0; /* aproxima o texto do filtro */
+}
+
+/* Toolbar: filtro + botões alinhados */
+.cs-card .toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto auto; /* input cresce, botões à direita */
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 14px 0; /* separa da grade de cores */
+}
+
+/* Campo de filtro */
+.cs-card .toolbar input[type="text"] {
+  height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Botões da toolbar */
+.cs-card .toolbar .btn {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cs-card .toolbar .btn:hover {
+  background: #f3f4f6;
+}
+
+/* Responsivo: empilha os botões abaixo do filtro em telas menores */
+@media (max-width: 580px) {
+  .cs-card .toolbar {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .cs-card .toolbar .btn {
+    width: 100%;
+  }
+}
+
+/* ===== NÃO mexe na grade/lista de cores =====
+   .grid, .linha, checkboxes etc. permanecem como estão
+*/
+
+/* === Lista de cores: várias colunas, quebra automática e espaçamento curto === */
+.cs-card .grid{
+  display: flex;
+  flex-wrap: wrap;           /* quebra para novas linhas conforme a largura */
+  gap: 6px 14px;             /* row-gap 6px, column-gap 14px (espaço entre itens) */
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb; /* mantém o visual do modal */
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* cada cor em linha compacta */
+.cs-card .grid .linha{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;                  /* distância checkbox–texto */
+  line-height: 1.2;
+  white-space: nowrap;       /* evita quebra dentro do par (☑ Azul) */
+}
+
+/* mantém checkbox discreto */
+.cs-card .grid .linha input[type="checkbox"]{
+  transform: scale(0.9);
+  margin: 0;
+}

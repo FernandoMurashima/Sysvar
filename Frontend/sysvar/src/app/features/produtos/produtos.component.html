@@ -32,7 +32,7 @@
 
     <!-- NOVO PRODUTO -->
     <section class="card" *ngIf="action === 'novo'">
-      <h3>Novo Produto</h3>
+      <h3>Produto Revenda - Novo</h3>
 
       <form (ngSubmit)="salvar()">
         <!-- Linha 1 -->
@@ -277,6 +277,7 @@
       </div>
 
       <div class="modal-body">
+        <!-- Mantém exatamente o cabeçalho/toolbar pedidos -->
         <div class="color-toolbar">
           <input type="text" placeholder="Filtrar cores por descrição/código..." [(ngModel)]="corFiltro" />
           <div class="color-actions">
@@ -285,20 +286,47 @@
           </div>
         </div>
 
-        <div class="color-grid">
-          <label class="color-card" *ngFor="let c of coresFiltradas">
+        <!-- NOVO BLOCO (usado): cores em linha, com quebra e espaçamento mínimo -->
+        <div
+          class="cores-inline"
+          style="
+            display:flex;
+            flex-wrap:wrap;
+            gap:8px 14px;
+            align-items:center;
+            border:1px solid #e5e7eb;
+            border-radius:8px;
+            padding:10px;">
+          <label
+            *ngFor="let c of coresFiltradas"
+            style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
             <input
               type="checkbox"
               [checked]="(c.Idcor != null) ? coresSelecionadas.has(c.Idcor) : false"
               [disabled]="c.Idcor == null"
-              (change)="toggleCor(c.Idcor, $any($event.target).checked)" />
-            <span class="swatch" [style.background]="c.Cor || '#ccc'"></span>
-            <div class="texts">
-              <div class="name">{{ c.Descricao }}</div>
-              <div class="code" *ngIf="c.Codigo">({{ c.Codigo }})</div>
-            </div>
+              (change)="toggleCor(c.Idcor, $any($event.target).checked)"
+              style="transform:scale(.9); margin:0;" />
+            <span>{{ c.Descricao }}</span>
           </label>
         </div>
+
+        <!-- BLOCO ANTIGO (preservado, apenas escondido) -->
+        <ng-container *ngIf="false">
+          <div class="color-grid">
+            <label class="color-card" *ngFor="let c of coresFiltradas">
+              <input
+                type="checkbox"
+                [checked]="(c.Idcor != null) ? coresSelecionadas.has(c.Idcor) : false"
+                [disabled]="c.Idcor == null"
+                (change)="toggleCor(c.Idcor, $any($event.target).checked)" />
+              <span class="swatch" [style.background]="c.Cor || '#ccc'"></span>
+              <div class="texts">
+                <div class="name">{{ c.Descricao }}</div>
+                <div class="code" *ngIf="c.Codigo">({{ c.Codigo }})</div>
+              </div>
+            </label>
+          </div>
+        </ng-container>
       </div>
 
       <div class="modal-footer">
