@@ -1,7 +1,4 @@
 /* ===== PRODUTO – layout amplo ===== */
-
-/* Header centralizado */
-
 .prod-page {background-color: #6b7280; border: 2px solid; margin-left: 5px; border-radius: 8px; }
 .prod-page .page-header {
   display: flex;
@@ -13,7 +10,7 @@
   margin-bottom: 10px;
 }
 .prod-page .page-header { background-color: #6b7280;}
-.prod-page .page-header h2 { margin: 0; text-align: center;  }
+.prod-page .page-header h2 { margin: 0; text-align: center; }
 .prod-page .actions-right { display: flex; gap: 8px; }
 
 /* Alertas */
@@ -53,16 +50,6 @@
 .prod-page .col-grow { grid-column: span 2; }
 .prod-page .col-full { grid-column: 1 / -1; }
 
-/* Linha 1: pesos específicos (img | ref | desc | desc red | ncm) */
-.prod-page .row-first {
-  grid-template-columns: 1.2fr 1.5fr 2fr 2fr 1.5fr;
-}
-
-/* Linha 2: 8 campos “meia largura” */
-.prod-page .row-selects {
-  grid-template-columns: repeat(8, minmax(120px, 1fr));
-}
-
 /* Inputs */
 .prod-page label { font-size:13px; margin-bottom:6px; display:block; }
 .prod-page input,
@@ -94,11 +81,7 @@
 .prod-page .btn-primary:hover { background:#0b5ed7; }
 .prod-page .hint { font-size:12px; color:#6b7280; margin-top:4px; }
 
-.prod-page .col-half { grid-column: span 1; }
-.prod-page .row.two-cols { grid-template-columns: repeat(2, 1fr); }
-.prod-page .col-wide { grid-column: span 1; }
-
-/* Foto (coluna esquerda) */
+/* Foto */
 .prod-page .img-col .img-preview {
   margin-top: 6px;
   border: 1px solid #e5e7eb;
@@ -108,7 +91,7 @@
 }
 .prod-page .img-col .img-preview img {
   max-width: 100%;
-  max-height: 110px;   /* menor */
+  max-height: 110px;
   object-fit: contain;
 }
 .prod-page .img-col .img-missing {
@@ -117,102 +100,44 @@
   color: #9ca3af;
 }
 
-/* ---- Cores & SKUs ---- */
-.prod-page .color-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* ===== CONSULTA (filtros restaurados) ===== */
+.filters { margin-top: 6px; }
+.filters .f-row {
+  display:grid;
+  grid-template-columns: 180px 160px 220px 1fr;
+  gap:12px;
+  align-items:end;
 }
-.prod-page .color-toolbar input[type="text"] { flex: 1; }
-.prod-page .color-actions .btn { margin-left: 8px; }
+.filters .fi { display:flex; flex-direction:column; }
 
-.prod-page .color-list {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(150px, 1fr));
-  gap: 10px 12px;
-  margin-top: 10px;
-  max-height: 260px;
-  overflow: auto;
-  border: 1px solid #e5e7eb;
-  padding: 8px;
-  border-radius: 6px;
+.filters-actions{ display:flex; gap:8px; margin-top:10px; }
+
+.listview-toolbar{
+  display:flex; justify-content:space-between; align-items:center;
+  margin:6px 0 8px;
 }
-.prod-page .color-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
+.listview-toolbar .right select{ height:32px; padding:4px 8px; }
+
+.table{ width:100%; border-collapse:collapse; margin-top:10px; }
+.table thead th{
+  background:#a2c4e7;
+  border-bottom:1px solid #e5e7eb;
+  font-weight:600; text-align:left;
+  padding:10px 12px; cursor:pointer;
 }
-.prod-page .color-item input[type="checkbox"] {
-  transform: scale(0.8);
-  transform-origin: center left;
-}
-.prod-page .swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  border: 1px solid #d1d5db;
-  display: inline-block;
-}
-.prod-page .color-text {
-  font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.table td{
+  border-bottom:1px solid #f1f5f9;
+  padding:10px 12px; vertical-align:middle;
+  overflow:hidden;
 }
 
-/* Tabela de SKUs */
-.prod-page .sku-table-wrapper {
-  margin-top: 12px;
-  overflow: auto;
-  max-height: 380px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+.pagination{
+  display:flex; justify-content:flex-end; align-items:center; gap:6px;
+  margin-top:8px;
 }
-.prod-page .sku-table { width: 100%; border-collapse: collapse; }
-.prod-page .sku-table th,
-.prod-page .sku-table td {
-  border-bottom: 1px solid #f3f4f6;
-  padding: 8px 10px;
-  text-align: left;
-}
-.prod-page .sku-table th {
-  background: #fafafa;
-  position: sticky;
-  top: 0;
-}
-.prod-page .sku-table input[type="number"] { width: 120px; }
+.pagination .btn{ padding:6px 10px; }
 
-.prod-page .placeholder-inner { color:#64748b; text-align:center; }
-
-/* ===== Card do lookup ===== */
-.pl-card { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:16px; }
-.pl-card-grid { display:grid; grid-template-columns: 1fr 320px; gap:16px; }
-.pl-grid { display:grid; gap:12px 16px; margin-bottom:10px; }
-.pl-line1 { grid-template-columns: 1fr 1fr 1fr; }
-.pl-line2 { grid-template-columns: 2fr 1fr 1fr; }
-.pl-line3 { grid-template-columns: 1fr 1fr; }
-.pl-col-span-2 { grid-column: span 2; }
-.pl-label { font-size:12px; color:#6b7280; margin-bottom:2px; }
-.pl-value { font-size:15px; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.pl-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #d1d5db; background:#f9fafb; }
-.pl-badge-ok { color:#1e4620; background:#edf7ed; border-color:#c8e6c9; }
-.pl-badge-no { color:#8a1f11; background:#fdecea; border-color:#f5c2c0; }
-.pl-actions { margin-top:8px; }
-.pl-photo { border:1px solid #e5e7eb; border-radius:8px; padding:8px; text-align:center; }
-.pl-photo img { max-width:100%; max-height:240px; object-fit:contain; }
-.pl-photo-name { font-size:12px; color:#6b7280; margin-top:6px; }
-.pl-photo-missing { font-size:12px; color:#9ca3af; margin-top:6px; }
-
-.pl-toolbar { display:grid; grid-template-columns:100px 1fr; gap:12px; align-items:end; margin-bottom:12px; }
-.pl-toolbar-actions { display:flex; gap:8px; }
-.pl-toolbar input[type="text"] { flex:1; height:34px; padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; }
-
-@media (max-width: 900px) {
-  .pl-card-grid { grid-template-columns: 1fr; }
-}
-
-/* === Modal genérico === */
+/* ===== Modal genérico ===== */
 .modal-backdrop{
   position: fixed;
   inset: 0;
@@ -220,9 +145,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000; /* acima de cards/headers */
+  z-index: 1000;
 }
-
 .modal{
   background: #fff;
   width: min(820px, 92vw);
@@ -233,7 +157,6 @@
   flex-direction: column;
   overflow: hidden;
 }
-
 .modal-header, .modal-footer{
   padding: 12px 16px;
   background: #f6f7fb;
@@ -241,198 +164,16 @@
   align-items: center;
   gap: 8px;
 }
-
-.modal-header h4{
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.modal-body{
-  padding: 16px;
-  overflow: auto; /* se o seletor de lojas for grande */
-  background: #fff;
-}
-
-.btn-icon{
-  margin-left: auto;
-  border: none;
-  background: transparent;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-
+.modal-header h4{ margin: 0; font-size: 1.05rem; font-weight: 600; }
+.modal-body{ padding: 16px; overflow: auto; background: #fff; }
+.btn-icon{ margin-left: auto; border: none; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
 .modal-footer .spacer{ flex: 1; }
 
-/* === Modal de cores === */
-.color-toolbar{
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.color-toolbar input[type="text"]{
-  flex: 1 1 auto;
-  padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-}
-.color-actions{ display: flex; gap: 8px; }
+/* ===== Modal Cores ===== */
+.color-toolbar{ display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+.color-toolbar input[type="text"]{ flex: 1 1 auto; height: 34px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; }
 
-.color-grid{
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-}
-.color-card{
-  display: grid;
-  grid-template-columns: auto 28px 1fr;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #fff;
-}
-.color-card .swatch{
-  width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e5e7eb;
-}
-.color-card .texts .name{ font-weight: 500; }
-.color-card .texts .code{ font-size: 12px; color: #6b7280; }
+.cores-inline label{ font-size: 14px; }
 
-/* === MODAL: CORES (consolidado) ========================================== */
-/* Ajuste só este valor para o TAMANHO do checkbox (mantém o que já está bom) */
-:root { --cor-chk-scale: 0.20; } /* Se você já usa outro (ex.: 0.30), troque aqui */
-
-/* Barra de filtro */
-.modal .color-toolbar{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.modal .color-toolbar input[type="text"]{
-  flex: 1 1 auto;
-  height: 34px;
-  padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-}
-
-/* Grid semelhante ao de lojas (colunas compactas, borda e padding) */
-.modal .color-grid{
-  display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 6px 12px;
-  max-height: 360px;
-  overflow: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 10px;
-  background: #fff;
-}
-
-/* Cada cor vira uma “linha” compacta com checkbox -> texto (grudadinho) */
-.modal .color-card{
-  display: flex;
-  align-items: center;
-  gap: 4px;                 /* <<< distância entre checkbox e texto */
-  padding: 2px 4px;
-  border: none;
-  background: transparent;
-  min-height: 24px;
-  line-height: 1.1;
-  cursor: pointer;
-}
-.modal .color-card:hover{ background:#f8fafc; }
-
-/* Checkbox: respeita um único scale configurável (sem margens extras) */
-.modal .color-card input[type="checkbox"]{
-  transform: scale(0.3);
-  transform-origin: center left;
-  margin: 0 41px 0 0;        /* <<< “cola” o texto ao checkbox */
-  vertical-align: middle;
-}
-
-/* Textos: inline e centralizados verticalmente */
-.modal .color-card .texts{
-  display: inline-flex;
-  align-items: center;
-  margin: 0;
-}
-.modal .color-card .texts .name{
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Não mostrar o código entre parênteses */
-.modal .color-card .texts .code{ display: none; }
-
-/* (Opcional) swatch de cor, caso volte a usar */
-.modal .color-card .swatch{
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1px solid #d1d5db;
-  opacity: .95;
-}
-
-/* Responsivo: 2 colunas e depois 1 */
-@media (max-width: 900px){
-  .modal .color-grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }
-}
-@media (max-width: 560px){
-  .modal .color-grid{ grid-template-columns: 1fr; }
-}
-/* ======================================================================== */
-
-/* === Cores no mesmo estilo do LojasSelector === */
-
-/* Mesmo grid do LojasSelector (auto-fit, 220px, gaps 8x16) */
-.modal .color-grid{
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-  gap: 8px 16px !important;
-  margin-top: 8px !important;
-}
-
-/* Cada item como a "linha" do LojasSelector: linha simples, centrada */
-.modal .color-card{
-  display: inline-flex !important;
-  align-items: center !important;
-  padding: 0 2px !important;
-  gap: 0 !important;             /* o espaçamento será controlado no + .texts */
-  border: none !important;
-  background: transparent !important;
-  min-height: 24px !important;
-}
-
-/* Mantém o tamanho atual do checkbox (não altero scale), só tiro margens extras */
-.modal .color-card input[type="checkbox"]{
-  margin: 0 !important;
-  vertical-align: middle !important;
-}
-
-/* <<< AQUI está o “truque” igual ao LojasSelector:
-   checkbox + texto com margem curta e previsível */
-.modal .color-card input[type="checkbox"] + .texts{
-  margin-left: 6px !important;   /* ajuste fino: use 4–8px se quiser */
-}
-
-/* Para o texto ficar alinhado com o checkbox (como no span do LojasSelector) */
-.modal .color-card .texts{
-  display: inline-flex !important;
-  align-items: center !important;
-  margin: 0 !important;
-}
-
-/* Opcional: não mostrar código entre parênteses */
-.modal .color-card .texts .code{ display: none !important; }
-
-/* Responsivo como o LojasSelector */
-@media (max-width: 560px){
-  .modal .color-grid{ grid-template-columns: 1fr !important; }
-}
+/* Placeholder */
+.prod-page .placeholder-inner { color:#223; text-align:center; font-weight:500; }

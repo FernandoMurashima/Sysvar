@@ -2,7 +2,8 @@
   <div class="page-header">
     <h2>Produtos</h2>
     <div class="actions-right">
-      <button class="btn btn-light" (click)="setAction('novo')">Novo</button>
+      <button class="btn btn-light" (click)="setAction('novo')">Revenda</button>
+      <button class="btn btn-light" (click)="setAction('uso')">Uso & Consumo</button>
       <button class="btn btn-light" (click)="setAction('consultar')">Consultar</button>
       <button class="btn btn-light" [routerLink]="['/home']">Home</button>
     </div>
@@ -25,14 +26,14 @@
     <!-- PLACEHOLDER -->
     <section class="card form-placeholder" *ngIf="action === ''">
       <div class="placeholder-inner">
-        <p>Para cadastrar um <strong>Produto</strong>, clique em <strong>Novo</strong>.</p>
-        <p>Para editar, localize um <strong>Produto</strong> na lista e clique em <strong>Editar</strong>.</p>
+        <p>Para cadastrar um <strong>Produto</strong>, clique em <strong>Revenda</strong> ou <strong>Uso & Consumo</strong>.</p>
+        <p>Para consultar/editar, clique em <strong>Consultar</strong>.</p>
       </div>
     </section>
 
-    <!-- NOVO PRODUTO -->
-    <section class="card" *ngIf="action === 'novo'">
-      <h3>Produto Revenda - Novo</h3>
+    <!-- NOVO / EDITAR — REV**ENDA** -->
+    <section class="card" *ngIf="action === 'novo' || (action === 'editar' && editTipo==='1')">
+      <h3>{{ editingId ? 'Editar Produto (Revenda)' : 'Produto Revenda - Novo' }}</h3>
 
       <form (ngSubmit)="salvar()">
         <!-- Linha 1 -->
@@ -117,9 +118,7 @@
             <label for="tabela">Tabela de Preço*</label>
             <select id="tabela" [(ngModel)]="form.tabela_preco" name="tabela_preco">
               <option [ngValue]="null" disabled>Selecione</option>
-              <option *ngFor="let t of tabelasPreco" [ngValue]="t.Idtabela">
-                {{ t.NomeTabela }}
-              </option>
+              <option *ngFor="let t of tabelasPreco" [ngValue]="t.Idtabela">{{ t.NomeTabela }}</option>
             </select>
           </div>
 
@@ -149,13 +148,13 @@
           </div>
         </div>
 
-        <!-- Botão apenas para LOJAS (o de cores foi removido aqui) -->
+        <!-- Botões auxiliares -->
         <div class="row" style="gap:10px; margin-top:8px;">
           <button type="button" class="btn" (click)="lojasDialogOpen = true">Selecionar lojas...</button>
         </div>
 
         <div class="row actions">
-          <button type="submit" class="btn btn-primary">Salvar</button>
+          <button type="submit" class="btn btn-primary">{{ editingId ? 'Salvar alterações' : 'Salvar' }}</button>
           <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
         </div>
 
@@ -166,7 +165,7 @@
     </section>
 
     <!-- CORES & SKUs -->
-    <section class="card" *ngIf="action === 'novo'">
+    <section class="card" *ngIf="(action === 'novo' && !editingId) || (action==='editar' && editTipo==='1')">
       <h3>Cores & SKUs</h3>
 
       <div class="row" style="align-items:center; gap:10px;">
@@ -199,11 +198,7 @@
         </table>
 
         <div class="row actions">
-          <button
-            class="btn btn-primary"
-            type="button"
-            [disabled]="savingSkus || !combinacoes.length || !form.tabela_preco"
-            (click)="salvarSkus()">
+          <button class="btn btn-primary" type="button" [disabled]="savingSkus || !combinacoes.length || !form.tabela_preco" (click)="salvarSkus()">
             {{ savingSkus ? 'Salvando SKUs...' : 'Salvar SKUs' }}
           </button>
         </div>
@@ -215,27 +210,203 @@
       </div>
     </section>
 
-    <!-- CONSULTAR -->
-    <section class="card" *ngIf="action === 'consultar'">
-      <h3>Consulta</h3>
+    <!-- NOVO / EDITAR — USO & CONSUMO -->
+    <section class="card" *ngIf="action === 'uso' || (action === 'editar' && editTipo==='2')">
+      <h3>{{ editingId ? 'Editar Produto (Uso & Consumo)' : 'Produto Uso & Consumo — Novo' }}</h3>
 
-      <div class="row two-cols" style="align-items:end;">
-        <div class="col">
-          <label for="refBusca">Referência</label>
-          <input
-            id="refBusca"
-            type="text"
-            #refProcura
-            placeholder="Digite a referência e pressione Enter"
-            (keyup.enter)="buscarProduto(refProcura.value)" />
+      <form (ngSubmit)="salvarUso()">
+        <div class="row">
+          <div class="col col-grow">
+            <label>Nome*</label>
+            <input type="text" [(ngModel)]="formUso.Descricao" name="uso_desc" />
+          </div>
+
+          <div class="col">
+            <label>NCM*</label>
+            <select [(ngModel)]="formUso.classificacao_fiscal" name="uso_ncm">
+              <option [ngValue]="''" disabled>Selecione</option>
+              <option *ngFor="let n of ncms" [ngValue]="n.ncm">{{ n.ncm }} — {{ n.descricao || '' }}</option>
+            </select>
+          </div>
+
+          <div class="col">
+            <label>Unidade*</label>
+            <select [(ngModel)]="formUso.unidade" name="uso_unidade">
+              <option [ngValue]="null" disabled>Selecione</option>
+              <option *ngFor="let u of unidades" [ngValue]="u.Idunidade">{{ u.Descricao }}</option>
+            </select>
+          </div>
+
+          <div class="col">
+            <label>Ativo?</label>
+            <select [(ngModel)]="formUso.ativo" name="uso_ativo">
+              <option [ngValue]="true">Sim</option>
+              <option [ngValue]="false">Não</option>
+            </select>
+          </div>
         </div>
-        <div class="col" style="display:flex; gap:8px;">
-          <button class="btn btn-primary" type="button" (click)="buscarProduto(refProcura.value)">Buscar</button>
-          <button class="btn" type="button" (click)="limparBusca(refProcura)">Limpar</button>
-          <button class="btn" [routerLink]="['/home']">Home</button>
+
+        <div class="row">
+          <div class="col col-full">
+            <label>Descrição</label>
+            <input type="text" [(ngModel)]="formUso.descricao_longa" name="uso_descr" />
+          </div>
+        </div>
+
+        <div class="row actions">
+          <button type="submit" class="btn btn-primary">{{ editingId ? 'Salvar alterações' : 'Salvar' }}</button>
+          <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- CONSULTAR (ListView com filtros restaurados) -->
+    <section class="card" *ngIf="action === 'consultar'">
+      <h3>Consultar</h3>
+
+      <form [formGroup]="filtrosFG" (ngSubmit)="buscarProdutos()" class="filters">
+        <!-- linha 1: Tipo | Ativo | Referência -->
+        <div class="f-row">
+          <div class="fi">
+            <label>Tipo</label>
+            <select formControlName="tipo">
+              <option value="">(todos)</option>
+              <option value="1">Revenda</option>
+              <option value="2">Uso & Consumo</option>
+            </select>
+          </div>
+
+          <div class="fi">
+            <label>Ativo</label>
+            <select formControlName="ativo">
+              <option value="all">(todos)</option>
+              <option value="true">Ativos</option>
+              <option value="false">Inativos</option>
+            </select>
+          </div>
+
+          <div class="fi">
+            <label>Referência</label>
+            <input type="text" formControlName="referencia" placeholder="Ex.: 02-01-010" />
+          </div>
+
+          <div class="fi col-grow">
+            <label>Descrição</label>
+            <input type="text" formControlName="descricao" placeholder="Parte do nome..." />
+          </div>
+
+          <div class="fi">
+            <label>Grupo</label>
+            <select formControlName="grupo">
+              <option value="">(todos)</option>
+              <option *ngFor="let g of grupos" [value]="(g.Codigo || '').toString().padStart(2,'0')">
+                {{ (g.Codigo || '').toString().padStart(2,'0') }} — {{ g.Descricao }}
+              </option>
+            </select>
+          </div>
+
+
+        </div>
+
+        <!-- linha 2: Grupo | Unidade | NCM -->
+        <div class="f-row">
+
+<!--           <div class="fi">
+            <label>Grupo</label>
+            <select formControlName="grupo">
+              <option value="">(todos)</option>
+              <option *ngFor="let g of grupos" [value]="(g.Codigo || '').toString().padStart(2,'0')">
+                {{ (g.Codigo || '').toString().padStart(2,'0') }} — {{ g.Descricao }}
+              </option>
+            </select>
+          </div> -->
+
+<!--           <div class="fi">
+            <label>Unidade</label>
+            <select formControlName="unidade">
+              <option value="">(todas)</option>
+              <option *ngFor="let u of unidades" [value]="u.Idunidade">{{ u.Descricao }}</option>
+            </select>
+          </div> -->
+
+<!--           <div class="fi">
+            <label>NCM</label>
+            <input type="text" formControlName="ncm" placeholder="Ex.: 6109.10.00" />
+          </div> -->
+
+          <div class="fi">
+            <label>Ordenação</label>
+            <select formControlName="ordering">
+              <option value="-id">Mais recentes</option>
+              <option value="id">Mais antigos</option>
+              <option value="Descricao">Descrição (A→Z)</option>
+              <option value="-Descricao">Descrição (Z→A)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filters-actions">
+          <button class="btn btn-primary" type="submit">Aplicar</button>
+          <button class="btn" type="button" (click)="limparFiltros()">Limpar</button>
+        </div>
+      </form>
+
+      <div class="listview-toolbar" *ngIf="rowsPaged.length">
+        <div class="left">
+          Mostrando <strong>{{ pageStart }}</strong>–<strong>{{ pageEnd }}</strong> de <strong>{{ totalRows }}</strong>
+        </div>
+        <div class="right">
+          Itens por página:
+          <select [(ngModel)]="pageSize" (ngModelChange)="page=1">
+            <option *ngFor="let n of pageSizeOptions" [ngValue]="n">{{ n }}</option>
+          </select>
         </div>
       </div>
 
+      <div class="table-wrap" *ngIf="!loading && rowsPaged.length">
+        <table class="table table-full">
+          <thead>
+            <tr>
+              <th (click)="setOrdenacao('id')">ID</th>
+              <th (click)="setOrdenacao('Descricao')">Descrição</th>
+              <th>Tipo</th>
+              <th>NCM</th>
+              <th>Unidade</th>
+              <th>Ativo</th>
+              <th class="col-actions">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of rowsPaged">
+              <td class="col-id">{{ p.Idproduto || p.id }}</td>
+              <td class="col-text">{{ p.Descricao || p.descricao }}</td>
+              <td class="col-text">{{ normalizeTipo(p) === '1' ? 'Revenda' : normalizeTipo(p) === '2' ? 'Uso & Consumo' : '—' }}</td>
+              <td class="col-text">{{ p.classificacao_fiscal || '—' }}</td>
+              <td class="col-text">{{ p.unidade || p.Unidade || '—' }}</td>
+              <td class="col-text">{{ (p.Ativo ?? p.ativo ?? true) ? 'Sim' : 'Não' }}</td>
+              <td class="col-actions">
+                <div class="actions-wrap">
+                  <button class="btn" (click)="editarLinha(p)">Editar</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Paginação -->
+        <div class="pagination">
+          <button class="btn" [disabled]="page===1" (click)="goFirst()">«</button>
+          <button class="btn" [disabled]="page===1" (click)="goPrev()">‹</button>
+          <span>Página {{ page }} / {{ totalPages }}</span>
+          <button class="btn" [disabled]="page===totalPages" (click)="goNext()">›</button>
+          <button class="btn" [disabled]="page===totalPages" (click)="goLast()">»</button>
+        </div>
+      </div>
+
+      <div class="state" *ngIf="loading">Carregando...</div>
+      <div class="state" *ngIf="!loading && !rowsPaged.length">Nenhum produto encontrado.</div>
+
+      <!-- Lookup auxiliar (preservado) -->
       <div class="row" style="margin-top:12px;">
         <div class="col col-full">
           <app-produto-lookup
@@ -277,7 +448,6 @@
       </div>
 
       <div class="modal-body">
-        <!-- Mantém exatamente o cabeçalho/toolbar pedidos -->
         <div class="color-toolbar">
           <input type="text" placeholder="Filtrar cores por descrição/código..." [(ngModel)]="corFiltro" />
           <div class="color-actions">
@@ -286,47 +456,17 @@
           </div>
         </div>
 
-        <!-- NOVO BLOCO (usado): cores em linha, com quebra e espaçamento mínimo -->
-        <div
-          class="cores-inline"
-          style="
-            display:flex;
-            flex-wrap:wrap;
-            gap:8px 14px;
-            align-items:center;
-            border:1px solid #e5e7eb;
-            border-radius:8px;
-            padding:10px;">
-          <label
-            *ngFor="let c of coresFiltradas"
-            style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
-            <input
-              type="checkbox"
-              [checked]="(c.Idcor != null) ? coresSelecionadas.has(c.Idcor) : false"
-              [disabled]="c.Idcor == null"
-              (change)="toggleCor(c.Idcor, $any($event.target).checked)"
-              style="transform:scale(.9); margin:0;" />
+        <div class="cores-inline"
+             style="display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+          <label *ngFor="let c of coresFiltradas" style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
+            <input type="checkbox"
+                   [checked]="(c.Idcor != null) ? coresSelecionadas.has(c.Idcor) : false"
+                   [disabled]="c.Idcor == null"
+                   (change)="toggleCor(c.Idcor, $any($event.target).checked)"
+                   style="transform:scale(.9); margin:0;" />
             <span>{{ c.Descricao }}</span>
           </label>
         </div>
-
-        <!-- BLOCO ANTIGO (preservado, apenas escondido) -->
-        <ng-container *ngIf="false">
-          <div class="color-grid">
-            <label class="color-card" *ngFor="let c of coresFiltradas">
-              <input
-                type="checkbox"
-                [checked]="(c.Idcor != null) ? coresSelecionadas.has(c.Idcor) : false"
-                [disabled]="c.Idcor == null"
-                (change)="toggleCor(c.Idcor, $any($event.target).checked)" />
-              <span class="swatch" [style.background]="c.Cor || '#ccc'"></span>
-              <div class="texts">
-                <div class="name">{{ c.Descricao }}</div>
-                <div class="code" *ngIf="c.Codigo">({{ c.Codigo }})</div>
-              </div>
-            </label>
-          </div>
-        </ng-container>
       </div>
 
       <div class="modal-footer">

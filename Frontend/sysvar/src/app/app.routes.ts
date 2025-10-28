@@ -27,6 +27,7 @@ import { NaturezaLancamentoComponent } from './features/natureza-lancamento/natu
 import { ModeloDocumentoComponent } from './features/modelo-documento/modelo-documento.component';
 import { ConsultaReferenciaComponent } from './features/estoque/consulta-referencia/consulta-referencia.component';
 import { PedidosRevendaComponent } from './features/pedidos-compra/pedidos-revenda/pedidos-revenda.component';
+import { ProdutosUsoConsumoComponent } from './features/produtos/produtos-uso-consumo/produtos-uso-consumo.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -63,6 +64,8 @@ export const routes: Routes = [
       { path: 'compras/pedidos', loadComponent: () => import('./features/pedidos-compra/pedidos/pedidos.component') .then(m => m.PedidosComponent), },
       { path: 'pack', loadComponent: () => import('./features/produtos/pack/pack.component').then(m => m.PackComponent)},
       { path: 'compras/pedidosrevenda', loadComponent: () => import('./features/pedidos-compra/pedidos-revenda/pedidos-revenda.component').then(m => m.PedidosRevendaComponent)},
+      { path: 'produtos/uso-consumo', component: ProdutosUsoConsumoComponent },
+      { path: 'produtos/uso-consumo', loadComponent: () => import('./features/produtos/produtos-uso-consumo/produtos-uso-consumo.component') .then(c => c.ProdutosUsoConsumoComponent)  },
 
       { path: '', pathMatch: 'full', redirectTo: 'home' }
     ]

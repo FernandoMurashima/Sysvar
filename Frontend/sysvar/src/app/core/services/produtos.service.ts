@@ -20,24 +20,31 @@ export class ProdutosService {
   private baseTabelasPreco = `${environment.apiBaseUrl}/tabelas-preco/`;
 
   // ---- Produtos ----
-// ⬇️ altere a assinatura para aceitar "ativo"
+  // ⬇️ agora aceita filtros: tipo (Tipoproduto), grupo, referencia e ativo
   list(params?: {
     search?: string;
     ordering?: string;
     page?: number;
     page_size?: number;
     ativo?: 'true' | 'false' | 'all';
+    tipo?: string;         // envia como Tipoproduto=...
+    grupo?: string;        // icontains
+    referencia?: string;   // icontains
   }): Observable<Produto[] | any> {
     let p = new HttpParams();
-    if (params?.search)    p = p.set('search', params.search);
-    if (params?.ordering)  p = p.set('ordering', params.ordering);
-    if (params?.page)      p = p.set('page', String(params.page));
-    if (params?.page_size) p = p.set('page_size', String(params.page_size));
-    // ⬇️ nova linha
-    if (params?.ativo)     p = p.set('ativo', params.ativo);
-    return this.http.get<Produto[] | any>(this.baseProdutos, { params: p });
-}
+    if (params?.search)     p = p.set('search', params.search);
+    if (params?.ordering)   p = p.set('ordering', params.ordering);
+    if (params?.page)       p = p.set('page', String(params.page));
+    if (params?.page_size)  p = p.set('page_size', String(params.page_size));
+    if (params?.ativo)      p = p.set('ativo', params.ativo);
 
+    // Filtros dedicados (casam com a FilterSet do backend)
+    if (params?.tipo)       p = p.set('Tipoproduto', params.tipo);
+    if (params?.grupo)      p = p.set('grupo', params.grupo);
+    if (params?.referencia) p = p.set('referencia', params.referencia);
+
+    return this.http.get<Produto[] | any>(this.baseProdutos, { params: p });
+  }
 
   get(id: number): Observable<Produto> {
     return this.http.get<Produto>(`${this.baseProdutos}${id}/`);

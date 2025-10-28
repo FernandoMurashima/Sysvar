@@ -459,3 +459,25 @@ class PackSerializer(serializers.ModelSerializer):
                 PackItem.objects.create(pack=instance, tamanho_id=tid, qtd=it.get("qtd", 0))
 
         return instance
+    
+class ProdutoUsoConsumoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Produto
+        # Ajuste os campos conforme seu modelo Produto
+        fields = [
+            "id", "referencia", "nome", "descricao",
+            "unidade", "grupo", "subgrupo",
+            "preco_tabela", "custo", "ativo", "tipo"
+        ]
+        read_only_fields = ["id", "tipo"]
+
+    def create(self, validated_data):
+        # Força o tipo "USO_CONSUMO" (ou 'U' se você usa char)
+        validated_data["tipo"] = "USO_CONSUMO"
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # Garante que continua como USO_CONSUMO
+        validated_data["tipo"] = "USO_CONSUMO"
+        return super().update(instance, validated_data)
+   

@@ -1,0 +1,71 @@
+<div class="pc-page" [formGroup]="form">
+  <!-- LISTA -->
+  <section *ngIf="modo === 'listar'">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Unidade</th>
+          <th>NCM</th>
+          <th>Ativo</th>
+          <th class="col-acoes">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let it of itens">
+          <td>{{ it.nome }}</td>
+          <td>{{ it.unidade }}</td>
+          
+          <td>{{ it.ativo ? 'Sim' : 'Não' }}</td>
+          <td class="col-acoes">
+            <button class="btn" type="button" (click)="editar(it)">Editar</button>
+            <button class="btn danger" type="button" (click)="excluir(it)">Excluir</button>
+          </td>
+        </tr>
+        <tr *ngIf="!carregando && itens.length === 0">
+          <td colspan="5" class="muted">Nenhum item encontrado.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- FORM -->
+  <section *ngIf="modo === 'novo' || modo === 'editar'">
+    <form (ngSubmit)="salvar()" class="form-grid">
+      <input type="hidden" formControlName="id">
+      <input type="hidden" formControlName="tipo">
+
+      <div class="row">
+        <label>Nome</label>
+        <input type="text" formControlName="nome" autocomplete="off">
+      </div>
+
+      <div class="row">
+        <label>Descrição</label>
+        <input type="text" formControlName="descricao" autocomplete="off">
+      </div>
+
+      <div class="row-inline">
+        <div class="col">
+          <label>Unidade</label>
+          <input type="text" formControlName="unidade" maxlength="6" autocomplete="off">
+        </div>
+        <div class="col">
+          <label>NCM (8 dígitos)</label>
+          <input type="text" formControlName="ncm" maxlength="8" autocomplete="off">
+        </div>
+        <div class="col col-auto">
+          <label class="inline">
+            <input type="checkbox" formControlName="ativo">
+            <span>Ativo</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" type="submit" [disabled]="form.invalid">Salvar</button>
+        <button class="btn" type="button" (click)="cancelar()">Cancelar</button>
+      </div>
+    </form>
+  </section>
+</div>

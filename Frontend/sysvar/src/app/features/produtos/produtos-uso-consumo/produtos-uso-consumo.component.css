@@ -1,0 +1,34 @@
+.pc-page { padding: 12px; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toolbar-actions { display: flex; gap: 8px; }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { border: 1px solid #e5e5e5; padding: 8px; }
+.table thead th { background: #fafafa; text-align: left; }
+.col-acoes { width: 180px; }
+.muted { color: #777; }
+
+.form-grid { display: grid; gap: 10px; }
+.row { display: grid; gap: 6px; }
+.row-inline { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+.col { display: grid; gap: 6px; }
+.col-auto { min-width: 140px; }
+label { font-weight: 600; }
+label.inline { display: inline-flex; align-items: center; gap: 6px; }
+
+input[type="text"] { height: 30px; padding: 4px 8px; }
+
+.btn {
+  height: 30px; padding: 0 12px; border: 1px solid #d0d0d0; background: #fff; cursor: pointer;
+}
+.btn.primary { background: #497cf6; color: #fff; border-color: #497cf6; }
+.btn.danger { background: #e74c3c; color: #fff; border-color: #e74c3c; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.actions { display: flex; gap: 8px; margin-top: 8px; }

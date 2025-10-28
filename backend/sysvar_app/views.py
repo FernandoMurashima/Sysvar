@@ -36,8 +36,9 @@ from .serializers import (
     FornecedorSerializer, VendedorSerializer, FuncionariosSerializer, GradeSerializer, TamanhoSerializer, CorSerializer,
     ColecaoSerializer, FamiliaSerializer, UnidadeSerializer, GrupoSerializer, SubgrupoSerializer, CodigosSerializer,
     TabelaprecoSerializer, NcmSerializer, NFeEntradaSerializer, NFeItemSerializer, FornecedorSkuMapSerializer,
-    TabelaPrecoItemSerializer, NatLancamentoSerializer, ModeloDocumentoFiscalSerializer, PackSerializer, PackItemSerializer
+    TabelaPrecoItemSerializer, NatLancamentoSerializer, ModeloDocumentoFiscalSerializer, PackSerializer, PackItemSerializer, ProdutoUsoConsumoSerializer
 )
+
 
 try:
     from auditoria.utils import write_product_status_change  # type: ignore
@@ -230,15 +231,37 @@ class ClienteViewSet(viewsets.ModelViewSet):
     ordering_fields = ['data_cadastro', 'Nome_cliente']
 
 
+# ---------- FILTROS de Produtos (TIPO/GRUPO/REFERÊNCIA/ATIVO) ----------
+class ProdutoFilter(FilterSet):
+    """
+    Filtros explícitos para a listagem de produtos:
+      - Tipoproduto = exact (ex.: ?Tipoproduto=1)
+      - grupo       ~ icontains (ex.: ?grupo=CAM)  → 'CAMISA', 'CAMISETA'...
+      - referencia  ~ icontains (ex.: ?referencia=25.03.)
+      - Ativo       = boolean/custom ('true'/'false'/'all' tratado em get_queryset)
+    """
+    Tipoproduto = df.CharFilter(field_name='Tipoproduto', lookup_expr='exact')
+    grupo = df.CharFilter(field_name='grupo', lookup_expr='icontains')
+    referencia = df.CharFilter(field_name='referencia', lookup_expr='icontains')
+    # Ativo segue tratado no get_queryset (default = true), mas aceitamos aqui também
+    Ativo = df.BooleanFilter(field_name='Ativo')
+
+    class Meta:
+        model = Produto
+        fields = ['Tipoproduto', 'grupo', 'referencia', 'Ativo']
+
+
 class ProdutoViewSet(viewsets.ModelViewSet):
     queryset = Produto.objects.all().order_by('-data_cadastro')
     serializer_class = ProdutoSerializer
     permission_classes = [IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    # busca livre continua funcionando
     search_fields = ['Descricao', 'referencia', 'grupo', 'subgrupo', 'colecao']
     ordering_fields = ['data_cadastro', 'Descricao', 'referencia']
-    filterset_fields = ['Ativo']
+    # ⬇️ agora usamos a FilterSet acima (em vez de filterset_fields = ['Ativo'])
+    filterset_class = ProdutoFilter
 
     # ---------- helpers internos ----------
     @staticmethod
@@ -1517,7 +1540,7 @@ class MatrizColEstView(APIView):
             "meta": {
                 "colecoes": colecoes,
                 "tabela_preco_id": int(tabela_preco_id),
-                "ativo": ativo_out,
+                "ativo": "true" if ativo_where == 'AND p.Ativo = 1' else ("false" if ativo_where == 'AND p.Ativo = 0' else "all"),
                 "moeda": "BRL",
             },
             "eixos": {
@@ -1589,3 +1612,19 @@ class PackViewSet(viewsets.ModelViewSet):
     ordering_fields = ["id", "nome", "data_cadastro", "atualizado_em"]
     ordering = ["-id"]
 
+
+
+
+class ProdutoUsoConsumoViewSet(viewsets.ModelViewSet):
+    """
+    CRUD somente para produtos de USO_CONSUMO.
+    """
+    serializer_class = ProdutoUsoConsumoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["referencia", "nome", "descricao"]
+    ordering = ["referencia"]
+
+    def get_queryset(self):
+        # Ajuste o filtro de tipo conforme seu modelo (string 'USO_CONSUMO' ou char 'U')
+        return Produto.objects.filter(tipo="USO_CONSUMO").order_by("referencia")
