@@ -63,14 +63,18 @@
       </div>
 
       <div class="pl-actions" style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn btn-primary" type="button" (click)="onToggleStatus(p)" [disabled]="loading()">
-          {{ p.Ativo ? 'Desativar produto' : 'Ativar produto' }}
-        </button>
-
         <!-- Botões que apenas abrem as SOBRETELAS -->
         <button class="btn" type="button" (click)="openSkusOverlay(p)">Ver SKUs</button>
         <button class="btn" type="button" (click)="openPrecoOverlay(p)">Ver Tabela/Preço</button>
+
+        <!-- Botão de status no FIM -->
+        <button class="btn btn-primary" type="button" (click)="onToggleStatus(p)" [disabled]="loading()">
+          {{ p.Ativo ? 'Desativar produto' : 'Ativar produto' }}
+        </button>
+     
       </div>
+  
+  
     </div>
 
     <!-- Foto -->

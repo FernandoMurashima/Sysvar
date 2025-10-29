@@ -21,10 +21,10 @@
 
 .pl-line1 { grid-template-columns: 1fr 1fr 1fr; }
 
-/* Linha 2 agora em três colunas: Descrição | Grupo | Subgrupo */
+/* Linha 2 em três colunas: Descrição | Grupo | Subgrupo */
 .pl-line2 { grid-template-columns: 1fr 1fr 1fr; }
 
-/* Linha 3 permanece com duas colunas: Unidade | Situação */
+/* Linha 3: Unidade | Situação */
 .pl-line3 { grid-template-columns: 1fr 1fr; }
 
 .pl-field { min-width: 0; }
@@ -102,7 +102,7 @@
 /* Responsivo */
 @media (max-width: 900px) {
   .pl-card-grid { grid-template-columns: 1fr; }
-  .pl-line2 { grid-template-columns: 1fr; } /* empilha em telas menores */
+  .pl-line2 { grid-template-columns: 1fr; }
   .pl-line3 { grid-template-columns: 1fr; }
 }
 
@@ -127,3 +127,9 @@
   padding: 6px 10px; box-sizing: border-box; margin-bottom: 12px;
 }
 .pl-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Garante espaçamento entre os botões, mesmo se .btn global zera margin */
+.pl-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* Evita herdar line-height/overflow esquisito em badges vindos do global */
+.pl-badge { line-height: 1.2; }

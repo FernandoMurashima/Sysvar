@@ -177,3 +177,10 @@
 
 /* Placeholder */
 .prod-page .placeholder-inner { color:#223; text-align:center; font-weight:500; }
+
+/* === NOVO: bloco de ações dentro do modal de detalhe === */
+.detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}

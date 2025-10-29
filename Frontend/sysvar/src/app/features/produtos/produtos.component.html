@@ -198,7 +198,7 @@
         </table>
 
         <div class="row actions">
-          <button class="btn btn-primary" type="button" [disabled]="savingSkus || !combinacoes.length || !form.tabela_preco" (click)="salvarSkus()">
+          <button class="btn btn-primary" type="button" [disabled]="savingSkus || !combinacoes.length || !form.tabela_preco" (click)="salvarSkus">
             {{ savingSkus ? 'Salvando SKUs...' : 'Salvar SKUs' }}
           </button>
         </div>
@@ -265,7 +265,7 @@
       <h3>Consultar</h3>
 
       <form [formGroup]="filtrosFG" (ngSubmit)="buscarProdutos()" class="filters">
-        <!-- linha 1: Tipo | Ativo | Referência -->
+        <!-- linha 1 -->
         <div class="f-row">
           <div class="fi">
             <label>Tipo</label>
@@ -304,36 +304,10 @@
               </option>
             </select>
           </div>
-
-
         </div>
 
-        <!-- linha 2: Grupo | Unidade | NCM -->
+        <!-- linha 2 (somente ordenação ativa agora) -->
         <div class="f-row">
-
-<!--           <div class="fi">
-            <label>Grupo</label>
-            <select formControlName="grupo">
-              <option value="">(todos)</option>
-              <option *ngFor="let g of grupos" [value]="(g.Codigo || '').toString().padStart(2,'0')">
-                {{ (g.Codigo || '').toString().padStart(2,'0') }} — {{ g.Descricao }}
-              </option>
-            </select>
-          </div> -->
-
-<!--           <div class="fi">
-            <label>Unidade</label>
-            <select formControlName="unidade">
-              <option value="">(todas)</option>
-              <option *ngFor="let u of unidades" [value]="u.Idunidade">{{ u.Descricao }}</option>
-            </select>
-          </div> -->
-
-<!--           <div class="fi">
-            <label>NCM</label>
-            <input type="text" formControlName="ncm" placeholder="Ex.: 6109.10.00" />
-          </div> -->
-
           <div class="fi">
             <label>Ordenação</label>
             <select formControlName="ordering">
@@ -385,8 +359,10 @@
               <td class="col-text">{{ p.unidade || p.Unidade || '—' }}</td>
               <td class="col-text">{{ (p.Ativo ?? p.ativo ?? true) ? 'Sim' : 'Não' }}</td>
               <td class="col-actions">
-                <div class="actions-wrap">
-                  <button class="btn" (click)="editarLinha(p)">Editar</button>
+                <div class="actions-wrap" style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button class="btn" (click)="detalharLinha(p)">Detalhar</button>
+                  <!-- Editar apenas para Uso & Consumo -->
+                  <button class="btn" *ngIf="normalizeTipo(p)==='2'" (click)="editarLinha(p)">Editar</button>
                 </div>
               </td>
             </tr>
@@ -477,4 +453,79 @@
       </div>
     </div>
   </div>
+
+  <!-- ===== MODAL DE DETALHE (REVENDA) ===== -->
+  <div class="modal-backdrop" *ngIf="detailDialogOpen">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detalheTitle">
+      <div class="modal-header">
+        <h4 id="detalheTitle">Detalhe do Produto (Revenda)</h4>
+        <button type="button" class="btn-icon" (click)="closeDetailDialog()" aria-label="Fechar">×</button>
+      </div>
+
+      <div class="modal-body" *ngIf="detailData">
+        <div class="row">
+          <div class="col col-grow">
+            <div><strong>Descrição:</strong> {{ detailData.Descricao || detailData.descricao || '—' }}</div>
+            <div><strong>Referência:</strong> {{ detailData.referencia || '—' }}</div>
+            <div><strong>NCM:</strong> {{ detailData.classificacao_fiscal || detailData.NCM || '—' }}</div>
+            <div><strong>Unidade:</strong> {{ detailData.unidade || detailData.Unidade || '—' }}</div>
+            <div><strong>Ativo:</strong> {{ (detailData.Ativo ?? detailData.ativo ?? true) ? 'Sim' : 'Não' }}</div>
+
+            <!-- === Ações dentro do modal (VLSI / VFW) + ATIVAR/INATIVAR === -->
+            <div class="detail-actions">
+              <button class="btn btn-primary" type="button"
+                      [disabled]="!detailProdutoId"
+                      (click)="detailSkuOverlayOpen = true">
+                Ver SKUs
+              </button>
+              <button class="btn" type="button"
+                      [disabled]="!detailProdutoId"
+                      (click)="detailPrecoOverlayOpen = true">
+                Ver Tabela/Preço
+              </button>
+
+              <!-- NOVO: botão de status -->
+              <button class="btn" type="button"
+                      [disabled]="!detailProdutoId || detailLoading"
+                      (click)="toggleDetailStatus()">
+                {{ isDetailAtivo() ? 'Desativar produto' : 'Ativar produto' }}
+              </button>
+            </div> 
+          </div>
+
+          <div class="col" style="min-width:220px;">
+            <div class="img-preview" *ngIf="!detailFotoHidden && detailFotoSrc">
+              <img [src]="detailFotoSrc" alt="Foto do produto"
+                   (error)="onDetailFotoError()" />
+              <small class="hint">{{ detailData.produto_foto || '—' }}</small>
+            </div>
+            <div class="img-missing" *ngIf="detailFotoHidden">Imagem não disponível</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="spacer"></div>
+        <button class="btn btn-primary" type="button" (click)="closeDetailDialog()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- === SOBRETELAS abertas a partir do modal de Detalhe === -->
+  <app-produtos-sku-overlay
+    *ngIf="detailSkuOverlayOpen"
+    [aberto]="detailSkuOverlayOpen"
+    [produtoId]="detailProdutoId!"]
+    [referencia]="detailReferencia"
+    (close)="detailSkuOverlayOpen = false">
+  </app-produtos-sku-overlay>
+
+  <app-produtos-preco-overlay
+    *ngIf="detailPrecoOverlayOpen"
+    [aberto]="detailPrecoOverlayOpen"
+    [produtoId]="detailProdutoId!"]
+    [referencia]="detailReferencia"
+    (close)="detailPrecoOverlayOpen = false">
+  </app-produtos-preco-overlay>
+
 </div>

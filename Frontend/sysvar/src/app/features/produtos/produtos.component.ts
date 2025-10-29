@@ -30,6 +30,10 @@ import { ProdutoBasic } from '../../core/models/produto-basic.model';
 
 import { firstValueFrom } from 'rxjs';
 
+// === NOVO: sobretelas dentro do modal de detalhe ===
+import { ProdutoSkuOverlayComponent } from './produtos-sku-overlay/produtos-sku-overlay.component';
+import { ProdutosPrecoOverlayComponent } from './produtos-preco-overlay/produtos-preco-overlay.component';
+
 type Ncm = { ncm: string; descricao?: string };
 type AcaoProduto = '' | 'novo' | 'consultar' | 'editar' | 'uso';
 
@@ -42,7 +46,10 @@ type AcaoProduto = '' | 'novo' | 'consultar' | 'editar' | 'uso';
     ReactiveFormsModule,
     LojasSelectorComponent,
     ProdutoLookupComponent,
-    RouterLink
+    RouterLink,
+    // === NOVO: registra as sobretelas aqui também ===
+    ProdutoSkuOverlayComponent,
+    ProdutosPrecoOverlayComponent
   ],
   templateUrl: './produtos.component.html',
   styleUrls: ['./produtos.component.css']
@@ -121,6 +128,25 @@ export class ProdutosComponent implements OnInit {
   lojasDialogOpen = false;
   coresDialogOpen = false;
 
+  // ===== DETALHE (modal) =====
+  detailDialogOpen = false;
+  detailData: any = null;
+
+  // === NOVO: foto do detalhe com fallback de candidatos ===
+  private detailFotoCandidates: string[] = [];
+  private detailFotoIdx = 0;
+  detailFotoSrc = '';
+  detailFotoHidden = false;
+
+  // === NOVO: sobretelas (VLSI e VFW) dentro do modal ===
+  detailProdutoId: number | null = null;
+  detailReferencia: string = '';
+  detailSkuOverlayOpen = false;
+  detailPrecoOverlayOpen = false;
+
+  // === NOVO: loading de ação de status no detalhe ===
+  detailLoading = false;
+
   // ===== forms =====
   /** REV**ENDA** */
   form = {
@@ -149,12 +175,12 @@ export class ProdutosComponent implements OnInit {
 
   // ===== CONSULTA / LISTVIEW =====
   filtrosFG: UntypedFormGroup = this.fb.group({
-    tipo: [''],              // '', '1', '2' | 'REV'/'USO'
-    grupo: [''],             // código do grupo (2 dígitos)
-    referencia: [''],        // texto (exato ou parcial)
-    descricao: [''],         // search textual
-    ativo: ['all'],          // 'all' | 'true' | 'false'
-    ordering: ['-id']        // ordenação padrão
+    tipo: [''],
+    grupo: [''],
+    referencia: [''],
+    descricao: [''],
+    ativo: ['all'],
+    ordering: ['-id']
   });
 
   rows: any[] = [];
@@ -196,10 +222,10 @@ export class ProdutosComponent implements OnInit {
   private loadColecoes(): void {
     this.colecoesApi.list({ ordering: '-data_cadastro' }).subscribe({
       next: (res: any) => {
-        this.colecoes = Array.isArray(res) ? res : (res?.results ?? []);
-        const set = new Set<string>();
-        this.colecoes.forEach(c => set.add((c.Codigo || '').toString().padStart(2, '0')));
-        this.colecoesCodigos = Array.from(set).sort();
+        this.colecoes = Array.isArray(res) ? res : (res?.results ?? []),
+        this.colecoesCodigos = Array.from(new Set(
+          this.colecoes.map(c => (c.Codigo || '').toString().padStart(2,'0'))
+        )).sort();
       }
     });
   }
@@ -221,7 +247,6 @@ export class ProdutosComponent implements OnInit {
 
   /* ======================= LISTVIEW / CONSULTA ======================= */
 
-  /** Normaliza o valor do filtro de tipo para '1' | '2' | '' */
   private normTipoFiltro(v: any): '1' | '2' | '' {
     const s = String(v ?? '').trim().toUpperCase();
     if (s === '1' || s === 'REV' || s === 'REVENDA') return '1';
@@ -229,7 +254,6 @@ export class ProdutosComponent implements OnInit {
     return '';
   }
 
-  /** Normaliza o grupo para **2 dígitos** (ex.: '3' -> '03') */
   private normGrupoFiltro(v: any): string | '' {
     if (v === null || v === undefined) return '';
     const s = String(v).trim();
@@ -239,24 +263,19 @@ export class ProdutosComponent implements OnInit {
     return s.padStart(2, '0');
   }
 
-  /** Monta um objeto com múltiplos aliases por filtro para maximizar compatibilidade com o backend */
   private buildFilterParams() {
     const f = this.filtrosFG.getRawValue();
 
     const params: any = {};
-    // ordering
     params.ordering = f.ordering || '-id';
 
-    // ativo
     const ativo: 'true' | 'false' | 'all' = (f.ativo || 'all') as any;
     if (ativo !== 'all') {
-      // enviar ambos
       params.ativo = ativo;
       params.Ativo = ativo;
       params.is_active = ativo;
     }
 
-    // tipo
     const tipo = this.normTipoFiltro(f.tipo);
     if (tipo) {
       params.tipo = tipo;
@@ -266,7 +285,6 @@ export class ProdutosComponent implements OnInit {
       params.tipo__exact = tipo;
     }
 
-    // grupo (2 dígitos)
     const grupo = this.normGrupoFiltro(f.grupo);
     if (grupo) {
       params.grupo = grupo;
@@ -276,7 +294,6 @@ export class ProdutosComponent implements OnInit {
       params.grupo_codigo = grupo;
     }
 
-    // referência — enviar variações (exato e icontains)
     const referencia = String(f.referencia || '').trim();
     if (referencia) {
       params.referencia = referencia;
@@ -286,11 +303,10 @@ export class ProdutosComponent implements OnInit {
       params.ref__icontains = referencia;
     }
 
-    // descrição -> search
     const descricao = String(f.descricao || '').trim();
     if (descricao) {
       params.search = descricao;
-      params.Descricao__icontains = descricao; // se alguém mapear isso no backend
+      params.Descricao__icontains = descricao;
     }
 
     return params;
@@ -333,9 +349,121 @@ export class ProdutosComponent implements OnInit {
     this.rows = [];
   }
 
+  /* ============================ DETALHAR ============================ */
+
+  async detalharLinha(p: any) {
+    this.clearMessages();
+
+    const id = Number(p?.Idproduto ?? p?.id ?? 0);
+    if (!id) return;
+
+    const tipo = this.normalizeTipo(p);
+    if (tipo === '2') {
+      // Uso & Consumo -> só mensagem
+      this.infoMsg = 'Produto sem detalhe.';
+      this.detailDialogOpen = false;
+      this.detailData = null;
+      return;
+    }
+
+    // Revenda -> abre modal sobreposto
+    try {
+      const det = await firstValueFrom(this.produtosApi.get(id) as any).catch(() => p);
+      this.detailData = det || p || {};
+
+      // === NOVO: referencia + id para ações internas ===
+      this.detailProdutoId = Number(this.detailData?.Idproduto ?? this.detailData?.id ?? id);
+      this.detailReferencia = String(this.detailData?.referencia ?? p?.referencia ?? '');
+
+      // === NOVO: preparar foto robusta (candidatos + fallback) ===
+      const nome = (this.detailData?.produto_foto || '').toString().trim();
+      this.prepareDetailFoto(nome);
+
+      this.detailDialogOpen = true;
+    } catch {
+      this.detailData = p || {};
+      this.detailProdutoId = Number(p?.Idproduto ?? p?.id ?? null);
+      this.detailReferencia = String(p?.referencia ?? '');
+      this.prepareDetailFoto((p?.produto_foto || '').toString());
+      this.detailDialogOpen = true;
+    }
+  }
+
+  closeDetailDialog(): void {
+    this.detailDialogOpen = false;
+    this.detailData = null;
+
+    // limpa estados de foto/sobretelas
+    this.resetDetailFoto();
+    this.detailSkuOverlayOpen = false;
+    this.detailPrecoOverlayOpen = false;
+  }
+
+  // === NOVO: status no detalhe ===
+  isDetailAtivo(): boolean {
+    const d = this.detailData;
+    return !!(d?.Ativo ?? d?.ativo ?? true);
+  }
+
+  async toggleDetailStatus(): Promise<void> {
+    const id = this.detailProdutoId;
+    if (!id) return;
+
+    // se ativo -> pedir motivo + senha; se inativo -> ativar direto
+    if (this.isDetailAtivo()) {
+      const motivo = window.prompt('Informe o motivo da inativação (mín. 3 caracteres):', '');
+      if (motivo === null) return;
+      if (!motivo || motivo.trim().length < 3) { alert('Motivo inválido.'); return; }
+
+      const senha = window.prompt('Digite sua senha para confirmar:', '');
+      if (senha === null) return;
+      if (!senha || !senha.trim()) { alert('Senha obrigatória.'); return; }
+
+      this.detailLoading = true;
+      this.produtosApi.inativarProduto(id, motivo.trim(), senha.trim()).subscribe({
+        next: (resp) => {
+          const novoAtivo = !!resp?.Ativo;
+          // reflete nos dois campos para não haver desencontro
+          if (this.detailData) {
+            this.detailData.Ativo = novoAtivo;
+            this.detailData.ativo = novoAtivo;
+          }
+        },
+        error: (err) => {
+          const msg = err?.error?.detail || 'Não foi possível inativar.';
+          alert(String(msg));
+        },
+        complete: () => { this.detailLoading = false; }
+      });
+      return;
+    }
+
+    this.detailLoading = true;
+    this.produtosApi.ativarProduto(id).subscribe({
+      next: (resp) => {
+        const novoAtivo = !!resp?.Ativo;
+        if (this.detailData) {
+          this.detailData.Ativo = novoAtivo;
+          this.detailData.ativo = novoAtivo;
+        }
+      },
+      error: (err) => {
+        const msg = err?.error?.detail || 'Não foi possível ativar.';
+        alert(String(msg));
+      },
+      complete: () => { this.detailLoading = false; }
+    });
+  }
+
   /* ============================ EDIÇÃO ============================ */
 
   async editarLinha(p: any) {
+    // Editar SOMENTE para Uso & Consumo (tipo 2)
+    const tipo = this.normalizeTipo(p);
+    if (tipo !== '2') {
+      return;
+    }
+
     const id = Number(p?.Idproduto ?? p?.id ?? 0);
     if (!id) return;
 
@@ -347,47 +475,17 @@ export class ProdutosComponent implements OnInit {
 
     try {
       const det: any = await firstValueFrom(this.produtosApi.get(id) as any);
-      const tipo = this.normalizeTipo(det); // '1' ou '2'
       this.editingId = id;
-      this.editTipo = tipo as ('1'|'2');
+      this.editTipo = '2';
 
-      if (tipo === '1') {
-        // REV — preencher form
-        this.form.Descricao      = det?.Descricao ?? det?.descricao ?? '';
-        this.form.Desc_reduzida  = det?.Desc_reduzida ?? det?.desc_reduzida ?? this.form.Descricao ?? '';
+      // USO — preencher formUso
+      this.formUso.Descricao            = det?.Descricao ?? det?.descricao ?? '';
+      this.formUso.descricao_longa      = det?.descricao_longa ?? det?.Descricao ?? '';
+      this.formUso.unidade              = toNum(det?.unidade ?? det?.Unidade ?? null);
+      this.formUso.classificacao_fiscal = det?.classificacao_fiscal ?? det?.NCM ?? '';
+      this.formUso.ativo                = (det?.Ativo ?? det?.ativo ?? true) ? true : false;
 
-        const colecaoRaw         = det?.colecao ?? det?.Colecao ?? '';
-        const estacaoRaw         = det?.estacao ?? det?.Estacao ?? '';
-        const grupoRaw           = det?.grupo   ?? det?.Grupo   ?? '';
-
-        this.form.colecao        = colecaoRaw ? String(colecaoRaw).padStart(2, '0') : null;
-        this.form.estacao        = estacaoRaw ? String(estacaoRaw).padStart(2, '0') : null;
-        this.form.grupo          = grupoRaw   ? String(grupoRaw).padStart(2, '0')   : null;
-
-        this.form.subgrupo             = toNum(det?.subgrupo ?? det?.Idsubgrupo ?? null);
-        this.form.unidade              = toNum(det?.unidade  ?? det?.Unidade    ?? null);
-        this.form.classificacao_fiscal = det?.classificacao_fiscal ?? det?.NCM ?? '';
-        this.form.grade                = toNum(det?.grade    ?? det?.Idgrade    ?? null);
-        this.form.tabela_preco         = toNum(det?.tabela_preco ?? det?.Idtabela ?? null);
-        this.form.Preco                = toNum(det?.preco    ?? det?.Preco      ?? null);
-        this.form.produto_foto         = det?.produto_foto ?? det?.foto ?? '';
-
-        // dependências de combo
-        this.onColecaoChange();
-        this.onGrupoChange();
-        if (this.form.grade) this.onGradeChange();
-
-        this.action = 'editar';
-      } else {
-        // USO — preencher formUso
-        this.formUso.Descricao            = det?.Descricao ?? det?.descricao ?? '';
-        this.formUso.descricao_longa      = det?.descricao_longa ?? det?.Descricao ?? '';
-        this.formUso.unidade              = toNum(det?.unidade ?? det?.Unidade ?? null);
-        this.formUso.classificacao_fiscal = det?.classificacao_fiscal ?? det?.NCM ?? '';
-        this.formUso.ativo                = (det?.Ativo ?? det?.ativo ?? true) ? true : false;
-
-        this.action = 'editar';
-      }
+      this.action = 'editar';
     } catch {
       this.editingId = null;
       this.editTipo = null;
@@ -536,7 +634,7 @@ export class ProdutosComponent implements OnInit {
     this.tamanhosDaGrade = [];
     this.combinacoes = [];
     if (!this.form.grade) return;
-    this.tamanhosApi.list({ idgrade: this.form.grade, ordering: 'Tamanho' }).subscribe({
+    this.tamanhosApi.list({ idgrade: this.form.grade!, ordering: 'Tamanho' }).subscribe({
       next: (res: any) => { this.tamanhosDaGrade = Array.isArray(res) ? res : (res?.results ?? []); }
     });
   }
@@ -766,6 +864,50 @@ export class ProdutosComponent implements OnInit {
     else this.fotoHidden = true;
   }
 
+  // === NOVO: util da foto no modal de Detalhe ===
+  private resetDetailFoto(): void {
+    this.detailFotoCandidates = [];
+    this.detailFotoIdx = 0;
+    this.detailFotoSrc = '';
+    this.detailFotoHidden = false;
+  }
+  private prepareDetailFoto(nomeBruto: string): void {
+    this.resetDetailFoto();
+
+    const basename = this.sanitizeFotoName(nomeBruto || '');
+    if (!basename) { this.detailFotoHidden = true; return; }
+
+    const bases = ['/assets/produtos/', '/assets/'];
+    const lower = basename.toLowerCase();
+    const hasExt = /\.(jpe?g|png|webp)$/i.test(lower);
+    const noSpaces = lower.replace(/\s+/g, '');
+
+    const candidates = new Set<string>();
+    for (const b of bases) {
+      candidates.add(b + basename);
+      candidates.add(b + lower);
+      candidates.add(b + noSpaces);
+      if (!hasExt) {
+        for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
+          candidates.add(b + lower + ext);
+          candidates.add(b + noSpaces + ext);
+        }
+      }
+    }
+
+    this.detailFotoCandidates = Array.from(candidates.values());
+    if (this.detailFotoCandidates.length) this.detailFotoSrc = this.detailFotoCandidates[0];
+    else this.detailFotoHidden = true;
+  }
+  onDetailFotoError(): void {
+    this.detailFotoIdx++;
+    if (this.detailFotoIdx < this.detailFotoCandidates.length) {
+      this.detailFotoSrc = this.detailFotoCandidates[this.detailFotoIdx];
+    } else {
+      this.detailFotoHidden = true;
+    }
+  }
+
   // modais
   closeLojasDialog(): void { this.lojasDialogOpen = false; }
   confirmLojasDialog(): void { this.lojasDialogOpen = false; }
@@ -843,4 +985,5 @@ export class ProdutosComponent implements OnInit {
       ativo: true
     };
   }
+
 }
